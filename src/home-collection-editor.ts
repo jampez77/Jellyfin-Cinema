@@ -1,7 +1,8 @@
 import type { Item, MediaApi } from './types';
 import { button, el, picture, replace } from './dom';
 import { attachRemote } from './remote';
-import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, maxHomeCollectionTabs, type HomeCollectionRow, type HomeCollectionTab, type HomeItemSort } from './home-collection-settings';
+import { emptyHomeCollections, parseHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, maxHomeCollectionTabs, type HomeCollectionRow, type HomeCollectionTab, type HomeItemSort } from './home-collection-settings';
+import { createHomeCollectionStore, HomeCollectionSyncError, type HomeCollectionStore } from './home-collection-store';
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
@@ -26,6 +27,9 @@ export class HomeCollectionEditor {
   private saveButton: HTMLButtonElement;
   private draft = emptyHomeCollections();
   private key: string;
+  private store: HomeCollectionStore;
+  private saving = false;
+  private loadingSettings = false;
   private anchors: HomeAnchor[];
   private collections: Item[] = [];
   private selectedId = '';
@@ -41,8 +45,7 @@ export class HomeCollectionEditor {
   private removeRemote: () => void;
 
   constructor(private api: MediaApi, private onClose: (restore: boolean) => void) {
-    this.key = homeCollectionKey(api.serverId || location.origin, api.userId || (window.TvItemLayoutDemo ? 'demo' : 'anonymous'));
-    try { this.draft = parseHomeCollections(JSON.parse(localStorage.getItem(this.key) || 'null')); } catch { /* Defaults. */ }
+    this.store = createHomeCollectionStore(api); this.key = this.store.key; this.draft = this.store.cached;
     const home = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab');
     const native = home ? nativeHomeRows(home) : [];
     this.anchors = native.length ? native.map(({ key, label }) => ({ key, label })) : cachedHomeRows(this.key);
@@ -55,25 +58,29 @@ export class HomeCollectionEditor {
     const title = el('div'); title.append(el('p', 'tvl-home-editor-eyebrow', 'PERSONALISE HOME'), el('h1', '', 'Your collection rows'));
     const actions = el('div', 'tvl-home-editor-actions');
     const cancel = button('Cancel', 'close', '', () => this.close()); cancel.dataset.editorFocus = 'cancel';
-    this.saveButton = button('Save rows', 'check', 'tvl-primary', () => this.save()); this.saveButton.disabled = true; this.saveButton.dataset.editorFocus = 'save';
+    this.saveButton = button('Save rows', 'check', 'tvl-primary', () => { void this.save(); }); this.saveButton.disabled = true; this.saveButton.dataset.editorFocus = 'save';
     actions.append(cancel, this.saveButton); header.append(title, actions);
     this.status.setAttribute('role', 'status'); this.status.textContent = 'Loading collections…';
     const layout = el('div', 'tvl-home-editor-layout'); layout.append(this.sidebar, this.workspace);
-    panel.append(header, el('p', 'tvl-home-editor-intro', 'Choose a row on the left to edit it. Your choices apply to this account on this device.'), this.status, layout);
+    panel.append(header, el('p', 'tvl-home-editor-intro', this.store.synced ? 'Choose a row on the left to edit it. Saved rows follow this Jellyfin account across your devices.' : 'Choose a row on the left to edit it. This preview saves choices on this device.'), this.status, layout);
     this.element.append(panel); document.body.append(this.element);
     this.removeRemote = attachRemote(this.element, () => this.close()); cancel.focus();
     void this.loadCollections();
   }
   private async loadCollections(): Promise<void> {
+    if (this.disposed || this.loadingSettings || this.saving) return;
+    this.loadingSettings = true; this.ready = false; this.saveButton.disabled = true;
+    this.status.textContent = 'Loading collections and saved rows…'; replace(this.sidebar); replace(this.workspace);
     try {
-      const collections = await this.api.getCollectionList(); if (this.disposed) return;
+      const [collections, settings] = await Promise.all([this.api.getCollectionList(), this.store.load()]); if (this.disposed) return;
+      this.draft = settings; this.selectedId = this.draft.rows[0]?.id || '';
       this.collections = collections; this.ready = true; this.saveButton.disabled = false;
       this.status.textContent = collections.length ? '' : 'No collections are available for this account yet.'; this.redraw();
-    } catch {
+    } catch (error) {
       if (this.disposed) return;
       replace(this.workspace, button('Retry collections', '', 'tvl-primary', () => { void this.loadCollections(); }));
-      this.status.textContent = 'Collections could not be loaded. Check your connection and try again.';
-    }
+      this.status.textContent = error instanceof HomeCollectionSyncError ? error.message : 'Collections and saved rows could not be loaded. Check your connection and try again.';
+    } finally { this.loadingSettings = false; }
   }
   private control(label: string, focus: string, action: () => void, className = ''): HTMLButtonElement {
     const control = button(label, '', className, action); control.dataset.editorFocus = focus; return control;
@@ -364,18 +371,33 @@ export class HomeCollectionEditor {
       list.append(line);
     }); content.append(list);
   }
-  private save(): void {
-    if (!this.ready || this.disposed) return;
+  private async save(): Promise<void> {
+    if (!this.ready || this.disposed || this.saving) return;
     const next = parseHomeCollections(this.draft);
     const invalid = next.rows.find(row => row.tabs ? row.tabs.some(tab => !tab.collectionId) : !row.collectionIds.length);
     if (invalid) { this.status.textContent = 'Choose at least one collection for each row and each tab, or remove the empty entry.'; this.selectedId = invalid.id; this.tab = 'content'; if (invalid.tabs) this.selectedTabs.set(invalid.id, invalid.tabs.find(tab => !tab.collectionId)!.id); this.redraw('title'); return; }
-    try { localStorage.setItem(this.key, JSON.stringify(next)); }
-    catch { this.status.textContent = 'These settings could not be saved on this device. Check that browser storage is available.'; return; }
-    this.close();
+    this.saving = true; this.status.textContent = this.store.synced ? 'Saving collection rows to Jellyfin…' : 'Saving collection rows…';
+    const controls = Array.from(this.element.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button,select,textarea'))
+      .map(control => ({ control, disabled: control.disabled }));
+    controls.forEach(({ control }) => { control.disabled = true; });
+    try { await this.store.save(next); this.saving = false; if (!this.disposed) this.close(); }
+    catch (error) {
+      if (this.disposed) return;
+      this.status.textContent = error instanceof Error ? error.message : 'Collection rows could not be saved. Try again.';
+      if (error instanceof HomeCollectionSyncError && error.kind === 'conflict') {
+        this.ready = false;
+        this.status.append(button('Reload saved rows', '', '', () => {
+          this.saveButton.disabled = true; this.status.textContent = 'Loading saved rows…'; void this.loadCollections();
+        }));
+      }
+    } finally {
+      this.saving = false;
+      if (!this.disposed) { controls.forEach(({ control, disabled }) => { control.disabled = disabled; }); this.saveButton.disabled = !this.ready; }
+    }
   }
   private close(restore = true): void {
-    if (this.disposed) return;
-    this.disposed = true; this.removeRemote(); this.element.remove(); this.onClose(restore);
+    if (this.disposed || this.saving && restore) return;
+    this.disposed = true; this.store.destroy(); this.removeRemote(); this.element.remove(); this.onClose(restore);
   }
   destroy(): void { this.close(false); }
 }

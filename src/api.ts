@@ -1,6 +1,7 @@
 import type { Item, ItemPage, LibraryQuery, MediaApi, PlaybackContext, SuggestionSection } from './types';
 import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
+import { createHomeCollectionTransport } from './home-collection-transport';
 
 type Query = Record<string, string | number | boolean>;
 type ItemResult = { Items?: Item[]; TotalRecordCount?: number };
@@ -12,7 +13,7 @@ interface JellyfinClient extends PlaybackClient {
   getGenres(userId: string, query: Query): Promise<ItemResult>;
   getUrl(path: string, query?: Query): string;
   getJSON(url: string): Promise<unknown>;
-  ajax(options: { type: 'POST'; url: string; dataType?: 'json' }): Promise<unknown>;
+  ajax(options: { type: 'POST' | 'PUT'; url: string; dataType?: 'json'; data?: string; contentType?: 'application/json' }): Promise<unknown>;
   getSeasons(seriesId: string, query: Query): Promise<ItemResult>;
   getEpisodes(seriesId: string, query: Query): Promise<ItemResult>;
   getNextUpEpisodes(query: Query): Promise<ItemResult>;
@@ -233,6 +234,7 @@ export function createJellyfinApi(): MediaApi | null {
     ...browse,
     userId,
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
+    homeCollections: createHomeCollectionTransport(client, sessionCurrent),
     getItem: id => read(async () => {
       const item = await client.getItem(userId, id);
       if (!item?.Id || identity(item.Id) !== identity(id)) throw new Error('Jellyfin did not return the requested media.');

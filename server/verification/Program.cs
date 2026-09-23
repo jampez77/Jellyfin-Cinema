@@ -16,6 +16,7 @@ static void Assert(bool condition, string message)
 
 await PlaybackChecks.Run(Assert);
 await ProfileSwitchChecks.Run(Assert);
+await HomeCollectionsChecks.Run(Assert);
 
 string source = "<!doctype html><HTML><BODY><div>Hello</div><script src='/unrelated.js'></script></BODY></HTML>";
 string transformed = IndexHtmlInjector.Inject(source, "/jellyfin/");

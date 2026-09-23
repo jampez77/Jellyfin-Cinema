@@ -1,6 +1,7 @@
 import type { Item, MediaApi } from './types';
 import { button, el, replace } from './dom';
-import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, type HomeCollectionRow } from './home-collection-settings';
+import { emptyHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, type HomeCollectionRow } from './home-collection-settings';
+import { createHomeCollectionStore, HomeCollectionSyncError, type HomeCollectionStore } from './home-collection-store';
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
@@ -11,6 +12,12 @@ export class HomeCollections {
   private sections: { row: HomeCollectionRow; element: HTMLElement }[] = [];
   private settings = emptyHomeCollections();
   private key: string;
+  private store: HomeCollectionStore;
+  private syncNotice = el('div', 'tvl-home-row-status');
+  private syncError = '';
+  private syncing = false;
+  private lastSync = 0;
+  private syncTimer?: number;
   private observer: MutationObserver;
   private disposed = false;
   private revision = 0;
@@ -18,8 +25,8 @@ export class HomeCollections {
   private items = new Map<string, Promise<Item[]>>();
 
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string) {
-    this.key = homeCollectionKey(api.serverId || location.origin, api.userId || (window.TvItemLayoutDemo ? 'demo' : 'anonymous'));
-    try { this.settings = parseHomeCollections(JSON.parse(localStorage.getItem(this.key) || 'null')); } catch { /* Use defaults. */ }
+    this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
+    this.syncNotice.setAttribute('role', 'status');
     window.addEventListener('keydown', this.onKey, true);
     window.addEventListener('command', this.onCommand, true);
     window.addEventListener('pointerdown', this.onPointer, true);
@@ -31,6 +38,31 @@ export class HomeCollections {
     });
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
     this.attach(); void this.render();
+    if (this.store.synced) {
+      window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
+      this.syncTimer = window.setInterval(this.onVisible, 60_000); void this.refreshSettings(true);
+    }
+  }
+
+  private onVisible = (): void => { if (document.visibilityState !== 'hidden') void this.refreshSettings(); };
+  async refreshSettings(force = false): Promise<void> {
+    if (this.disposed || !this.store.synced || this.syncing || !force && Date.now() - this.lastSync < 5_000) return;
+    this.syncing = true; this.lastSync = Date.now();
+    try {
+      const settings = await this.store.load(); if (this.disposed) return;
+      this.syncError = ''; this.syncNotice.remove();
+      if (JSON.stringify(settings) !== JSON.stringify(this.settings)) {
+        const active = document.activeElement as HTMLElement | null;
+        if (this.owns(active)) this.restoreFocus = active?.dataset.focusId;
+        this.settings = settings; await this.render();
+      }
+    } catch (error) {
+      if (this.disposed || error instanceof HomeCollectionSyncError && error.kind === 'stale') return;
+      this.syncError = this.settings.rows.length ? 'Collection rows could not sync. Showing the last settings saved on this device.'
+        : 'Collection rows could not sync. Retry to load the rows saved to your Jellyfin account.';
+      replace(this.syncNotice, el('p', '', this.syncError), button('Retry row sync', '', '', () => { void this.refreshSettings(true); }));
+      this.attach();
+    } finally { this.syncing = false; }
   }
 
   private attach(): void {
@@ -38,6 +70,7 @@ export class HomeCollections {
     const host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab');
     if (!host) return;
     if (this.root.parentElement !== host) host.append(this.root);
+    if (this.syncError && this.syncNotice.parentElement !== host) host.append(this.syncNotice);
     const anchors = nativeHomeRows(host);
     rememberHomeRows(this.key, anchors);
     // Process backwards so rows that share an insertion point keep their order.
@@ -208,6 +241,8 @@ export class HomeCollections {
 
   destroy(): void {
     this.disposed = true; this.revision++; this.observer.disconnect();
+    this.store.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
+    document.removeEventListener('visibilitychange', this.onVisible); this.syncNotice.remove();
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);
     window.removeEventListener('pointerdown', this.onPointer, true);
     this.sections.forEach(section => section.element.remove()); this.sections = []; this.root.remove();

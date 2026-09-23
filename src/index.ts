@@ -33,13 +33,15 @@ import { LibraryView, type LibraryTab, type LibraryBrowseState } from './library
 import { BrowseView, type BrowseTab, type BrowseState } from './browse-view';
 import { createPlayerContext } from './player-context';
 import { PlayerBrowser } from './player-browser';
+import { ChannelZapper } from './channel-zapper';
+import channelZapperStyles from './channel-zapper.css';
 import { startPauseScreen } from './pause-screen';
 import type { MediaApi, Item } from './types';
 
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
 let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
@@ -60,6 +62,8 @@ const browseStates=new Map<string,BrowseState>();
 const recordingOrigins=new Set<string>();
 const movieCollectionOrigins=new Map<string,string>();
 const detailOrigins=new Set<string>();
+// Classification only: item data and access are still fetched for each view.
+const verifiedLibraries=new Map<string,'collections'|'recordings'>();
 let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
@@ -150,7 +154,7 @@ function updateAccount(api:MediaApi|null):void{
   // outgoing account's state afterwards, before mounting any new account view.
   probeRevision++;pendingHash='';close(false);accountScope=scope;dismissed='';previousFocus=null;
   returnFocus.clear();libraryStates.clear();browseStates.clear();
-  recordingOrigins.clear();movieCollectionOrigins.clear();detailOrigins.clear();
+  recordingOrigins.clear();movieCollectionOrigins.clear();detailOrigins.clear();verifiedLibraries.clear();
 }
 function refresh():void{
   if(disposed)return;
@@ -172,13 +176,17 @@ function refresh():void{
   const key=`${scope}:${route.kind}:${location.hash}`;
   if(activeKey===key&&(view||route.kind==='home')){if(view)hideNativeHost(route);return;}
   if(route.kind==='collections'&&route.verifyParent){
+    const verified=verifiedLibraries.get(route.parentId!);
+    if(verified){
+      openRoute(verified==='recordings'?{kind:'recordings',scope:'list',parentId:route.parentId}:route,api,key);return;
+    }
     if(pendingHash===location.hash)return;
     close(false);
     const hash=location.hash;pendingHash=hash;const revision=++probeRevision;
     void api.getItem(route.parentId!).then(async parent=>{
       if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
       if(parent.CollectionType==='boxsets'){
-        pendingHash='';openRoute(route,api,key);return;
+        pendingHash='';rememberLibrary(parent.Id,'collections');openRoute(route,api,key);return;
       }
       // DVR recognition can be unavailable to a library-only account. The
       // ordinary native folder still gets styling without gaining DVR access.
@@ -186,7 +194,7 @@ function refresh():void{
       try { recordingFolder=!!await api.isRecordingFolder?.(parent.Id); } catch { /* Retain the native folder. */ }
       if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
       pendingHash='';
-      if(recordingFolder)openRoute({kind:'recordings',scope:'list',parentId:parent.Id},api,key);
+      if(recordingFolder){rememberLibrary(parent.Id,'recordings');openRoute({kind:'recordings',scope:'list',parentId:parent.Id},api,key);}
       else {
         if(parent.IsFolder || ['Folder','CollectionFolder','UserView'].includes(parent.Type || '')) nativeFolderTheme.show(parent.Id,parent.Name);
         dismissed=hash;
@@ -195,6 +203,10 @@ function refresh():void{
     return;
   }
   openRoute(route,api,key);
+}
+function rememberLibrary(id:string,kind:'collections'|'recordings'):void{
+  verifiedLibraries.set(id,kind);
+  if(verifiedLibraries.size>100)verifiedLibraries.delete(verifiedLibraries.keys().next().value!);
 }
 function rememberFocus(id=(document.activeElement as HTMLElement)?.dataset.focusId):void{
   if(id)returnFocus.set(location.hash,id);
@@ -283,7 +295,11 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
         :recordingOrigins.has(location.hash)||['Video','Recording'].includes(item.Type||'')||item.Type==='Episode'&&!item.SeriesId?'recordings':null;
       if(!kind)return false;
       stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
-      view=new BrowseView(api,{kind,item,back,navigate:go,navigateRoute,focusId});
+      const hash=location.hash;
+      view=new BrowseView(api,{kind,item,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
+        browseStates.set(hash,state);
+        if(browseStates.size>100)browseStates.delete(browseStates.keys().next().value!);
+      }});
       document.body.append(view.element);void view.load();return true;
     };
     view=new DetailView(api,{id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo&&!detailOrigins.has(location.hash))dismiss();else back();},focusId,navigate:go,openCollection,openAdditional,openGuide:()=>{
@@ -299,13 +315,16 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   void view.load();
 }
 const schedule=()=>{if(disposed)return;window.clearTimeout(timer);timer=window.setTimeout(refresh,30);};
+// Route events must take ownership in the same task, before a restored native
+// page can paint. Debounce only noisy mutation notifications.
+const refreshNavigation=()=>{window.clearTimeout(timer);refresh();};
 // Native cached pages rotate DOM slots, so DOM order cannot identify the owner.
 // A hide event on the overlay's current route belongs to an outgoing native
 // transition. Release the overlay once navigation has actually left its route.
-const hide=(event:Event)=>{if(location.hash!==openedHash&&nativeHostMask.owns(event.target))close(false);};
+const hide=(event:Event)=>{if(location.hash!==openedHash&&nativeHostMask.owns(event.target))refreshNavigation();};
 const show=(event:Event)=>{
   const target=event.target as HTMLElement;
-  if(target.matches?.(nativePages))schedule();
+  if(target.matches?.(nativePages)){refreshNavigation();void homeCollections?.refreshSettings();}
 };
 const hashChanged=(event:HashChangeEvent)=>{
   if(dismissed!==location.hash)dismissed='';
@@ -315,20 +334,21 @@ const hashChanged=(event:HashChangeEvent)=>{
     detailOrigins.add(location.hash);
     if(detailOrigins.size>100)detailOrigins.delete(detailOrigins.values().next().value!);
   }
-  schedule();
+  refreshNavigation();
 };
-window.addEventListener('hashchange',hashChanged);window.addEventListener('popstate',schedule);
+window.addEventListener('hashchange',hashChanged);window.addEventListener('popstate',refreshNavigation);
 document.addEventListener('viewshow',show,true);document.addEventListener('viewbeforehide',hide,true);
-document.addEventListener('tabchange',schedule,true);
+document.addEventListener('tabchange',refreshNavigation,true);
 const observer=new MutationObserver(schedule);
 observer.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 observer.observe(document.body,{attributes:true,attributeFilter:['class']});
 const getPlayerApi=()=>window.TvItemLayoutDemo?.api||createJellyfinApi();
 const playerContext=createPlayerContext(getPlayerApi);
 const playerBrowser=new PlayerBrowser(playerContext,getPlayerApi);
+const channelZapper=new ChannelZapper(playerContext,getPlayerApi);
 const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerContext.getSnapshot,subscribe:playerContext.subscribe});
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
-schedule();
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
+refreshNavigation();

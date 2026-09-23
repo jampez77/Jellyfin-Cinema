@@ -25,11 +25,11 @@ const abort = () => new DOMException('Profile switching was cancelled.', 'AbortE
 let switching = false;
 export const profileSwitchPending = () => switching;
 
-export async function openProfileLogin(session: ProfileSession): Promise<void> {
+export async function openProfileLogin(session: ProfileSession, signal = new AbortController().signal): Promise<void> {
   if (switching) throw new Error('Jellyfin is still finishing the previous profile switch.');
-  check(session);
+  check(session, signal);
   switching = true;
-  try { await signOut(session, new AbortController().signal); }
+  try { await signOut(session, signal); }
   finally { switching = false; }
 }
 
@@ -81,6 +81,52 @@ export function profileImage(session: ProfileSession, profile: PublicProfile): s
   try { return session.client.getUserImageUrl(profile.Id, { type: 'Primary', width: 240, tag: profile.PrimaryImageTag }); } catch { return; }
 }
 
+type ServerSelectionShell = { selectServer?: (...args: unknown[]) => unknown };
+
+/** Dashboard.logout finishes credential, query and view cleanup before calling
+ * this public shell bridge. webOS's selectServer unloads the server web frame,
+ * so route this one completed logout to the captured server's native login.
+ * No native cleanup, client identity check or credential hook is replaced. */
+function keepServerDuringLogout(session: ProfileSession, start: string, signal: AbortSignal, bypassed: () => void, failed: (error: unknown) => void): () => void {
+  const host = window as Window & { NativeShell?: ServerSelectionShell };
+  const shell = host.NativeShell, original = shell?.selectServer;
+  if (!shell || typeof original !== 'function') return () => {};
+  const descriptor = Object.getOwnPropertyDescriptor(shell, 'selectServer');
+  let active = true;
+  const restore = () => {
+    active = false;
+    signal.removeEventListener('abort', restore);
+    // A different owner may replace the bridge while logout is pending.
+    // Never overwrite its newer handler. If it freezes this property, the
+    // inactive wrapper still delegates every later call to the native method.
+    if (shell.selectServer !== selectServer) return;
+    try {
+      if (descriptor) Object.defineProperty(shell, 'selectServer', descriptor);
+      else delete shell.selectServer;
+    } catch { /* The inactive wrapper retains native behavior. */ }
+  };
+  function selectServer(this: ServerSelectionShell, ...args: unknown[]): unknown {
+    const owned = active && !signal.aborted && host.NativeShell === shell
+      && sameProfileServer(session) && !session.client.getCurrentUserId() && window.location.hash === start;
+    restore();
+    if (!owned) { bypassed(); return original!.apply(this, args); }
+    try {
+      // Jellyfin's native route restores the server context without invoking
+      // the TV wrapper's separate server chooser or reloading the document.
+      void Promise.resolve(session.dashboard.navigate(`login?serverid=${encodeURIComponent(session.serverId)}`)).catch(failed);
+    } catch (error) { failed(error); }
+  }
+  try {
+    if (descriptor && !('value' in descriptor)) throw new Error('Unsupported shell bridge');
+    Object.defineProperty(shell, 'selectServer', descriptor ? { ...descriptor, value: selectServer }
+      : { value: selectServer, writable: true, enumerable: true, configurable: true });
+  } catch {
+    throw new ProfileLoginRequired('This Jellyfin client needs its native login screen to switch profiles.');
+  }
+  signal.addEventListener('abort', restore, { once: true });
+  return restore;
+}
+
 /** Dashboard.logout is intentionally void. Its login/server navigation happens
  * after ServerConnections.logout, query-cache clearing and native view reset.
  * Wait for that transition; authenticating earlier could log out the new user. */
@@ -88,7 +134,9 @@ function signOut(session: ProfileSession, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const start = window.location.hash;
     let arrived = false, invalid = false, finished = false;
+    let restoreServerSelection = () => {};
     const cleanup = () => {
+      restoreServerSelection();
       window.removeEventListener('hashchange', changed); window.removeEventListener('popstate', changed);
       document.removeEventListener('viewshow', changed, true);
       window.clearInterval(poll);
@@ -108,7 +156,11 @@ function signOut(session: ProfileSession, signal: AbortSignal): Promise<void> {
     const poll = window.setInterval(inspect, 100);
     window.addEventListener('hashchange', changed); window.addEventListener('popstate', changed);
     document.addEventListener('viewshow', changed, true);
-    try { check(session, signal); session.dashboard.logout(); changed(); } catch (error) { finish(error); }
+    try {
+      check(session, signal);
+      restoreServerSelection = keepServerDuringLogout(session, start, signal, () => { invalid = true; }, error => finish(error));
+      session.dashboard.logout(); changed();
+    } catch (error) { finish(error); }
   });
 }
 

@@ -1,4 +1,5 @@
 import type { BrowseApi } from './browse-api';
+import type { HomeCollectionTransport } from './home-collection-store';
 
 export type Item = {
   Id: string; Name: string; Type?: string; Overview?: string; OriginalTitle?: string;
@@ -42,6 +43,7 @@ export type PlaybackContext = {
 export interface MediaApi extends BrowseApi {
   serverId?: string;
   userId?: string;
+  homeCollections?: HomeCollectionTransport;
   getItem(id: string): Promise<Item>;
   getPlaybackContext?(): Promise<PlaybackContext | null>;
   getMovies(query: MovieQuery): Promise<ItemPage>;
