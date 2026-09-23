@@ -3,11 +3,35 @@
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "Jellyfin Cinema",
     "overview": "Cinematic TV browsing, personal collection rows and in-player navigation.",
-    "description": "A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "description": "A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
+      {
+        "version": "0.2.3.3",
+        "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.3/TvItemLayout_0.2.3.3_jellyfin-12.0.0.zip",
+        "checksum": "8d2982c8de3dfd4a7be84f5a0c317bbc",
+        "timestamp": "2026-09-23T14:20:42Z"
+      },
+      {
+        "version": "0.2.3.2",
+        "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.3/TvItemLayout_0.2.3.2_jellyfin-10.11.0.zip",
+        "checksum": "07f7acf72b57c389bd064dadcc126ee4",
+        "timestamp": "2026-09-23T14:20:42Z"
+      },
+      {
+        "version": "0.2.3.1",
+        "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.3/TvItemLayout_0.2.3.1_jellyfin-10.10.7.zip",
+        "checksum": "76b1b956457519308dcf81dee2733668",
+        "timestamp": "2026-09-23T14:20:42Z"
+      },
       {
         "version": "0.2.2.3",
         "changelog": "Adds a live Home-style preview to the collection row editor. Preview collection artwork, titles, ranked numbers, item order and placement while editing; changes apply to Home only after saving. Existing Home row preferences are retained. Requires File Transformation and Jellyfin Web in TV display mode.",

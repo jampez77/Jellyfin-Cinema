@@ -2,8 +2,10 @@ import type { Item } from './types';
 
 export const itemSorts = ['collection', 'title', 'title-desc', 'newest', 'oldest', 'custom'] as const;
 export type HomeItemSort = typeof itemSorts[number];
+export type HomeCollectionTab = { id: string; label: string; collectionId: string; itemSort: HomeItemSort; itemOrder: string[] };
+export const maxHomeCollectionTabs = 6;
 export type HomeCollectionRow = { id: string; kind: 'collections' | 'items'; title: string; collectionIds: string[]; ranked: boolean;
-  placement: string; itemSort: HomeItemSort; itemOrder: string[] };
+  placement: string; itemSort: HomeItemSort; itemOrder: string[]; tabs?: HomeCollectionTab[] };
 export type HomeCollectionSettings = { version: 1; rows: HomeCollectionRow[] };
 export const emptyHomeCollections = (): HomeCollectionSettings => ({ version: 1, rows: [] });
 
@@ -17,11 +19,38 @@ export function parseHomeCollections(value: unknown): HomeCollectionSettings {
     const ids = Array.isArray(row.collectionIds) ? Array.from(new Set<string>(row.collectionIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))) : [];
     seen.add(row.id.slice(0, 100));
     const itemOrder = Array.isArray(row.itemOrder) ? Array.from(new Set<string>(row.itemOrder.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))).slice(0, 2000) : [];
-    rows.push({ id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true,
+    const next: HomeCollectionRow = { id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true,
       placement: typeof row.placement === 'string' && (['start', 'end'].includes(row.placement) || row.placement.startsWith('native:')) ? row.placement.slice(0, 240) : 'end',
-      itemSort: itemSorts.includes(row.itemSort) ? row.itemSort : 'collection', itemOrder });
+      itemSort: itemSorts.includes(row.itemSort) ? row.itemSort : 'collection', itemOrder };
+    if (row.kind === 'items' && Array.isArray(row.tabs)) {
+      const seenTabs = new Set<string>();
+      const tabs: HomeCollectionTab[] = [];
+      for (const tab of row.tabs.slice(0, maxHomeCollectionTabs)) {
+        if (!tab || typeof tab.id !== 'string' || !tab.id || seenTabs.has(tab.id.slice(0, 100)) || typeof tab.collectionId !== 'string' || tab.collectionId.length >= 200) continue;
+        seenTabs.add(tab.id.slice(0, 100));
+        tabs.push({ id: tab.id.slice(0, 100), label: typeof tab.label === 'string' ? tab.label.trim().slice(0, 40) : '', collectionId: tab.collectionId,
+          itemSort: itemSorts.includes(tab.itemSort) ? tab.itemSort : 'collection',
+          itemOrder: Array.isArray(tab.itemOrder) ? Array.from(new Set<string>(tab.itemOrder.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))).slice(0, 2000) : [] });
+      }
+      if (tabs.length) {
+        next.tabs = tabs;
+        // Older clients can still display the first source as a single row.
+        next.collectionIds = tabs[0].collectionId ? [tabs[0].collectionId] : [];
+        next.itemSort = tabs[0].itemSort; next.itemOrder = tabs[0].itemOrder.slice();
+      }
+    }
+    rows.push(next);
   }
   return { version: 1, rows };
+}
+
+/** Existing single-collection rows are also one source, without changing stored preferences. */
+export function homeCollectionTabs(row: HomeCollectionRow): HomeCollectionTab[] {
+  return row.tabs?.length ? row.tabs : [{ id: 'primary', label: '', collectionId: row.collectionIds[0] || '', itemSort: row.itemSort, itemOrder: row.itemOrder }];
+}
+
+export function homeTabLabel(tab: HomeCollectionTab, collection?: Item): string {
+  return tab.label.trim() || collection?.Name || 'Collection';
 }
 
 export function homeCollectionKey(server: string, user: string): string {

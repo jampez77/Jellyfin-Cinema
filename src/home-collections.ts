@@ -1,8 +1,9 @@
 import type { Item, MediaApi } from './types';
 import { button, el, replace } from './dom';
-import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, orderHomeItems, type HomeCollectionRow } from './home-collection-settings';
+import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, type HomeCollectionRow } from './home-collection-settings';
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
+import { homeRowTabs } from './home-row-tabs';
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
 export class HomeCollections {
@@ -14,6 +15,7 @@ export class HomeCollections {
   private disposed = false;
   private revision = 0;
   private inputRevision = 0;
+  private items = new Map<string, Promise<Item[]>>();
 
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string) {
     this.key = homeCollectionKey(api.serverId || location.origin, api.userId || (window.TvItemLayoutDemo ? 'demo' : 'anonymous'));
@@ -68,7 +70,11 @@ export class HomeCollections {
     }
     const next = groups[groupIndex + (direction === 'down' ? 1 : -1)];
     if (!this.owns(active) && !this.owns(next)) return false;
-    if (next) this.focus(controls(next)[Math.min(index, controls(next).length - 1)]);
+    if (next) {
+      const sameRow = active.closest('.tvl-home-collection-row') === next.closest('.tvl-home-collection-row');
+      this.focus(sameRow && next.classList.contains('tvl-home-source-tabs') ? next.querySelector<HTMLElement>('[aria-selected="true"]') || undefined
+        : controls(next)[sameRow && groups[groupIndex].classList.contains('tvl-home-source-tabs') ? 0 : Math.min(index, controls(next).length - 1)]);
+    }
     return !!next;
   }
   private onKey = (event: KeyboardEvent): void => {
@@ -116,22 +122,74 @@ export class HomeCollections {
     const title = row.title || (row.kind === 'collections' ? 'Collections' : chosen[0]?.Name || 'Collection');
     const section = el('section', 'tvl-home-collection-row');section.dataset.homeRow = row.id;
     section.setAttribute('aria-label', title);section.append(el('h2', 'tvl-home-row-title', title));
-    const cards = el('div', 'tvl-home-row-cards focuscontainer-x');cards.setAttribute('role', 'list');section.append(cards);
-    if (!chosen.length) { cards.append(el('p', 'tvl-home-row-status', 'No accessible collections selected. Choose a collection from Customize collection rows on the Collections page.'));return section; }
-    try {
-      const items = row.kind === 'items' ? orderHomeItems(await this.api.getCollectionItems(chosen[0].Id), row) : chosen;
-      if (!this.current(revision)) return section;
+    const cards = el('div', 'tvl-home-row-cards focuscontainer-x');cards.setAttribute('role', 'list');
+    const tabs = homeCollectionTabs(row);
+    const tabbed = row.kind === 'items' && !!row.tabs?.length;
+    const prefix = `tvl-home-${encodeURIComponent(row.id)}`;
+    const focusPrefix = (tabId: string) => `home-tab:${encodeURIComponent(row.id)}:${encodeURIComponent(tabId)}:`;
+    let selected = tabs.find(tab => this.restoreFocus?.startsWith(focusPrefix(tab.id))) || tabs[0];
+    let sourceRevision = 0;
+    let strip: HTMLElement | undefined;
+    const panel = el('div');
+    if (tabbed) {
+      strip = homeRowTabs(tabs.map(tab => ({ id: tab.id, label: homeTabLabel(tab, available.get(tab.collectionId)) })), selected.id, id => {
+        const tab = tabs.find(tab => tab.id === id); if (!tab || this.disposed) return;
+        selected = tab;
+        strip!.querySelectorAll<HTMLElement>('[data-source-tab]').forEach(control => {
+          const active = control.dataset.sourceTab === id; control.setAttribute('aria-selected', String(active)); control.tabIndex = active ? 0 : -1;
+        });
+        void renderItems();
+      }, prefix);
+      section.append(strip);
+      panel.id = `${prefix}-items`; panel.setAttribute('role', 'tabpanel');
+    }
+    panel.append(cards); section.append(panel);
+    const renderItems = async (): Promise<void> => {
+      const currentSource = ++sourceRevision, source = selected;
+      const collection = available.get(source.collectionId);
+      replace(cards); cards.scrollLeft = 0; cards.removeAttribute('aria-busy');
+      if (tabbed) panel.setAttribute('aria-labelledby', `${prefix}-tab-${encodeURIComponent(source.id)}`);
+      if (row.kind === 'items' ? !collection : !chosen.length) {
+        cards.append(el('p', 'tvl-home-row-status', 'No accessible collections selected. Choose a collection from Customize collection rows on the Collections page.')); return;
+      }
+      cards.setAttribute('aria-busy', 'true');
+      cards.append(el('p', 'tvl-home-row-status', 'Loading collection…'));
+      try {
+        if (row.kind === 'items' && !this.items.has(collection!.Id)) {
+          const id = collection!.Id;
+          this.items.set(id, this.api.getCollectionItems(id).catch(error => { this.items.delete(id); throw error; }));
+        }
+        const items = row.kind === 'items' ? orderHomeItems(await this.items.get(collection!.Id)!, source) : chosen;
+        if (!this.current(revision) || currentSource !== sourceRevision) return;
+        replace(cards);
       for (const [index, item] of items.slice(0, 60).entries()) {
         const entry = el('div', 'tvl-home-row-entry');entry.setAttribute('role', 'listitem');
         const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, () => { if (!this.disposed) this.navigate(item.Id); });
-        card.dataset.focusId = `home:${row.id}:${item.Id}`;
+        card.dataset.focusId = tabbed ? `${focusPrefix(source.id)}${encodeURIComponent(item.Id)}` : `home:${row.id}:${item.Id}`;
         entry.append(card);cards.append(entry);
       }
       if (!items.length) cards.append(el('p', 'tvl-home-row-status', 'This collection is empty.'));
-      if (row.kind === 'items' && items.length > 60) cards.append(button('View full collection', 'grid', '', () => this.navigate(chosen[0].Id)));
-    } catch {
-      cards.append(el('p', 'tvl-home-row-status', 'This collection could not be loaded.'), button('Retry collection', '', '', () => { void this.render(); }));
-    }
+        if (row.kind === 'items' && items.length > 60) {
+          const full = button('View full collection', 'grid', '', () => this.navigate(collection!.Id));
+          if (tabbed) full.dataset.focusId = `${focusPrefix(source.id)}full-collection`;
+          cards.append(full);
+        }
+      } catch {
+        if (!this.current(revision) || currentSource !== sourceRevision) return;
+        replace(cards, el('p', 'tvl-home-row-status', 'This collection could not be loaded.'), button('Retry collection', '', '', () => {
+          const focused = cards.contains(document.activeElement);
+          const inputRevision = this.inputRevision;
+          const pending = renderItems(), retrySource = sourceRevision;
+          void pending.then(() => {
+            if (focused && this.current(revision) && retrySource === sourceRevision && inputRevision === this.inputRevision && document.activeElement === document.body)
+              this.focus(cards.querySelector<HTMLElement>('button') || strip?.querySelector<HTMLElement>('[aria-selected="true"]') || undefined);
+          });
+        }));
+      } finally {
+        if (this.current(revision) && currentSource === sourceRevision) cards.removeAttribute('aria-busy');
+      }
+    };
+    await renderItems();
     return section;
   }
 

@@ -2,7 +2,7 @@
 
 Jellyfin Cinema, formerly TV Item Layout, is an independent server plugin that loads the bundled client into **Jellyfin Web**. The layout follows the web client's TV display mode. Native clients that do not load the server's Jellyfin Web assets cannot use this plugin.
 
-The current prerelease is **0.2.2**, available through the catalogue and manual downloads below. It adds a live Home-style preview to the collection row editor. This release has not been deployed or tested on a live Jellyfin server or physical TV.
+The current prerelease is **0.2.3**, available through the catalogue and manual downloads below. It adds optional collection tabs to Home rows, with separate sources and item order for each tab. This release has not been deployed or tested on a live Jellyfin server or physical TV.
 
 The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). It has a separate name, assembly, API route, and plugin ID (`1a06b74f-7609-4af9-899d-430c9b5a52b1`), so it can be installed alongside that plugin. The inherited MIT notice is included in every archive.
 
@@ -21,19 +21,19 @@ Jellyfin Cinema retains TV Item Layout’s plugin ID, `Jellyfin.Plugin.TvItemLay
 4. Restart Jellyfin. Check Dashboard → Plugins for **Jellyfin Cinema**. The server log should contain `Jellyfin Cinema registered with File Transformation`.
 5. Reload Jellyfin Web, then select **TV** display mode in your user's display settings. Fully close and reopen a web-based TV app to clear its loaded client. Open a movie, series, or Live TV item.
 
-Choose the build from the [v0.2.2 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.2) that matches your Jellyfin server:
+Choose the build from the [v0.2.3 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.3) that matches your Jellyfin server:
 
 | Jellyfin server | Jellyfin Cinema version |
 | --- | --- |
-| 10.10.7 | `0.2.2.1` |
-| 10.11.x | `0.2.2.2` |
-| 12.x | `0.2.2.3` |
+| 10.10.7 | `0.2.3.1` |
+| 10.11.x | `0.2.3.2` |
+| 12.x | `0.2.3.3` |
 
 The repository lists all three targets and Jellyfin filters them by server compatibility. This is a server-testing prerelease. Physical Mac mini/TV deployment, remote controls and real-server playback have not been tested by this release work.
 
 If a newly published version is missing, Jellyfin 12’s dashboard can reuse its [cached catalogue for 15 minutes](https://github.com/jellyfin/jellyfin-web/blob/v12.0/src/apps/dashboard/features/plugins/api/usePackages.ts#L19-L25), even after a page reload. Leave and reopen **Catalogue** after that interval. To refresh immediately, remove only the **Jellyfin Cinema repository entry** from **Repositories**, then add it again using the same catalogue URL above. This refreshes the listing without uninstalling the plugin or clearing your Home row preferences.
 
-If TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace the old TV Item Layout catalogue entry with the Jellyfin Cinema URL above. Update the existing plugin to the matching 0.2.2 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV display mode, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Desktop and mobile layouts retain Jellyfin's normal pages.
+If TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace the old TV Item Layout catalogue entry with the Jellyfin Cinema URL above. Update the existing plugin to the matching 0.2.3 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV display mode, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Desktop and mobile layouts retain Jellyfin's normal pages.
 
 Theme videos use Jellyfin’s existing background player and follow its theme-video preference. If there is no playable theme video, the static backdrop remains. Collections list actual membership and open styled collection pages. The Collections library, explicit BoxSet list, and Movies → Collections tab also use the new layout. The Movies and TV Shows libraries also use the new style, including Jellyfin suggestions, favourites, genres, search and A–Z/# browsing. Native Upcoming, Networks and Episodes TV routes remain available through Jellyfin. Unrelated library lists and unsupported URL filters retain their native pages.
 
@@ -58,13 +58,13 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.2.1` for Jellyfin 10.10.7, `0.2.2.2` for 10.11.x and `0.2.2.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.3.1` for Jellyfin 10.10.7, `0.2.3.2` for 10.11.x and `0.2.3.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
 1. In Dashboard → Plugins → Repositories, add the repository from the [File Transformation installation instructions](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation#installation): `https://www.iamparadox.dev/jellyfin/plugins/manifest.json`.
 2. Install **File Transformation** from the catalogue, choosing a release compatible with your Jellyfin version.
-3. Download the matching archive from the [0.2.2 release assets](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.2), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.2.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
+3. Download the matching archive from the [0.2.3 release assets](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.3), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.3.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
 4. Start Jellyfin. Check Dashboard → Plugins for **Jellyfin Cinema** and the File Transformation registration message.
 5. Reload Jellyfin Web, then select the TV display mode in your user's display settings. Open a movie, series, or Live TV item.
 
@@ -108,13 +108,15 @@ Home styles Jellyfin’s existing sections in place, with titles and subtitles s
 
 If [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) is installed, its carousel remains in the native Home container. Jellyfin Cinema matches its colours and typography to the rest of the layout. Its display settings, height and layout, personalization, trailers and input handling remain under Featured’s control. Keep Featured enabled.
 
-Open **Collections → Customize collection rows**. The launcher has moved from Home to the Collections page. Select a row from the row list and use its **Content**, **Item order** and **Home position** tabs in the adjacent workspace. Add a Collections row for several selected collections, or separate collection items rows for individual collections. Choose titles and optional **Ranked artwork**, then choose **Save rows**.
+Open **Collections → Customize collection rows**. The launcher has moved from Home to the Collections page. Select a row from the row list and use its **Content**, **Item order** and **Home position** tabs in the adjacent workspace. Add a Collections row for several selected collections, or separate collection items rows for individual collections. Choose titles and optional **Ranked artwork**, then choose **Save rows**. Choose **Add collection tabs** for up to six tabs on an item row, each with an editable label, its own source collection and item order. The first tab opens by default. Use **Movies** and **Shows** tabs to keep separate collections under one row title, or choose any labels and collections that suit your library. Existing single-collection rows keep working.
 
-In 0.2.2, **Home preview** shows the row’s title, artwork and selected order as you edit. Ranked rows show the same outlined number images used on Home, while position context places the draft row among your Home sections. These are unsaved changes: **Save rows** applies them and **Cancel** keeps your previous settings.
+**Home preview** shows the row’s title, artwork, active collection tab and selected order as you edit. Ranked rows show the same outlined number images used on Home, while position context places the draft row among your Home sections. These are unsaved changes: **Save rows** applies them and **Cancel** keeps your previous settings.
 
 **Item order** can retain Jellyfin’s collection order, sort by title or year, or use a manual order. The change is local to that Home row and does not edit the server’s collection metadata. Number images beside posters follow this chosen order, not a popularity calculation. **Home position** places custom rows among native sections, including Featured and each library’s Latest row, while Jellyfin and Featured keep control of their own sections. Visit Home once to make its sections available in the editor. If a chosen section is hidden or unavailable, its custom row appears at the end.
 
 Custom row settings use browser local storage, separated by server and signed-in account. They belong to this device/browser, do not sync between clients, and are removed if that storage is cleared. Existing version-1 settings are preserved: rows keep collection order and end-of-Home placement until edited. Limits are 12 rows, 40 selected collections per Collections row, 2,000 saved item IDs per manual order, and 60 displayed members per item row, followed by **View full collection** when more members are available. Native Home settings and Featured preferences remain separate.
+
+The optional [UK platform trending guide](https://github.com/jampez77/Jellyfin-Cinema/blob/main/docs/platform-trending.md) explains how SmartLists 12.0.3.0 or newer on Jellyfin 12 can maintain weekly UK JustWatch collections through MDBList. Cinema displays the matching items already in your library. It can show these as six platform rows with **Movies**/**Shows** tabs, or use any existing collections without external list plugins.
 
 Use **Add to collection** on a media detail page to choose an existing collection or create one. This writes to Jellyfin and requires your account’s collection-management permission. Existing memberships are marked to avoid duplicate additions; successful saves refresh the item’s collection links.
 

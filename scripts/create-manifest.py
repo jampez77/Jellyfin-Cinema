@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds a live Home-style preview to the collection row editor. Preview collection artwork, titles, ranked numbers, item order and placement while editing; changes apply to Home only after saving. Existing Home row preferences are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        'changelog': "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
@@ -51,7 +51,7 @@ manifest = [{
     'guid': plugin_id,
     'name': 'Jellyfin Cinema',
     'overview': 'Cinematic TV browsing, personal collection rows and in-player navigation.',
-    'description': 'A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
+    'description': 'A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
     'owner': 'jampez77',
     'category': 'General',
     'imageUrl': f'https://raw.githubusercontent.com/{repository}/main/assets/catalogue/jellyfin-cinema.png',
