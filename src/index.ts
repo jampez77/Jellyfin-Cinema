@@ -10,6 +10,12 @@ import musicPlayerStyles from './music-player.css';
 import { NativeRecordingsTheme } from './native-recordings';
 import { ProfileMenu } from './profile-menu';
 import profileMenuStyles from './profile-menu.css';
+import { NativeFolderTheme } from './native-folder';
+import nativeFolderStyles from './native-folder.css';
+import { NativeLoginTheme } from './native-login';
+import loginStyles from './login.css';
+import { NativeUserPages } from './native-user-pages';
+import nativeUserPageStyles from './native-user-pages.css';
 import homeStyles from './home.css';
 import homeCollectionStyles from './home-collections.css';
 import { HomeCollections } from './home-collections';
@@ -31,7 +37,7 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
 let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
@@ -41,6 +47,9 @@ let accountScope:string|null|undefined;
 const nativeHostMask=new NativeHostMask();
 const nativeRecordingsTheme=new NativeRecordingsTheme();
 const profileMenu=new ProfileMenu();
+const nativeFolderTheme=new NativeFolderTheme();
+const nativeLoginTheme=new NativeLoginTheme();
+const nativeUserPages=new NativeUserPages();
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
 const libraryStates=new Map<string,LibraryBrowseState>();
@@ -147,6 +156,9 @@ function refresh():void{
   const tv=document.documentElement.classList.contains('layout-tv')||document.body.classList.contains('layout-tv');
   nativeRecordingsTheme.update(tv && !!api);
   profileMenu.update(tv && !!api, scopeOf(api));
+  nativeFolderTheme.update(tv && !!api, scopeOf(api));
+  nativeLoginTheme.update(tv);
+  nativeUserPages.update(tv && !!api, scopeOf(api));
   const route=currentRoute();
   if(pendingHash && pendingHash!==location.hash){pendingHash='';probeRevision++;}
   if(!tv||!route){dismissed='';pendingHash='';probeRevision++;close(false);return;}
@@ -164,11 +176,17 @@ function refresh():void{
       if(parent.CollectionType==='boxsets'){
         pendingHash='';openRoute(route,api,key);return;
       }
-      const recordingFolder=await api.isRecordingFolder?.(parent.Id);
+      // DVR recognition can be unavailable to a library-only account. The
+      // ordinary native folder still gets styling without gaining DVR access.
+      let recordingFolder=false;
+      try { recordingFolder=!!await api.isRecordingFolder?.(parent.Id); } catch { /* Retain the native folder. */ }
       if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
       pendingHash='';
       if(recordingFolder)openRoute({kind:'recordings',scope:'list',parentId:parent.Id},api,key);
-      else dismissed=hash;
+      else {
+        if(parent.IsFolder || ['Folder','CollectionFolder','UserView'].includes(parent.Type || '')) nativeFolderTheme.show(parent.Id,parent.Name);
+        dismissed=hash;
+      }
     }).catch(()=>{if(revision===probeRevision){pendingHash='';dismissed=hash;}});
     return;
   }
@@ -286,6 +304,7 @@ const show=(event:Event)=>{
   if(target.matches?.(nativePages))schedule();
 };
 const hashChanged=(event:HashChangeEvent)=>{
+  if(dismissed!==location.hash)dismissed='';
   // The offline preview also has native Home/Featured links. Distinguish those
   // entries from a direct detail preview, whose Back dismisses the demo overlay.
   if(window.TvItemLayoutDemo&&/^#\/home(?:\?|$)/.test(new URL(event.oldURL,location.href).hash)&&/^#\/details\?/.test(location.hash)){
@@ -307,5 +326,5 @@ const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerCo
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
 schedule();

@@ -69,7 +69,8 @@ test('an unrelated library named Recordings retains its native page', async ({ p
   await page.goto('/#/list?parentId=ordinary-library');
   await expect(page.locator('body')).toHaveAttribute('data-recording-folder-checked', 'ordinary-library');
   await expect(page.locator('#tv-layout')).toHaveCount(0);
-  await expect(page.locator('.demo-native-page').getByRole('heading', { name: 'Recordings', exact: true })).toBeVisible();
+  await expect(page.locator('.demo-native-page > h1')).toHaveText('Recordings');
+  await expect(page.locator('.demo-native-page > h1')).toBeVisible();
   await expect(page.locator('.demo-native-page')).not.toHaveAttribute('aria-hidden', 'true');
 });
 
