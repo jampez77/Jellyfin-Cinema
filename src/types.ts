@@ -22,6 +22,7 @@ export interface MediaApi {
   getEpisodes(seriesId: string, seasonId: string): Promise<Item[]>;
   getNextEpisode(seriesId: string): Promise<Item | null>;
   getSimilar(id: string): Promise<Item[]>;
+  getCollections(itemId: string): Promise<Item[]>;
   getChannels(): Promise<Item[]>;
   getPrograms(channelId: string): Promise<Item[]>;
   setFavorite(id: string, favorite: boolean): Promise<void>;

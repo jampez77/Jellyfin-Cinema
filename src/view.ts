@@ -199,14 +199,22 @@ export class DetailView {
     hero.append(body);
     if (movie) {
       this.content.append(hero, this.filmDetails());
+    } else {
+      const footer = el('footer','tvl-footer');
+      footer.append(el('span','tvl-footer-kind',live ? 'YOUR LIVE CHANNELS' : 'DISCOVER MORE'), el('span','tvl-remote-hint','↑ ↓ Navigate    OK Select    Back Return'));
+      this.content.append(hero, footer);
+    }
+    if (!live) {
+      const collections = el('section','tvl-collections');
+      collections.setAttribute('aria-label','Collections');
+      // An empty placeholder avoids advertising membership before the server replies.
+      this.content.append(collections);
+      void this.fillCollections(collections);
       const more = el('section','tvl-movie-recommendations');
+      more.setAttribute('aria-label','More like this');
       more.append(el('h2','tvl-section-title','More like this'));
       this.content.append(more);
       void this.fillRecommendations(more, false);
-    } else {
-      const footer = el('footer','tvl-footer');
-      footer.append(el('span','tvl-footer-kind',live ? 'YOUR LIVE CHANNELS' : 'YOUR NEXT CHAPTER'), el('span','tvl-remote-hint','↑ ↓ Navigate    OK Select    Back Return'));
-      this.content.append(hero, footer);
     }
     this.focusFirst(this.restoreId); this.restoreId = '';
   }
@@ -346,6 +354,43 @@ export class DetailView {
   private async renderSimilar(): Promise<void> {
     const main=el('main','tvl-similar');main.append(el('div','tvl-eyebrow',`BECAUSE YOU WATCH ${this.item.Name}`),el('h1','tvl-section-title','More like this'));
     this.content.append(main);await this.fillRecommendations(main,true);
+  }
+  private async fillCollections(container: HTMLElement): Promise<void> {
+    const revision = this.revision;
+    container.setAttribute('aria-busy','true');
+    try {
+      const collections = await this.api.getCollections(this.item.Id);
+      if (this.disposed || revision !== this.revision) return;
+      const restoreFocus = container.contains(document.activeElement);
+      container.removeAttribute('aria-busy');
+      if (!collections.length) { container.remove(); if (restoreFocus) this.focusFirst(); return; }
+      const grid = el('div','tvl-film-grid');
+      for (const collection of collections) {
+        const card = el('button','tvl-film-card tvl-collection-card');
+        card.type = 'button';
+        card.dataset.focusId = `collection-${collection.Id}`;
+        card.setAttribute('aria-label',`Open collection: ${collection.Name}`);
+        const art = picture(this.api.image(collection,'thumb'),'tvl-film-art');
+        const copy = el('div','tvl-film-copy');
+        copy.append(el('h3','',collection.Name),el('span','tvl-collection-link','View collection →'));
+        card.append(art,copy);
+        card.addEventListener('click',()=>this.options.navigate(collection.Id));
+        grid.append(card);
+      }
+      replace(container,el('h2','tvl-section-title','Collections'),grid);
+      if (restoreFocus) this.focusFirst('',grid);
+    } catch {
+      if (this.disposed || revision !== this.revision) return;
+      const restoreFocus = container.contains(document.activeElement);
+      container.removeAttribute('aria-busy');
+      const retry = button('Try again','','',()=>{
+        if (container.getAttribute('aria-busy') === 'true') return;
+        retry.setAttribute('aria-busy','true');
+        void this.fillCollections(container);
+      });
+      replace(container,el('h2','tvl-section-title','Collections'),el('p','tvl-collections-message','Collections could not be loaded.'),retry);
+      if (restoreFocus) retry.focus({preventScroll:true});
+    }
   }
   private async fillRecommendations(container: HTMLElement, focus: boolean): Promise<void> {
     const rev=this.revision;const loading=el('div','tvl-loading','Finding something you’ll love…');container.append(loading);

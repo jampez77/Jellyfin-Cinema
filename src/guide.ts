@@ -1,5 +1,5 @@
 import type { Item, MediaApi } from './types';
-import { button, el, icon, picture, replace } from './dom';
+import { button, el, icon, replace } from './dom';
 import { isLive, plainText, playable, time } from './utils';
 import { GUIDE_DURATION, GUIDE_MINUTE, guideSlots, nearestGuideSlot, type GuideSlot } from './guide-layout';
 
@@ -278,11 +278,7 @@ export class HorizontalGuide {
     });
     const programme = slot?.item || row.programs.find(program => isLive(program)) || row.channel.CurrentProgram;
     const live = programme && isLive(programme);
-    const artwork = picture(programme ? this.api.image(programme, 'thumb') : null, 'tvl-epg-detail-art', programme?.Name || '');
-    const placeholder = el('div', 'tvl-epg-art-placeholder');
-    placeholder.setAttribute('aria-hidden', 'true');
-    placeholder.append(icon('episodes'));
-    artwork.append(placeholder);
+    const artwork = this.programmeArtwork(programme, row.channel);
     const copy = el('div', 'tvl-epg-detail-copy');
     const meta = el('div', 'tvl-epg-detail-meta');
     if (programme) meta.append(el('span', live ? 'tvl-epg-detail-badge tvl-epg-detail-live' : 'tvl-epg-detail-badge', live ? 'LIVE NOW' : 'UPCOMING'));
@@ -299,7 +295,36 @@ export class HorizontalGuide {
     } else {
       action.append(icon('clock'), el('span', '', `Starts ${time(programme?.StartDate)}`), el('small', '', 'Upcoming programme'));
     }
-    replace(this.detail, artwork, copy, action);
+    copy.append(action);
+    replace(this.detail, artwork, copy);
+  }
+
+  private programmeArtwork(programme: Item | undefined, channel: Item): HTMLElement {
+    const artwork = el('div', 'tvl-epg-detail-art');
+    const placeholder = el('div', 'tvl-epg-art-placeholder');
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.append(icon('live'));
+    artwork.append(placeholder);
+    // Live TV providers normally store their channel logo as a Primary image.
+    // Also try it when a listed programme image or separate Logo fails to load.
+    const sources = [
+      {url: programme ? this.api.image(programme, 'backdrop') : null, logo: false},
+      {url: this.api.image(channel, 'logo'), logo: true},
+      {url: this.api.image({...channel, ImageTags: channel.ImageTags?.Primary ? {Primary: channel.ImageTags.Primary} : {}, BackdropImageTags: []}, 'thumb'), logo: true}
+    ].filter((source, index, list) => source.url && list.findIndex(candidate => candidate.url === source.url) === index);
+    const next = (): void => {
+      const source = sources.shift();
+      artwork.classList.toggle('tvl-epg-channel-art', !!source?.logo);
+      artwork.classList.toggle('tvl-no-art', !source);
+      if (!source?.url) return;
+      const image = el('img');
+      image.alt = source.logo ? `${channel.Name} logo` : programme?.Name || '';
+      image.addEventListener('error', () => { image.remove(); next(); }, {once: true});
+      image.src = source.url;
+      artwork.append(image);
+    };
+    next();
+    return artwork;
   }
 
   private nowMarker(label = false): HTMLElement | null {

@@ -68,6 +68,102 @@ test('prematurely empty and malformed lists remain errors rather than empty-libr
   assert.deepEqual(await empty.getSeasons('show'), []);
 });
 
+test('containing collections use paginated direct membership, not an item parent or an Ids query', async () => {
+  const requests: { user: string; query: Record<string, unknown> }[] = [];
+  const box = (id: string): Item => ({ Id: id, Name: id, Type: 'BoxSet', ImageTags: { Primary: 'art' } });
+  const api = client({ getItems: async (user: string, query: Record<string, unknown>) => {
+    requests.push({ user, query });
+    if (!query.ParentId) return query.StartIndex === 0
+      ? { Items: [box('first'), box('unrelated')], TotalRecordCount: 4 }
+      : { Items: [box('second'), { Id: 'not-a-collection', Name: 'Movie', Type: 'Movie' }], TotalRecordCount: 4 };
+    if (query.ParentId === 'first') return query.StartIndex === 0
+      ? { Items: [{ Id: 'other', Name: 'Other', Type: 'Movie' }], TotalRecordCount: 2 }
+      : { Items: [{ Id: 'target', Name: 'Target', Type: 'Movie' }], TotalRecordCount: 2 };
+    if (query.ParentId === 'second') return { Items: [{ Id: 'target', Name: 'Target', Type: 'Series' }], TotalRecordCount: 1 };
+    return { Items: [], TotalRecordCount: 0 };
+  } });
+  const collections = await api.getCollections('target');
+  assert.deepEqual(collections.map(item => item.Id), ['first', 'second']);
+  assert.equal(collections[0].ImageTags?.Primary, 'art');
+  assert.ok(requests.every(({ user, query }) => user === 'user-a' && !('Ids' in query)));
+  const lists = requests.filter(({ query }) => !query.ParentId);
+  assert.deepEqual(lists.map(({ query }) => query.StartIndex), [0, 2]);
+  assert.ok(lists.every(({ query }) => query.IncludeItemTypes === 'BoxSet' && query.Recursive === true));
+  const members = requests.filter(({ query }) => query.ParentId);
+  assert.ok(members.every(({ query }) => query.ParentId !== 'target' && query.Recursive === false && query.CollapseBoxSetItems === false));
+  assert.deepEqual(members.filter(({ query }) => query.ParentId === 'first').map(({ query }) => query.StartIndex), [0, 1]);
+  const count = requests.length;
+  assert.deepEqual(await api.getCollections('target'), collections);
+  assert.equal(requests.length, count, 'successful membership is cached for this detail view');
+});
+
+test('collection scans stop after a match and normalize Jellyfin UUID formats', async () => {
+  const compact = 'abcdef1234567890abcdef1234567890';
+  const dashed = 'ABCDEF12-3456-7890-ABCD-EF1234567890';
+  let membershipRequests = 0;
+  const api = client({ getItems: async (_user: string, query: Record<string, unknown>) => {
+    if (!query.ParentId) return { Items: [{ Id: 'collection', Name: 'Collection', Type: 'BoxSet' }], TotalRecordCount: 1 };
+    membershipRequests++;
+    assert.equal(query.StartIndex, 0);
+    return { Items: [{ Id: dashed, Name: 'Target', Type: 'Series' }], TotalRecordCount: 2000 };
+  } });
+  assert.deepEqual((await api.getCollections(compact)).map(item => item.Id), ['collection']);
+  assert.deepEqual((await api.getCollections(dashed)).map(item => item.Id), ['collection']);
+  assert.equal(membershipRequests, 1);
+});
+
+test('a failed collection read does not return or cache a partial membership list', async () => {
+  let fail = true;
+  let lists = 0;
+  const api = client({ getItems: async (_user: string, query: Record<string, unknown>) => {
+    if (!query.ParentId) {
+      lists++;
+      return { Items: ['first', 'second'].map(id => ({ Id: id, Name: id, Type: 'BoxSet' })), TotalRecordCount: 2 };
+    }
+    if (query.ParentId === 'second' && fail) throw new Error('Collection is unavailable');
+    return { Items: [{ Id: 'target', Name: 'Target' }], TotalRecordCount: 1 };
+  } });
+  await assert.rejects(api.getCollections('target'), /collection is unavailable/i);
+  fail = false;
+  assert.deepEqual((await api.getCollections('target')).map(item => item.Id), ['first', 'second']);
+  assert.equal(lists, 2);
+});
+
+test('collection pagination stops if the signed-in account changes during a member request', async () => {
+  let user = 'user-a';
+  let memberRequests = 0;
+  const api = client({
+    getCurrentUserId: () => user,
+    getItems: async (_user: string, query: Record<string, unknown>) => {
+      if (!query.ParentId) return { Items: [{ Id: 'collection', Name: 'Collection', Type: 'BoxSet' }], TotalRecordCount: 1 };
+      memberRequests++;
+      user = 'user-b';
+      return { Items: [{ Id: 'other', Name: 'Other' }], TotalRecordCount: 2 };
+    }
+  });
+  await assert.rejects(api.getCollections('target'), /account changed/i);
+  assert.equal(memberRequests, 1);
+});
+
+test('collection membership requests use bounded concurrency', async () => {
+  let active = 0;
+  let peak = 0;
+  let inspected = 0;
+  const api = client({ getItems: async (_user: string, query: Record<string, unknown>) => {
+    if (!query.ParentId) return {
+      Items: Array.from({ length: 9 }, (_, index) => ({ Id: `collection-${index}`, Name: 'Collection', Type: 'BoxSet' })),
+      TotalRecordCount: 9
+    };
+    active++; peak = Math.max(peak, active);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    inspected++; active--;
+    return { Items: [], TotalRecordCount: 0 };
+  } });
+  assert.deepEqual(await api.getCollections('target'), []);
+  assert.equal(inspected, 9);
+  assert.ok(peak > 1 && peak <= 4, `expected between two and four concurrent requests, got ${peak}`);
+});
+
 test('channels paginate, retain programme data, and sort channel numbers numerically', async () => {
   const requests: Record<string, unknown>[] = [];
   const programme = { Id: 'programme', Name: 'News', Type: 'Program' };

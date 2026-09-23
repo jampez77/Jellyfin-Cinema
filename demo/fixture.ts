@@ -1,4 +1,5 @@
 import type { Item, MediaApi } from '../src/types';
+import { el, picture, replace } from '../src/dom';
 
 // This file belongs to the preview only. It is never included in the installer bundle.
 const MINUTE = 60 * 10_000_000;
@@ -109,6 +110,13 @@ movie('movie-silence', 'The Shape of Silence', 'An architect inherits a remote w
 movie('movie-higher', 'Higher Ground', 'Two estranged brothers reunite for the mountain expedition their father never completed. On the journey to the summit, the distance between them proves the hardest climb.', 2023, 122, 'mountains', ['Adventure', 'Drama']);
 movie('movie-wild', 'Where the Wild Things Wait', 'A naturalist and a restless teenager spend a summer tracking a rare bird through an ancient forest. An unlikely friendship takes root far from the world they know.', 2025, 98, 'forest', ['Adventure', 'Drama']);
 movie('movie-blue', 'A Kind of Blue', 'On the last ferry of the season, a musician meets a stranger who is travelling with no destination. As the coastline slips away, their stories begin to change.', 2024, 109, 'ocean', ['Drama', 'Romance']);
+
+const collectionMembers = new Map<string, string[]>([
+  ['collection-coast', ['movie-tide', 'movie-blue']],
+  ['collection-wilderness', ['series-north', 'movie-higher', 'movie-wild']],
+]);
+register({ Id:'collection-coast', Type:'BoxSet', Name:'Coastal Stories', ChildCount:2 }, 'ocean');
+register({ Id:'collection-wilderness', Type:'BoxSet', Name:'Into the Wilderness', ChildCount:3 }, 'mountains');
 
 // Anchor each schedule to the current half hour, so the fixture always has a live show.
 const now = Date.now();
@@ -222,6 +230,7 @@ const api: MediaApi = {
   getEpisodes: (_seriesId, seasonId) => respond(() => list(episodes.get(seasonId) || []), seasonId),
   getNextEpisode: (seriesId) => respond(() => scenario === 'empty' || seriesId !== 'series-north' ? null : copy(library.get('episode-north-1-2')!), seriesId),
   getSimilar: (id) => respond(() => list(movieIds.filter((movieId) => movieId !== id).map((movieId) => library.get(movieId)!)), id),
+  getCollections: (id) => respond(() => list([...collectionMembers].filter(([,members]) => members.includes(id)).map(([collectionId]) => library.get(collectionId)!)), id),
   getChannels: () => respond(() => list(channels)),
   getPrograms: (channelId) => respond(() => list(schedules.get(channelId) || []), channelId),
   setFavorite: (id, favorite) => respond(() => { if (favorite) favorites.add(id); else favorites.delete(id); }, id),
@@ -235,10 +244,27 @@ const api: MediaApi = {
   image: (item, kind) => kind === 'logo' ? null : artwork.get(item.Id) || artwork.get(item.SeriesId || '') || artwork.get(item.ChannelId || '') || null,
 };
 
+const nativePage = document.querySelector<HTMLElement>('.demo-native-page')!;
+const originalNativeContent = nativePage.innerHTML;
 function syncRoute() {
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const current = library.get(params.get('id') || 'series-north');
   const guide = location.hash.startsWith('#/livetv');
+  const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
+  nativePage.classList.toggle('demo-collection-page',collection);
+  if (collection) {
+    const content = el('div','demo-collection-content');
+    const back = el('button','','← Back');back.type='button';back.addEventListener('click',()=>history.back());
+    content.append(back,el('p','demo-native-eyebrow','COLLECTION'),el('h1','',current.Name));
+    const grid = el('div','demo-collection-grid');
+    for (const id of collectionMembers.get(current.Id) || []) {
+      const member = library.get(id)!;
+      const link = el('a');link.href=`#/details?id=${encodeURIComponent(id)}`;
+      link.append(picture(artwork.get(id) || null,'demo-collection-art'),el('h2','',member.Name));
+      grid.append(link);
+    }
+    content.append(grid);replace(nativePage,content);
+  } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
   const type = guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
     if (link.dataset.demoType === type && (guide || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');

@@ -1,0 +1,8 @@
+/* The native player remains in place and retains Jellyfin's playback lifecycle. */
+body.tvl-open .videoPlayerContainer.tvl-theme-player { z-index: 9997; pointer-events: none; }
+.tvl-root.tvl-theme-video { background: transparent; }
+.tvl-theme-video .tvl-backdrop { background: transparent; }
+.tvl-theme-video .tvl-backdrop > img { opacity: 0; }
+.tvl-theme-video .tvl-backdrop.tvl-no-art::before { display: none; }
+.tvl-root.tvl-theme-video[data-pane=episodes] { background: rgba(16,17,18,.85); }
+.tvl-root.tvl-theme-video[data-pane=similar] { background: rgba(16,17,18,.92); }

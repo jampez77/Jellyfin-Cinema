@@ -28,3 +28,8 @@ Add a query before the hash and reload:
 - `/?scenario=slow#/details?id=series-north`: longer, varied response times. Switch items or seasons quickly to check that older requests cannot replace the active view.
 
 Remove the query and reload to restore ordinary behaviour. All titles, descriptions, cast names and ratings are fictional demonstration data. Photograph sources are recorded in [assets/CREDITS.md](assets/CREDITS.md).
+## Collections and theme videos
+
+The preview includes **Coastal Stories** for After the Tide and **Into the Wilderness** for North of Nowhere. Collection cards open a simulated native collection page with links to its members. Series overviews now scroll down to recommendations as well as collections.
+
+Native theme-video integration is covered by browser tests using a local canvas video stream. The preview does not download or autoplay a sample theme video; installed Jellyfin clients use their existing theme player and preferences.

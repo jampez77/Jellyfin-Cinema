@@ -26,7 +26,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': 'The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.',
+        'changelog': 'Reveals native theme videos on movie and series pages. The guide now has a right-aligned artwork hero with channel-logo fallback. Series pages scroll to More like this, and movies and series link to their collections. Requires File Transformation and Jellyfin Web in TV display mode.',
         'targetAbi': target,
         'sourceUrl': f'https://github.com/{repository}/releases/download/v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

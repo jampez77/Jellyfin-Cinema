@@ -6,6 +6,7 @@ type ItemResult = { Items?: Item[]; TotalRecordCount?: number };
 interface JellyfinClient extends PlaybackClient {
   getCurrentUserId(): string;
   getItem(userId: string, id: string): Promise<Item>;
+  getItems(userId: string, query: Query): Promise<ItemResult>;
   getSeasons(seriesId: string, query: Query): Promise<ItemResult>;
   getEpisodes(seriesId: string, query: Query): Promise<ItemResult>;
   getNextUpEpisodes(query: Query): Promise<ItemResult>;
@@ -38,7 +39,8 @@ function identity(id: string): string {
     ? id.replace(/-/g, '').toLowerCase() : id;
 }
 
-async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: string): Promise<Item[]> {
+async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: string,
+  stopWhen?: (item: Item) => boolean): Promise<Item[]> {
   const unique = new Map<string, Item>();
   let start = 0;
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -54,6 +56,7 @@ async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: 
     const before = unique.size;
     for (const item of batch) unique.set(identity(item.Id), item);
     if (unique.size === before) throw new Error(`Jellyfin repeated a ${label} page. Refresh the library and try again.`);
+    if (stopWhen && batch.some(stopWhen)) return [...unique.values()];
     start += count;
     if (total !== null ? start >= total : count < PAGE_SIZE) return [...unique.values()];
   }
@@ -100,6 +103,8 @@ export function createJellyfinApi(): MediaApi | null {
   if (typeof ApiClient === 'undefined' || !ApiClient?.getCurrentUserId?.()) return null;
   const client = ApiClient;
   const userId = client.getCurrentUserId();
+  // An adapter belongs to one open detail view; reopening creates a fresh cache.
+  const collectionsByItem = new Map<string, Item[]>();
   function assertSession(): void {
     if (client.getCurrentUserId() !== userId) throw new Error('Your Jellyfin account changed. Open the media page again.');
   }
@@ -140,9 +145,41 @@ export function createJellyfinApi(): MediaApi | null {
     getSimilar: id => read(async () => itemsFrom(await client.getSimilarItems(id, {
       UserId: userId, Limit: 24, Fields: 'Overview,Genres', EnableUserData: true
     }), 'similar item').filter(available)),
+    getCollections: id => read(async () => {
+      const itemId = identity(id);
+      const cached = collectionsByItem.get(itemId);
+      if (cached) return cached;
+      // ItemsController does not support reverse collection membership:
+      // v10.10 discards ParentId for BoxSet queries; v12 treats it as a library
+      // ancestor filter. Enumerate user-visible BoxSets and their direct children.
+      // Do not combine ParentId with Ids: Folder.GetItems bypasses the folder
+      // when Ids is present, incorrectly making every collection appear to match.
+      // https://github.com/jellyfin/jellyfin/blob/v12.0/MediaBrowser.Controller/Entities/Folder.cs
+      const collections = (await pages(startIndex => read(() => client.getItems(userId, {
+        IncludeItemTypes: 'BoxSet', Recursive: true, SortBy: 'SortName', SortOrder: 'Ascending',
+        Fields: 'Overview', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop',
+        EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
+      })), 'collection')).filter(item => item.Type === 'BoxSet');
+      const matched = new Set<string>();
+      let next = 0;
+      await Promise.all(Array.from({ length: Math.min(4, collections.length) }, async () => {
+        while (next < collections.length) {
+          const collection = collections[next++]!;
+          const contains = (item: Item) => identity(item.Id) === itemId;
+          const children = await pages(startIndex => read(() => client.getItems(userId, {
+            ParentId: collection.Id, Recursive: false, CollapseBoxSetItems: false,
+            EnableImages: false, EnableUserData: false, StartIndex: startIndex, Limit: PAGE_SIZE
+          })), 'collection item', contains);
+          if (children.some(contains)) matched.add(identity(collection.Id));
+        }
+      }));
+      const result = collections.filter(collection => matched.has(identity(collection.Id)));
+      collectionsByItem.set(itemId, result);
+      return result;
+    }),
     getChannels: () => read(async () => (await pages(startIndex => client.getLiveTvChannels({
       UserId: userId, AddCurrentProgram: true, Fields: 'Overview,Genres',
-      EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableUserData: true,
+      EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo', EnableUserData: true,
       SortBy: 'ChannelNumber,SortName', SortOrder: 'Ascending', EnableFavoriteSorting: false,
       StartIndex: startIndex, Limit: PAGE_SIZE
     }), 'channel')).filter(item => available(item) && item.Type === 'TvChannel')

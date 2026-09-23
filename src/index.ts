@@ -1,5 +1,7 @@
 import styles from './style.css';
 import guideStyles from './guide.css';
+import themeVideoStyles from './theme-video.css';
+import { observeThemeVideo } from './theme-video';
 import { createJellyfinApi } from './api';
 import { DetailView } from './view';
 import { GuideView } from './guide-view';
@@ -7,15 +9,17 @@ import { GuideView } from './guide-view';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles;document.head.append(sheet);
 let view:DetailView|GuideView|null=null;
 let activeKey='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
 let hiddenHost:HTMLElement|null=null;let previousAria:string|null=null;
 let returnFocus:{hash:string;id:string}|null=null;
+let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage';
 type Route = {kind:'detail';id:string}|{kind:'guide'};
 function close(restore=true):void{
+  stopThemeVideo?.();stopThemeVideo=undefined;
   view?.destroy();view=null;activeKey='';
   if(hiddenHost){if(previousAria===null)hiddenHost.removeAttribute('aria-hidden');else hiddenHost.setAttribute('aria-hidden',previousAria);hiddenHost=null;}
   if(document.body.classList.contains('tvl-open'))document.body.classList.remove('tvl-open');
@@ -66,7 +70,9 @@ function refresh():void{
       location.hash=`/livetv?${params}`;
     }});
   }
-  document.body.append(view.element);void view.load();
+  document.body.append(view.element);
+  if(route.kind==='detail')stopThemeVideo=observeThemeVideo(view.element);
+  void view.load();
 }
 const schedule=()=>{window.clearTimeout(timer);timer=window.setTimeout(refresh,30);};
 // Ignore a previous native view finishing its transition after the new overlay opens.

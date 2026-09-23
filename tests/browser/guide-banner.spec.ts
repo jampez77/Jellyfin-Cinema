@@ -11,6 +11,15 @@ test('guide banner follows the highlighted live or upcoming programme with its o
   await expect(liveArt).toBeVisible();
   await expect(liveArt).toHaveAttribute('src', /forest\.jpg$/);
   await expect.poll(() => liveArt.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const composition = await banner.evaluate(node => {
+    const hero = node.getBoundingClientRect();
+    const art = node.querySelector('img')!.getBoundingClientRect();
+    const title = node.querySelector('h2')!.getBoundingClientRect();
+    return {height: hero.height, imageHeight: art.height, imageLeft: art.left, titleLeft: title.left, imageRight: art.right, heroRight: hero.right};
+  });
+  expect(composition.imageLeft).toBeGreaterThan(composition.titleLeft);
+  expect(composition.imageHeight).toBeGreaterThanOrEqual(composition.height - 1);
+  expect(composition.imageRight).toBeCloseTo(composition.heroRight, 0);
   await expect(banner.getByText('LIVE NOW', { exact: true })).toBeVisible();
   await expect(root.locator('[data-program="channel-drift-program-1"]')).toBeInViewport({ ratio: 0.9 });
 
@@ -45,11 +54,48 @@ for (const missing of [true, false]) {
     const banner = root.getByRole('region', { name: 'Selected programme' });
     await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
     await expect(banner.getByRole('heading')).toHaveText('The Secret Life of Forests');
-    await expect(banner.locator('img')).toHaveCount(0);
+    await expect(banner.locator('.tvl-epg-channel-art img')).toHaveAttribute('alt', 'Field Notes logo');
+    await expect.poll(() => banner.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
     await page.keyboard.press('ArrowRight');
     await expect(banner.getByRole('heading')).toHaveText('Wild Water');
-    await expect(banner.locator('img')).toHaveCount(0);
+    await expect(banner.locator('.tvl-epg-channel-art img')).toHaveAttribute('alt', 'Field Notes logo');
     await expect(banner.getByText('UPCOMING', { exact: true })).toBeVisible();
   });
 }
+
+for (const failed of [false, true]) test(`channel logo ${failed ? 'failure falls back to Primary' : 'is used before Primary'} without losing programme details`, async ({ page }) => {
+  await page.route('**/channel-logo.svg', route => route.fulfill({
+    contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="white"/></svg>'
+  }));
+  await page.goto('/#/details?id=channel-field');
+  const root = page.locator('#tv-layout');
+  await expect(root.getByRole('button', { name: 'Channels & guide', exact: true })).toBeVisible();
+  await page.evaluate(failed => {
+    const api = window.TvItemLayoutDemo!.api;
+    const original = api.image;
+    api.image = (item, kind) => item.Type === 'Program' ? null
+      : kind === 'logo' ? (failed ? '/missing-channel-logo.png' : '/channel-logo.svg') : original(item, kind);
+  }, failed);
+  await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
+  const banner = root.getByRole('region', { name: 'Selected programme' });
+  await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
+  await expect(banner.locator('.tvl-epg-channel-art img')).toHaveAttribute('src', failed ? /forest\.jpg$/ : /channel-logo\.svg$/);
+  await expect(banner.locator('img')).toHaveCSS('object-fit', 'contain');
+  await expect.poll(() => banner.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(banner.getByRole('heading')).toHaveText('The Secret Life of Forests');
+});
+
+test('guide remains readable and playable when programme and channel artwork both fail', async ({ page }) => {
+  await page.goto('/#/details?id=channel-field');
+  const root = page.locator('#tv-layout');
+  await expect(root.getByRole('button', { name: 'Channels & guide', exact: true })).toBeVisible();
+  await page.evaluate(() => { window.TvItemLayoutDemo!.api.image = () => '/missing-all-art.jpg'; });
+  await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
+  const banner = root.getByRole('region', { name: 'Selected programme' });
+  await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
+  await expect(banner.locator('.tvl-no-art')).toBeVisible();
+  await expect(banner.locator('img')).toHaveCount(0);
+  await expect(banner.getByRole('heading')).toHaveText('The Secret Life of Forests');
+  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+});
