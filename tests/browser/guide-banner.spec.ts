@@ -40,11 +40,7 @@ test('guide banner follows the highlighted live or upcoming programme with its o
   await expect(banner.getByText('LIVE NOW', { exact: true })).toBeVisible();
   await expect(root.locator('[data-program="channel-drift-program-1"]')).toBeInViewport({ ratio: 0.9 });
   await page.keyboard.press('ArrowUp');
-  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowUp');
   await expect(root.getByRole('button', { name: 'Back', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowDown');
-  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
 
@@ -62,7 +58,7 @@ test('guide banner follows the highlighted live or upcoming programme with its o
   await page.keyboard.press('ArrowDown');
   await expect(banner.getByRole('img', { name: 'The Long Way North', exact: true })).toHaveAttribute('src', /mountains\.jpg$/);
   await expect(banner.getByText('LIVE NOW', { exact: true })).toBeVisible();
-  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
 });
 
 test('programme artwork ends at the schedule edge after viewport and content height changes', async ({ page }) => {
@@ -142,7 +138,7 @@ for (const missing of [true, false]) {
     await expect(banner.getByRole('heading')).toHaveText('The Secret Life of Forests');
     await expect(banner.locator('.tvl-epg-channel-art img')).toHaveAttribute('alt', 'Field Notes logo');
     await expect.poll(() => banner.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-    await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+    await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
     await page.keyboard.press('ArrowRight');
     await expect(banner.getByRole('heading')).toHaveText('Wild Water');
     await expect(banner.locator('.tvl-epg-channel-art img')).toHaveAttribute('alt', 'Field Notes logo');
@@ -185,5 +181,5 @@ test('guide remains readable and playable when programme and channel artwork bot
   await expect(banner.locator('.tvl-no-art')).toBeVisible();
   await expect(banner.locator('img')).toHaveCount(0);
   await expect(banner.getByRole('heading')).toHaveText('The Secret Life of Forests');
-  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+  await expect(banner.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
 });

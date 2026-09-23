@@ -142,7 +142,7 @@ test('leaving movie details cancels a trailer that is still loading', async ({ p
   await detail(page).getByRole('button', { name: 'Watch trailer', exact: true }).click();
   await expect(detail(page).getByRole('status')).toHaveText('Starting trailer for After the Tide…');
   await page.getByRole('navigation', { name: 'Preview media type' }).getByRole('link', { name: 'TV Shows', exact: true }).click();
-  await expect(detail(page).getByRole('heading', { name: 'North of Nowhere', exact: true })).toBeVisible();
+  await expect(detail(page).getByRole('heading', { name: 'TV Shows', exact: true })).toBeVisible();
   await page.evaluate(() => new Promise<void>((resolve) => {
     document.addEventListener('trailer-settled', () => resolve(), { once: true });
     document.dispatchEvent(new Event('release-trailer'));
@@ -152,7 +152,7 @@ test('leaving movie details cancels a trailer that is still loading', async ({ p
   await expect(page.getByRole('dialog', { name: 'TV Shows', exact: true }).locator('[data-show-item]').first()).toBeFocused();
 });
 
-test('Live TV guide switches channels and plays only through its explicit live action', async ({ page }) => {
+test('Live TV guide changes programme details on focus and tunes the selected current programme', async ({ page }) => {
   await open(page, 'channel-field');
   const root = detail(page);
   await expect(root.getByRole('heading', { name: 'Field Notes', exact: true })).toBeVisible();
@@ -161,9 +161,9 @@ test('Live TV guide switches channels and plays only through its explicit live a
   const channels = root.locator('button[data-channel]');
   await expect(channels).toHaveCount(4);
   await expect(root.locator('[data-program="channel-outside-program-1"]')).toBeAttached();
-  await root.locator('button[data-channel="channel-outside"]').click();
-  await expect(root.locator('[data-program="channel-outside-program-1"]')).toBeFocused();
-  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+  await root.locator('button[data-channel="channel-outside"]').focus();
+  await expect(root.locator('button[data-channel="channel-outside"]')).toBeFocused();
+  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
   await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
   await root.locator('[data-program="channel-outside-program-2"]').click();
   await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
@@ -172,8 +172,8 @@ test('Live TV guide switches channels and plays only through its explicit live a
   await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
   await page.keyboard.press('ArrowLeft');
   await expect(root.locator('[data-program="channel-outside-program-1"]')).toBeFocused();
-  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
-  await root.getByRole('button', { name: 'Watch live', exact: true }).click();
+  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Enter');
   const player = page.getByRole('main', { name: 'Demo playback' });
   await expect(player.getByRole('heading')).toHaveText('Outside');
   await expect(player).toContainText('The live channel would begin playing.');
@@ -254,11 +254,11 @@ test('channels without programme information remain selectable and playable in t
   await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
   await expect(root.locator('.tvl-epg-row-message').filter({ hasText: 'No programme information' })).toHaveCount(4);
   await expect(root.locator('[data-program]')).toHaveCount(0);
-  await root.locator('button[data-channel="channel-outside"]').click();
+  await root.locator('button[data-channel="channel-outside"]').focus();
   await expect(root.getByRole('region', { name: 'Selected programme' })).toContainText('Outside');
   await expect(root.getByRole('heading', { name: 'The guide is taking a break' })).toBeVisible();
-  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
-  await root.getByRole('button', { name: 'Watch live', exact: true }).click();
+  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
+  await root.locator('[data-channel="channel-outside"]').click();
   await expect(page.getByRole('main', { name: 'Demo playback' }).getByRole('heading')).toHaveText('Outside');
 });
 
@@ -274,14 +274,14 @@ test('the selected channel survives programme responses arriving after the user 
   await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
   await expect(root.locator('.tvl-epg-row-message').filter({ hasText: 'Loading schedule…' })).toHaveCount(4);
   const outside = root.locator('button[data-channel="channel-outside"]');
-  await outside.click();
+  await outside.focus();
   await expect(outside).toBeFocused();
   await expect(root.getByRole('region', { name: 'Selected programme' })).toContainText('Outside');
   await page.evaluate(() => document.dispatchEvent(new Event('release-programmes')));
   await expect(root.locator('[data-program]')).toHaveCount(16);
   await expect(root.getByRole('region', { name: 'Selected programme' })).toContainText('Outside');
   await expect(root.locator('[data-epg-row="channel-outside"]:focus')).toHaveCount(1);
-  await root.getByRole('button', { name: 'Watch live', exact: true }).click();
+  await root.locator('[data-channel="channel-outside"]').click();
   await expect(page.getByRole('main', { name: 'Demo playback' }).getByRole('heading')).toHaveText('Outside');
 });
 
@@ -303,7 +303,7 @@ test('a failed channel schedule can be retried entirely with the remote', async 
   const retry = row.getByRole('button', { name: 'Retry', exact: true });
   await expect(row).toContainText('Schedule unavailable');
   await expect(channel).toBeFocused();
-  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
   await page.keyboard.press('ArrowRight');
   await expect(retry).toBeFocused();
   await page.keyboard.press('ArrowLeft');
@@ -337,7 +337,7 @@ test('the periodic guide refresh preserves remote focus on More channels', async
   });
   const root = detail(page);
   await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
-  const more = root.getByRole('button', { name: 'More channels (16 of 20)', exact: true });
+  const more = root.getByRole('button', { name: 'More channels', exact: true });
   await expect(more).toBeEnabled();
   await expect(root.locator('button[data-channel]')).toHaveCount(16);
   await root.locator('button[data-channel="extra-channel-15"]').focus();
@@ -385,7 +385,7 @@ test('the guide refreshes its shared time window when a TV resumes on the next d
   await expect(current).toBeFocused();
   await expect(current).toHaveClass(/tvl-epg-program-live/);
   await expect(current).toBeInViewport({ ratio: 0.9 });
-  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
+  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
 });
 
 test('rapid season changes cannot let a slower response replace the chosen season', async ({ page }) => {
@@ -410,8 +410,8 @@ test('navigating away during loading discards the old item response', async ({ p
   await expect(detail(page).getByText('Loading your library…', { exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Preview media type' }).getByRole('link', { name: 'Movies', exact: true }).click();
   await expect(detail(page).getByRole('heading', { name: 'Movies', exact: true })).toBeVisible();
-  await expect(detail(page).locator('[data-movie-item]')).toHaveCount(5);
-  await expect(detail(page).getByRole('button', { name: 'The Shape of Silence', exact: true })).toBeVisible();
+  await expect(detail(page).getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
+  await expect(detail(page).getByRole('region', { name: 'Recently added', exact: true }).getByRole('button', { name: 'The Shape of Silence', exact: true })).toBeVisible();
   await expect(page).toHaveURL(/#\/movies\?topParentId=library-movies$/);
   await expect(detail(page)).toHaveCount(1);
   await expect(detail(page).getByRole('heading', { name: 'North of Nowhere', exact: true })).toHaveCount(0);

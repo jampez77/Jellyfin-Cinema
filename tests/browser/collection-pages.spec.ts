@@ -145,7 +145,7 @@ test('leaving a collection while its members load discards the late results', as
   await page.goto('/#/details?id=collection-coast');
   await expect(page.locator('body')).toHaveAttribute('data-members-pending', 'true');
   await expect(collection(page).getByRole('button', { name: 'Back', exact: true })).toBeFocused();
-  await page.evaluate(() => { location.hash = '/home'; });
+  await page.evaluate(() => { location.hash = '/settings'; });
   await expect(page.locator('#tv-layout')).toHaveCount(0);
   await page.evaluate(() => new Promise<void>(resolve => {
     document.addEventListener('collection-members-settled', () => resolve(), { once: true });
@@ -158,7 +158,7 @@ test('leaving a collection while its members load discards the late results', as
 
 test('native viewshow opens collection and movie libraries, with Collections returning to the styled movie page', async ({ page }) => {
   await page.clock.install();
-  await page.goto('/#/home');
+  await page.goto('/#/settings');
   await page.clock.runFor(100);
   await page.evaluate(() => {
     const host = document.createElement('main');
@@ -178,7 +178,7 @@ test('native viewshow opens collection and movie libraries, with Collections ret
     host.dispatchEvent(new CustomEvent('viewshow', { detail: { params: { topParentId: 'library-movies' } } }));
   });
   const moviePage = page.getByRole('dialog', { name: 'Movies', exact: true });
-  await expect(moviePage.locator('[data-movie-item]')).toHaveCount(5);
+  await expect(moviePage.getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
   await expect(collections(page)).toHaveCount(0);
   await expect(page.locator('#nativeCollections')).toHaveAttribute('aria-hidden', 'false');
   await expect(page.locator('#moviesPage')).toHaveAttribute('aria-hidden', 'true');

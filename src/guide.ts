@@ -106,7 +106,6 @@ export class HorizontalGuide {
     if (!focused || !this.element.contains(focused)) return false;
     const control = focused.closest<HTMLElement>('[data-epg-row]');
     if (!control) {
-      if (direction === 'down' && this.detail.contains(focused)) { this.focusSelection(); return true; }
       if (direction === 'up' && focused.classList.contains('tvl-epg-more')) {
         const last = this.rows[this.rows.length - 1];
         if (last) this.focusRow(last, this.anchorTime);
@@ -144,8 +143,6 @@ export class HorizontalGuide {
         this.footer.querySelector<HTMLButtonElement>('button')?.focus({preventScroll: true});
         return true;
       }
-      const watch = this.detail.querySelector<HTMLButtonElement>('button');
-      if (watch) { watch.focus({preventScroll: true}); return true; }
       return false;
     }
     return false;
@@ -191,7 +188,6 @@ export class HorizontalGuide {
     const active = document.activeElement as HTMLElement | null;
     const focusedProgram = active?.dataset.program;
     const focusedChannel = active?.dataset.epgRow;
-    const focusedWatch = !!active && this.detail.contains(active) && active.tagName === 'BUTTON';
     const focusedMore = active?.classList.contains('tvl-epg-more');
     const scrollLeft = this.scroll.scrollLeft, scrollTop = this.scroll.scrollTop;
     const grid = el('div', 'tvl-epg-grid');
@@ -214,7 +210,9 @@ export class HorizontalGuide {
       channel.setAttribute('aria-label', `${row.channel.ChannelNumber || row.channel.Number || ''} ${row.channel.Name}`.trim());
       channel.append(el('span', 'tvl-epg-channel-number', row.channel.ChannelNumber || row.channel.Number || '•'), el('span', 'tvl-epg-channel-name', row.channel.Name));
       channel.addEventListener('focus', () => this.select(row));
-      channel.addEventListener('click', () => { this.anchorTime = Date.now(); this.focusRow(row, this.anchorTime); });
+      channel.addEventListener('click', () => {
+        if (this.valid() && playable(row.channel)) this.options.onPlay(row.channel);
+      });
       const track = el('div', 'tvl-epg-track');
       const slots = this.slots(row);
       for (const slot of slots) {
@@ -227,8 +225,12 @@ export class HorizontalGuide {
         if (live) timing.prepend(el('span', 'tvl-epg-live-badge', 'LIVE'));
         card.append(timing, el('span', 'tvl-epg-program-name', slot.item.Name));
         card.addEventListener('focus', () => { this.select(row, slot); this.keepVisible(card); });
-        // OK selects details. Playback always has the explicit Watch live action.
-        card.addEventListener('click', () => { this.select(row, slot); this.keepVisible(card); });
+        card.addEventListener('click', () => {
+          if (!this.valid()) return;
+          this.select(row, slot); this.keepVisible(card);
+          // Check the time at activation; a programme may have ended since render.
+          if (isLive(slot.item) && playable(row.channel)) this.options.onPlay(row.channel);
+        });
         track.append(card);
       }
       if (!slots.length) {
@@ -251,15 +253,14 @@ export class HorizontalGuide {
     }
     replace(this.footer);
     if (this.rows.length < this.channels.length) {
-      const more = button(this.busy ? 'Loading channels…' : `More channels (${this.rows.length} of ${this.channels.length})`, '', 'tvl-epg-more', () => { void this.moreChannels(); });
+      const more = button(this.busy ? 'Loading channels…' : 'More channels', '', 'tvl-epg-more', () => { void this.moreChannels(); });
       more.disabled = this.busy; this.footer.append(more);
-    } else this.footer.append(el('span', 'tvl-epg-count', `${this.rows.length} channels · 24-hour guide`));
+    }
     if (focusedChannel) {
       const restored = Array.from(this.scroll.querySelectorAll<HTMLElement>('[data-epg-row]')).find(node => node.dataset.epgRow === focusedChannel && (focusedProgram ? node.dataset.program === focusedProgram : node.classList.contains('tvl-epg-channel')));
       if (restored) restored.focus({preventScroll: true});
       else this.focusSelection();
-    } else if (focusedWatch) this.detail.querySelector<HTMLButtonElement>('button')?.focus({preventScroll: true});
-    else if (focusedMore) {
+    } else if (focusedMore) {
       const more = this.footer.querySelector<HTMLButtonElement>('button:not(:disabled)');
       if (more) more.focus({preventScroll:true});
       else if(this.rows.length) this.focusChannel(this.rows[this.rows.length-1]!);
@@ -281,17 +282,11 @@ export class HorizontalGuide {
     meta.append(el('span', 'tvl-epg-detail-channel', row.channel.Name));
     if (programme) meta.append(el('span', 'tvl-epg-detail-time', `${time(programme.StartDate)} – ${time(programme.EndDate)}`));
     copy.append(meta, el('h2', 'tvl-epg-detail-title', programme?.Name || 'The guide is taking a break'), el('p', 'tvl-epg-description', plainText(programme?.Overview) || 'Programme information is unavailable. You can still watch this channel live.'));
-    const action = el('div', 'tvl-epg-detail-action');
-    if (!slot || live) {
-      const watch = button('Watch live', 'play', 'tvl-primary tvl-epg-watch', () => {
-        if (!this.valid()) return;
-        if (slot && !isLive(slot.item)) { this.options.onStatus('This programme is no longer live. Select the current programme to watch.'); this.select(row, slot); return; }
-        this.options.onPlay(row.channel);
-      }); watch.disabled = !playable(row.channel); action.append(watch);
-    } else {
+    if (slot && !live) {
+      const action = el('div', 'tvl-epg-detail-action');
       action.append(icon('clock'), el('span', '', `Starts ${time(programme?.StartDate)}`), el('small', '', 'Upcoming programme'));
+      copy.append(action);
     }
-    copy.append(action);
     replace(this.detail, artwork, copy);
     this.setArtworkHeight();
   }

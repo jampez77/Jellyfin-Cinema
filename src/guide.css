@@ -22,7 +22,6 @@
 .tvl-epg-detail-action { display: flex; align-items: center; min-height: 2.8em; margin-top: 16px; font-size: .77em; }
 .tvl-epg-detail-action > svg { color: #b5c5bc; margin-right: 8px; }
 .tvl-epg-detail-action small { color: #a8baae; margin-left: 12px; }
-.tvl-epg-watch { justify-content: center; min-width: 150px; }
 .tvl-epg-scroll { flex: 1; min-height: 100px; overflow: auto; position: relative; border-top: 1px solid #91a49833; border-bottom: 1px solid #91a49826; scrollbar-width: thin; scrollbar-color: #5e7468 #ffffff05; }
 .tvl-epg-scroll::-webkit-scrollbar { width: 5px; height: 6px; }
 .tvl-epg-scroll::-webkit-scrollbar-thumb { background: #53685d; border-radius: 5px; }
@@ -53,6 +52,7 @@
 .tvl-epg-retry { margin-left: 12px; font-size: .8em; }
 .tvl-epg-message { color: #a5b3aa; font-size: .85em; }
 .tvl-epg-footer { flex-shrink: 0; min-height: 34px; display: flex; align-items: center; justify-content: flex-end; padding-top: 10px; }
+.tvl-epg-footer:empty { display: none; }
 .tvl-epg-count { color: #7b8e82; font-size: .61em; white-space: pre; }
 .tvl-epg-more { font-size: .65em; min-height: 2.3em; }
 @media (min-width:1167px) { .tvl-epg { height: calc(100% - 6vw); --tvl-epg-column: 15vw; } }

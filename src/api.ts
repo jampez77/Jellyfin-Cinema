@@ -1,4 +1,5 @@
-import type { Item, ItemPage, LibraryQuery, MediaApi, SuggestionSection } from './types';
+import type { Item, ItemPage, LibraryQuery, MediaApi, PlaybackContext, SuggestionSection } from './types';
+import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 
 type Query = Record<string, string | number | boolean>;
@@ -85,11 +86,14 @@ async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: 
   throw new Error(`The ${label} list exceeded the browsing limit. Refresh your Jellyfin library and try again.`);
 }
 
-function imageFor(client: JellyfinClient, item: Item, kind: 'backdrop' | 'thumb' | 'logo'): string | null {
+function imageFor(client: JellyfinClient, item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc'): string | null {
   let id = item.Id;
   let type: string;
   let tag: string | undefined;
-  if (kind === 'logo') {
+  if (kind === 'disc') {
+    type = 'Disc';
+    tag = item.ImageTags?.Disc;
+  } else if (kind === 'logo') {
     const logo = item as Item & { ParentLogoItemId?: string; ParentLogoImageTag?: string };
     type = 'Logo';
     tag = item.ImageTags?.Logo;
@@ -116,7 +120,7 @@ function imageFor(client: JellyfinClient, item: Item, kind: 'backdrop' | 'thumb'
   }
   if (!id || !tag) return null;
   return client.getImageUrl(id, {
-    type, tag, maxWidth: kind === 'backdrop' ? 1920 : kind === 'logo' ? 800 : 640, quality: 90
+    type, tag, maxWidth: kind === 'backdrop' ? 1920 : kind === 'logo' ? 800 : kind === 'disc' ? 700 : 640, quality: 90
   });
 }
 
@@ -128,8 +132,10 @@ export function createJellyfinApi(): MediaApi | null {
   const serverId = client.serverId?.();
   // An adapter belongs to one open detail view; reopening creates a fresh cache.
   const collectionsByItem = new Map<string, Item[]>();
+  const sessionCurrent = () => typeof ApiClient !== 'undefined' && ApiClient === client
+    && client.getCurrentUserId() === userId && client.serverId?.() === serverId;
   function assertSession(): void {
-    if (client.getCurrentUserId() !== userId) throw new Error('Your Jellyfin account changed. Open the media page again.');
+    if (!sessionCurrent()) throw new Error('Your Jellyfin account changed. Open the media page again.');
   }
   async function read<T>(action: () => Promise<T>): Promise<T> {
     assertSession();
@@ -185,11 +191,21 @@ export function createJellyfinApi(): MediaApi | null {
     StartIndex: startIndex, Limit: PAGE_SIZE
   })), type === 'Movie' ? 'movie genre' : 'TV show genre')).filter(item => item.Type === 'Genre'));
   return {
+    ...createBrowseApi(client, userId, read),
+    userId,
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     getItem: id => read(async () => {
       const item = await client.getItem(userId, id);
       if (!item?.Id || identity(item.Id) !== identity(id)) throw new Error('Jellyfin did not return the requested media.');
       return item;
+    }),
+    getPlaybackContext: () => read(async () => {
+      const result = await client.getJSON(client.getUrl('TvItemLayout/PlaybackContext')) as PlaybackContext | null;
+      if (!result) return null;
+      if (typeof result.PlayingItemId !== 'string' || !result.PlayingItemId || !Array.isArray(result.Queue)) {
+        throw new Error('Jellyfin returned invalid playback information.');
+      }
+      return { ...result, Queue: result.Queue.filter(entry => entry && typeof entry.Id === 'string' && !!entry.Id) };
     }),
     getMovies: options => libraryPage('Movie', options),
     getMovieGenres: parentId => libraryGenres('Movie', parentId),
@@ -327,9 +343,9 @@ export function createJellyfinApi(): MediaApi | null {
     }),
     setFavorite: (id, favorite) => read(async () => { await client.updateFavoriteStatus(userId, id, favorite); }),
     play: (item, ticks, isCurrent) => read(() => dispatchPlayback(client, item, ticks,
-      () => isCurrent() && client.getCurrentUserId() === userId)),
+      () => isCurrent() && sessionCurrent())),
     playTrailer: (item, isCurrent) => read(() => dispatchTrailerPlayback(client, userId, item,
-      () => isCurrent() && client.getCurrentUserId() === userId)),
+      () => isCurrent() && sessionCurrent())),
     image: (item, kind) => imageFor(client, item, kind)
   };
 }

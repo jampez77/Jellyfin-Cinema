@@ -11,7 +11,7 @@ const seasons: Item[] = [];
 const episodes = new Map<string, Item[]>();
 const channels: Item[] = [];
 const schedules = new Map<string, Item[]>();
-const favorites = new Set<string>(['movie-blue', 'series-harbour']);
+const favorites = new Set<string>(['movie-blue', 'series-harbour', 'album-nightlines']);
 
 function register(item: Item, photo: string): Item {
   library.set(item.Id, item);
@@ -157,6 +157,37 @@ const movieGenres = [...new Set(movieIds.flatMap(id=>library.get(id)!.Genres || 
 const showGenres = [...new Set(seriesIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
 const movieSortName = (item:Item) => item.Name.replace(/^(the|an|a)\s+/i,'').toLocaleLowerCase();
 
+const artists = [
+  register({Id:'artist-moss',Type:'MusicArtist',Name:'Freya Moss',Overview:'Warm piano, field recordings and the quiet spaces between notes.',Genres:['Ambient','Instrumental'],ImageTags:{Primary:'demo'}},'forest'),
+  register({Id:'artist-reed',Type:'MusicArtist',Name:'Jonas Reed',Overview:'After-hours jazz from the edge of the city.',Genres:['Jazz'],ImageTags:{Primary:'demo'}},'ocean'),
+  register({Id:'artist-vale',Type:'MusicArtist',Name:'Leah Vale',Overview:'Acoustic songs about journeys, memory and finding a place to stay.',Genres:['Folk'],ImageTags:{Primary:'demo'}},'mountains'),
+];
+const albums: Item[] = [];
+const songs: Item[] = [];
+const albumArtistIds = new Map<string,string>();
+for (const spec of [
+  {id:'album-tidelight',name:'Tidelight',artist:artists[0],photo:'ocean',genre:'Ambient',tracks:['First Light','A Quiet Shore','Before the Tide']},
+  {id:'album-nightlines',name:'Nightlines',artist:artists[1],photo:'ocean',genre:'Jazz',tracks:['Last Ferry','Blue Windows','After Hours']},
+  {id:'album-openfields',name:'Open Fields',artist:artists[0],photo:'forest',genre:'Instrumental',tracks:['Morning Path','Open Country','The Long Way']},
+  {id:'album-slowwater',name:'Slow Water',artist:artists[2],photo:'mountains',genre:'Folk',tracks:['Home Again','Northbound','Still Here']},
+]) {
+  const album=register({Id:spec.id,Type:'MusicAlbum',Name:spec.name,AlbumArtist:spec.artist.Name,Artists:[spec.artist.Name],
+    ProductionYear:2025,Genres:[spec.genre],Overview:spec.artist.Overview,ChildCount:spec.tracks.length,RunTimeTicks:12*MINUTE,
+    ImageTags:{Primary:'demo'},BackdropImageTags:['demo'],MediaType:'Audio',IsFolder:true},spec.photo);
+  albums.push(album);albumArtistIds.set(album.Id,spec.artist.Id);
+  spec.tracks.forEach((name,index)=>songs.push(register({Id:`song-${spec.id.slice(6)}-${index+1}`,Type:'Audio',Name:name,
+    Album:album.Name,AlbumId:album.Id,AlbumArtist:spec.artist.Name,Artists:[spec.artist.Name],IndexNumber:index+1,ParentIndexNumber:1,
+    ProductionYear:2025,Genres:[spec.genre],RunTimeTicks:(3.5+index*.25)*MINUTE,MediaType:'Audio',ImageTags:{Primary:'demo'}},spec.photo)));
+}
+register({Id:'library-music',Type:'CollectionFolder',Name:'Music',CollectionType:'music'},'forest');
+register({Id:'library-live',Type:'CollectionFolder',Name:'Live TV',CollectionType:'livetv'},'ocean');
+const musicGenres=[...new Set(albums.flatMap(item=>item.Genres||[]))].sort().map(Name=>({Id:`music-genre-${Name.toLowerCase()}`,Type:'Genre',Name}));
+const recordings=[
+  register({Id:'recording-forest',Type:'Video',Name:'The Secret Life of Forests',Overview:'A closer look at the hidden life beneath an ancient canopy.',ProductionYear:2025,RunTimeTicks:54*MINUTE,MediaType:'Video',IsInProgress:false,ImageTags:{Primary:'demo'}},'forest'),
+  register({Id:'recording-coast',Type:'Recording',Name:'Coast to Coast',Overview:'Follow a changing shoreline from first light to the last ferry home.',ProductionYear:2025,RunTimeTicks:60*MINUTE,MediaType:'Video',IsInProgress:true,ImageTags:{Primary:'demo'}},'ocean'),
+  register({Id:'recording-mountain',Type:'Episode',Name:'Above the Clouds',SeriesName:'Wild Horizons',Overview:'Life at the edge of the world, among the highest peaks.',ParentIndexNumber:1,IndexNumber:3,ProductionYear:2025,RunTimeTicks:48*MINUTE,MediaType:'Video',IsInProgress:false,ImageTags:{Primary:'demo'}},'mountains'),
+];
+
 // Anchor each schedule to the current half hour, so the fixture always has a live show.
 const now = Date.now();
 const scheduleStart = Math.floor(now / (30 * 60_000)) * 30 * 60_000 - 15 * 60_000;
@@ -271,6 +302,33 @@ function browseLibrary(ids: string[], genres: Item[], parentId: string, query: L
 }
 
 const api: MediaApi = {
+  getHome: () => respond(() => ({libraries:list(['library-movies','library-tv','library-music','library-collections','library-live'].map(id=>library.get(id)!)),sections:scenario==='empty'?[]:[
+    {title:'Continue watching',items:['movie-tide','episode-north-1-2'].map(id=>copy(library.get(id)!))},
+    {title:'Next up',items:['episode-signal-1-1','episode-wild-1-1'].map(id=>copy(library.get(id)!))},
+    {title:'Latest in Movies',items:movieIds.slice().reverse().map(id=>copy(library.get(id)!))},
+    {title:'Latest in TV Shows',items:seriesIds.slice().reverse().map(id=>copy(library.get(id)!))},
+    {title:'Latest in Music',items:list(albums)},
+  ]})),
+  getMusic: query => respond(() => {
+    const genre=musicGenres.find(item=>item.Id===query.genreId)?.Name;
+    let found=list(query.kind==='artists'||query.kind==='albumArtists'?artists:query.kind==='songs'?songs:albums);
+    if(query.parentId&&query.parentId!=='library-music')found=[];
+    found=found.filter(item=>(!query.albumId||item.AlbumId===query.albumId)
+      &&(!query.artistId||albumArtistIds.get(item.AlbumId||item.Id)===query.artistId)
+      &&(!query.search||item.Name.toLocaleLowerCase().includes(query.search.trim().toLocaleLowerCase()))
+      &&(!query.genreId||!!genre&&item.Genres?.includes(genre))&&(!query.favorite||favorites.has(item.Id))
+      &&(!query.letter||(query.letter==='#'?movieSortName(item).charAt(0)<'a':movieSortName(item).startsWith(query.letter.toLowerCase()))));
+    found.sort((a,b)=>query.albumId?(a.IndexNumber||0)-(b.IndexNumber||0):movieSortName(a).localeCompare(movieSortName(b)));
+    const start=query.startIndex||0;const items=found.slice(start,start+(query.limit||48));return{items,total:found.length,nextStartIndex:start+items.length};
+  },query.search),
+  getMusicGenres: () => respond(()=>list(musicGenres)),
+  getMusicSuggestions: () => respond(()=>scenario==='empty'?[]:[{title:'Recently added',items:list(albums)},
+    {title:'Recently played',items:list(songs.slice(0,3))},{title:'Frequently played',items:list(songs.slice(3,6))}]),
+  getRecordings: (query={}) => respond(()=>{
+    const found=list(recordings).filter(item=>(query.status!=='active'||item.IsInProgress)&&(query.status!=='completed'||!item.IsInProgress)
+      &&(!query.search||`${item.Name} ${item.SeriesName||''}`.toLowerCase().includes(query.search.trim().toLowerCase())));
+    const start=query.startIndex||0;const items=found.slice(start,start+(query.limit||48));return{items,total:found.length,nextStartIndex:start+items.length};
+  },query.search),
   getItem: (id) => respond(() => {
     const item = library.get(id);
     if (!item) throw new Error('This item is not available in the local preview.');
@@ -325,7 +383,9 @@ function syncRoute() {
   const guide = location.hash.startsWith('#/livetv');
   const movies = location.hash.startsWith('#/movies');
   const shows = /^#\/tv(?:\?|$)/.test(location.hash);
-  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':'';
+  const music = /^#\/music(?:\?|$)/.test(location.hash);
+  const home = /^#\/home(?:\?|$)/.test(location.hash);
+  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':music?'musicRecommendedPage':home?'indexPage':guide?'liveTvSuggestedPage':'';
   const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
   const collectionList = /^#\/(list|boxsets)\?/.test(location.hash) && (params.get('parentId')==='library-collections'||location.hash.startsWith('#/boxsets')||params.get('type')==='BoxSet');
   nativePage.classList.toggle('mainAnimatedPage',collectionList);
@@ -347,9 +407,10 @@ function syncRoute() {
     const content=el('div','demo-collection-content');content.append(el('h1','','Collections'));
     const items=el('div','itemsContainer');items.dataset.parentid=params.get('parentId')||'';content.append(items);replace(nativePage,content);
   } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
-  const type = collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
+  const recordingPage = guide && params.get('tab')==='3' || /^#\/list(?:\?|$)/.test(location.hash) && params.get('type')==='Recordings';
+  const type = home?'home':music||['MusicAlbum','MusicArtist','Audio'].includes(current?.Type||'')?'music':recordingPage||recordings.some(item=>item.Id===current?.Id)?'recordings':collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
-    if (link.dataset.demoType === type && (guide || movies || shows || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
+    if (link.dataset.demoType === type && (home || music || guide || movies || shows || recordingPage || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();

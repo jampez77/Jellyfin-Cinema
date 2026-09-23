@@ -14,6 +14,8 @@ static void Assert(bool condition, string message)
     Console.WriteLine("PASS " + message);
 }
 
+await PlaybackChecks.Run(Assert);
+
 string source = "<!doctype html><HTML><BODY><div>Hello</div><script src='/unrelated.js'></script></BODY></HTML>";
 string transformed = IndexHtmlInjector.Inject(source, "/jellyfin/");
 Assert(transformed.Contains("src=\"/jellyfin/TvItemLayout/ClientScript?v="), "Configured server base URL is used");

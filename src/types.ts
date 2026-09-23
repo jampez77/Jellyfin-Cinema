@@ -1,6 +1,11 @@
+import type { BrowseApi } from './browse-api';
+
 export type Item = {
   Id: string; Name: string; Type?: string; Overview?: string; OriginalTitle?: string;
   CollectionType?: string;
+  Artists?: string[]; AlbumArtist?: string; Album?: string; AlbumId?: string;
+  IsInProgress?: boolean; Status?: string; MediaType?: string; IsFolder?: boolean;
+  ExtraType?: string;
   ProductionYear?: number; OfficialRating?: string; CommunityRating?: number;
   RunTimeTicks?: number; Genres?: string[]; Tags?: string[]; Taglines?: string[];
   LocalTrailerCount?: number; RemoteTrailers?: { Url?: string; Name?: string }[];
@@ -25,9 +30,19 @@ export type MovieQuery = LibraryQuery;
 export type ItemPage = { items: Item[]; total: number; nextStartIndex: number };
 export type SuggestionSection = { title: string; items: Item[] };
 
-export interface MediaApi {
+export type PlaybackContext = {
+  PlayingItemId: string;
+  PlayingItemType?: string;
+  PlayingItemExtraType?: string;
+  PlaylistItemId?: string;
+  Queue: { Id: string; PlaylistItemId?: string }[];
+};
+
+export interface MediaApi extends BrowseApi {
   serverId?: string;
+  userId?: string;
   getItem(id: string): Promise<Item>;
+  getPlaybackContext?(): Promise<PlaybackContext | null>;
   getMovies(query: MovieQuery): Promise<ItemPage>;
   getMovieGenres(parentId?: string): Promise<Item[]>;
   getMovieSuggestions(parentId?: string): Promise<SuggestionSection[]>;
@@ -46,7 +61,7 @@ export interface MediaApi {
   setFavorite(id: string, favorite: boolean): Promise<void>;
   play(item: Item, ticks: number, isCurrent: () => boolean): Promise<void>;
   playTrailer(item: Item, isCurrent: () => boolean): Promise<void>;
-  image(item: Item, kind: 'backdrop' | 'thumb' | 'logo'): string | null;
+  image(item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc'): string | null;
 }
 
 declare global {

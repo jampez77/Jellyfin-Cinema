@@ -4,6 +4,9 @@ import themeVideoStyles from './theme-video.css';
 import collectionStyles from './collection.css';
 import libraryStyles from './library.css';
 import nativeHostStyles from './native-host.css';
+import browseStyles from './browse.css';
+import pauseStyles from './pause-screen.css';
+import playerStyles from './player-browser.css';
 import { NativeHostMask } from './native-host';
 import { observeThemeVideo } from './theme-video';
 import { createJellyfinApi } from './api';
@@ -11,25 +14,34 @@ import { DetailView } from './view';
 import { GuideView } from './guide-view';
 import { CollectionView } from './collection-view';
 import { LibraryView, type LibraryTab, type LibraryBrowseState } from './library-view';
+import { BrowseView, type BrowseTab, type BrowseState } from './browse-view';
+import { createPlayerContext } from './player-context';
+import { PlayerBrowser } from './player-browser';
+import { startPauseScreen } from './pause-screen';
 import type { MediaApi, Item } from './types';
 
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles;document.head.append(sheet);
-let view:DetailView|GuideView|CollectionView|LibraryView|null=null;
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+pauseStyles+playerStyles;document.head.append(sheet);
+let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
+let disposed=false;
+let accountScope:string|null|undefined;
 const nativeHostMask=new NativeHostMask();
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
 const libraryStates=new Map<string,LibraryBrowseState>();
+const browseStates=new Map<string,BrowseState>();
+const recordingOrigins=new Set<string>();
 const movieCollectionOrigins=new Map<string,string>();
 const detailOrigins=new Set<string>();
 let stopThemeVideo: (() => void) | undefined;
-const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage';
+const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute;
+type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'};
+type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
   stopThemeVideo?.();stopThemeVideo=undefined;
   view?.destroy();view=null;activeKey='';openedHash='';
@@ -40,7 +52,22 @@ function close(restore=true):void{
 function currentRoute():Route|null{
   const [path,query='']=location.hash.replace(/^#\/?/,'').split('?');
   const params=new URLSearchParams(query);
-  if(/^livetv\/?$/i.test(path))return {kind:'guide'};
+  if(/^home\/?$/i.test(path)){
+    if(!onlyParams(params,['serverId','tab'])||(params.has('tab')&&params.get('tab')!=='0'))return null;
+    return {kind:'home'};
+  }
+  if(/^music\/?$/i.test(path)){
+    if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
+    const tabs:Record<string,BrowseTab>={'0':'albums','1':'suggestions','2':'albumArtists','3':'artists','5':'songs','6':'genres'};
+    const tab=tabs[params.get('tab')||'0'];
+    return tab?{kind:'music',parentId:params.get('topParentId')||undefined,tab}:null;
+  }
+  if(/^livetv\/?$/i.test(path)){
+    if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
+    const tab=params.get('tab')||'0';
+    if(tab==='3')return {kind:'recordings',scope:'livetv'};
+    return tab==='0'||tab==='1'?{kind:'guide'}:null;
+  }
   if(/^boxsets\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab'])||(params.has('tab')&&params.get('tab')!=='0'))return null;
     return {kind:'collections',scope:'boxsets',parentId:params.get('topParentId')||undefined};
@@ -49,6 +76,7 @@ function currentRoute():Route|null{
     // Do not replace a filtered search or an unrelated generic library list.
     const supported=['parentId','serverId','collectionType','type'];
     if(!onlyParams(params,supported))return null;
+    if(params.get('type')==='Recordings')return {kind:'recordings',scope:'list'};
     if(params.get('type')&&params.get('type')!=='BoxSet')return null;
     const parentId=params.get('parentId')||undefined;
     if(params.get('type')==='BoxSet')return {kind:'collections',scope:'list',parentId};
@@ -57,7 +85,7 @@ function currentRoute():Route|null{
   if(/^movies\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
     const parentId=params.get('topParentId')||undefined;
-    const tab=params.get('tab')||'0';
+    const tab=params.get('tab')||'1';
     if(tab==='3')return {kind:'collections',scope:'movies',parentId};
     const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','2':'favorites','4':'genres'};
     if(tabs[tab])return {kind:'movies',parentId,tab:tabs[tab]};
@@ -65,7 +93,7 @@ function currentRoute():Route|null{
   if(/^tv\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
     const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','3':'genres'};
-    const tab=tabs[params.get('tab')||'0'];
+    const tab=tabs[params.get('tab')||'1'];
     if(tab)return {kind:'shows',parentId:params.get('topParentId')||undefined,tab};
   }
   if(!/^details\/?$/i.test(path))return null;
@@ -81,25 +109,40 @@ function back():void{
   else location.hash='/home';
 }
 function hideNativeHost(route:Route):void{
-  const selector=route.kind==='guide'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.scope==='movies'?'#moviesPage':route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
+  const selector=route.kind==='home'?'#indexPage':route.kind==='music'?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
   nativeHostMask.setSelector(selector);
 }
+function scopeOf(api:MediaApi|null):string|null{
+  return api?JSON.stringify([api.serverId||'',api.userId||'']):null;
+}
+function updateAccount(api:MediaApi|null):void{
+  const scope=scopeOf(api);
+  if(accountScope===scope)return;
+  // Dispose first: views save their final state during destruction. Clear that
+  // outgoing account's state afterwards, before mounting any new account view.
+  probeRevision++;pendingHash='';close(false);accountScope=scope;dismissed='';previousFocus=null;
+  returnFocus.clear();libraryStates.clear();browseStates.clear();
+  recordingOrigins.clear();movieCollectionOrigins.clear();detailOrigins.clear();
+}
 function refresh():void{
+  if(disposed)return;
+  const api=getPlayerApi();
+  updateAccount(api);
   const tv=document.documentElement.classList.contains('layout-tv')||document.body.classList.contains('layout-tv');
   const route=currentRoute();
   if(pendingHash && pendingHash!==location.hash){pendingHash='';probeRevision++;}
   if(!tv||!route){dismissed='';pendingHash='';probeRevision++;close(false);return;}
   if(dismissed===location.hash)return;
-  const api=window.TvItemLayoutDemo?.api||createJellyfinApi();
   if(!api){close(false);return;}
-  const key=route.kind==='guide'?'guide':route.kind==='detail'?`detail:${route.id}`:route.kind==='movies'||route.kind==='shows'?`library:${location.hash}`:`collections:${route.scope}:${route.parentId||''}`;
+  const scope=scopeOf(api);
+  const key=`${scope}:${route.kind}:${location.hash}`;
   if(activeKey===key&&view){hideNativeHost(route);return;}
   if(route.kind==='collections'&&route.verifyParent){
     if(pendingHash===location.hash)return;
     close(false);
     const hash=location.hash;pendingHash=hash;const revision=++probeRevision;
     void api.getItem(route.parentId!).then(parent=>{
-      if(revision!==probeRevision||location.hash!==hash)return;
+      if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
       pendingHash='';
       if(parent.CollectionType==='boxsets')openRoute(route,api,key);
       else dismissed=hash;
@@ -112,12 +155,15 @@ function rememberFocus(id=(document.activeElement as HTMLElement)?.dataset.focus
   if(id)returnFocus.set(location.hash,id);
   if(returnFocus.size>100)returnFocus.delete(returnFocus.keys().next().value!);
 }
-function navigate(next:string,activeServerId?:string):void{
+function navigate(next:string,activeServerId?:string,fromRecording=false):void{
   rememberFocus();
   const params=new URLSearchParams({id:next});
   const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||activeServerId;
   if(serverId)params.set('serverId',serverId);
   detailOrigins.add(`#/details?${params}`);
+  if(fromRecording)recordingOrigins.add(`#/details?${params}`);
+  else recordingOrigins.delete(`#/details?${params}`);
+  if(recordingOrigins.size>100)recordingOrigins.delete(recordingOrigins.values().next().value!);
   if(detailOrigins.size>100)detailOrigins.delete(detailOrigins.values().next().value!);
   location.hash=`/details?${params}`;
 }
@@ -134,7 +180,15 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
-  const go=(id:string)=>navigate(id,api.serverId);
+  const go=(id:string)=>navigate(id,api.serverId,route.kind==='recordings');
+  const navigateRoute=(hash:string)=>{
+    rememberFocus();
+    const [path,query='']=hash.replace(/^#/,'').split('?');
+    const params=new URLSearchParams(query);
+    const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;
+    if(serverId&&!params.has('serverId'))params.set('serverId',serverId);
+    location.hash=path+(params.toString()?`?${params}`:'');
+  };
   if(route.kind==='guide')view=new GuideView(api,{back});
   else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
   else if(route.kind==='movies'||route.kind==='shows'){
@@ -159,13 +213,28 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
       location.hash=target;
     }});
   }
+  else if(route.kind==='home'||route.kind==='music'||route.kind==='recordings'){
+    const hash=location.hash;
+    view=new BrowseView(api,{...route,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
+      browseStates.set(hash,state);
+      if(browseStates.size>100)browseStates.delete(browseStates.keys().next().value!);
+    }});
+  }
   else {
     const openCollection=(item:Item)=>{
       stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
       view=new CollectionView(api,{item,back,navigate:go,focusId});
       document.body.append(view.element);void view.load();
     };
-    view=new DetailView(api,{id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo&&!detailOrigins.has(location.hash))dismiss();else back();},focusId,navigate:go,openCollection,openGuide:()=>{
+    const openAdditional=(item:Item):boolean=>{
+      const kind=['MusicAlbum','MusicArtist','Audio'].includes(item.Type||'')?'music'
+        :recordingOrigins.has(location.hash)||['Video','Recording'].includes(item.Type||'')||item.Type==='Episode'&&!item.SeriesId?'recordings':null;
+      if(!kind)return false;
+      stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
+      view=new BrowseView(api,{kind,item,back,navigate:go,navigateRoute,focusId});
+      document.body.append(view.element);void view.load();return true;
+    };
+    view=new DetailView(api,{id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo&&!detailOrigins.has(location.hash))dismiss();else back();},focusId,navigate:go,openCollection,openAdditional,openGuide:()=>{
       rememberFocus('guide');
       const params=new URLSearchParams({collectionType:'livetv'});
       const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;
@@ -177,7 +246,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   if(route.kind==='detail')stopThemeVideo=observeThemeVideo(view.element);
   void view.load();
 }
-const schedule=()=>{window.clearTimeout(timer);timer=window.setTimeout(refresh,30);};
+const schedule=()=>{if(disposed)return;window.clearTimeout(timer);timer=window.setTimeout(refresh,30);};
 // Native cached pages rotate DOM slots, so DOM order cannot identify the owner.
 // A hide event on the overlay's current route belongs to an outgoing native
 // transition. Release the overlay once navigation has actually left its route.
@@ -192,5 +261,12 @@ document.addEventListener('tabchange',schedule,true);
 const observer=new MutationObserver(schedule);
 observer.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 observer.observe(document.body,{attributes:true,attributeFilter:['class']});
-window.TvItemLayout={refresh,destroy(){probeRevision++;pendingHash='';close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.removeEventListener('hashchange',schedule);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
+const getPlayerApi=()=>window.TvItemLayoutDemo?.api||createJellyfinApi();
+const playerContext=createPlayerContext(getPlayerApi);
+const playerBrowser=new PlayerBrowser(playerContext,getPlayerApi);
+const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerContext.getSnapshot,subscribe:playerContext.subscribe});
+// Jellyfin's account events live on its private module event bus. Poll only
+// identity so sign-out/server switches also clear non-player pages promptly.
+const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',schedule);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
 schedule();

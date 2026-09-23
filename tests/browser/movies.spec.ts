@@ -1,9 +1,23 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const route = '/#/movies?topParentId=library-movies';
+const baseRoute = '/#/movies?topParentId=library-movies';
+const route = `${baseRoute}&tab=0`;
 const movies = (page: Page) => page.getByRole('dialog', { name: 'Movies', exact: true });
 const cards = (page: Page) => movies(page).locator('[data-movie-item]');
 const search = (page: Page) => movies(page).getByRole('searchbox', { name: 'Search movies', exact: true });
+
+test('Movies opens Suggestions first by default and preserves an explicit All movies choice', async ({ page }) => {
+  await page.goto(baseRoute);
+  const root = movies(page);
+  await expect(root.locator('[data-library-tab]').first()).toHaveText('Suggestions');
+  await expect(root.getByRole('button', { name: 'Suggestions', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(root.getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
+  await root.getByRole('button', { name: 'All movies', exact: true }).click();
+  await root.getByRole('button', { name: 'After the Tide', exact: true }).click();
+  await page.getByRole('dialog', { name: 'After the Tide details', exact: true }).getByRole('button', {name:'Back', exact:true}).click();
+  await expect(root.getByRole('button', { name: 'All movies', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(cards(page)).toHaveCount(5);
+});
 
 async function patchDemo(page: Page, source: string) {
   await page.route('**/dist/demo.js', async request => {
@@ -23,7 +37,7 @@ test('movie search keeps native caret and Backspace keys, submits with Enter or 
   await expect.poll(() => search(page).evaluate(input => (input as HTMLInputElement).selectionStart)).toBe(3);
   await search(page).press('ArrowRight');
   await expect.poll(() => search(page).evaluate(input => (input as HTMLInputElement).selectionStart)).toBe(4);
-  await expect(page).toHaveURL(/#\/movies\?topParentId=library-movies$/);
+  await expect(page).toHaveURL(/#\/movies\?topParentId=library-movies&tab=0$/);
   await search(page).press('Enter');
   await expect(cards(page)).toHaveCount(1);
   await expect(cards(page)).toHaveAttribute('data-movie-item', 'movie-tide');
@@ -96,7 +110,7 @@ test('A-Z and numbers filters send the selected letter within the current movie 
 });
 
 test('Genres URL opens genre browsing and a selected genre filters the movie grid', async ({ page }) => {
-  await page.goto(`${route}&tab=4`);
+  await page.goto(`${baseRoute}&tab=4`);
   const root = movies(page);
   await expect(root.getByRole('button', { name: 'Genres', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await root.getByRole('button', { name: 'Mystery', exact: true }).click();
@@ -110,7 +124,7 @@ test('Genres URL opens genre browsing and a selected genre filters the movie gri
 });
 
 test('Suggestions URL shows recommendation sections and returns to the originating card from details', async ({ page }) => {
-  await page.goto(`${route}&tab=1`);
+  await page.goto(`${baseRoute}&tab=1`);
   const root = movies(page);
   await expect(root.getByRole('button', { name: 'Suggestions', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const resume = root.getByRole('region', { name: 'Continue watching', exact: true }).getByRole('button', { name: 'After the Tide', exact: true });
@@ -123,7 +137,7 @@ test('Suggestions URL shows recommendation sections and returns to the originati
 });
 
 test('Favourites refresh after a detail change and detail Back restores the chosen card', async ({ page }) => {
-  await page.goto(`${route}&tab=2`);
+  await page.goto(`${baseRoute}&tab=2`);
   const root = movies(page);
   await expect(root.getByRole('button', { name: 'Favourites', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(cards(page)).toHaveCount(1);
@@ -161,7 +175,7 @@ test('Collections opens the styled list and Back preserves the movie search and 
 });
 
 test('a direct Movies Collections URL returns to All movies on Back', async ({ page }) => {
-  await page.goto(`${route}&tab=3`);
+  await page.goto(`${baseRoute}&tab=3`);
   const collections = page.getByRole('dialog', { name: 'Collections', exact: true });
   await expect(collections.getByRole('button', { name: 'Coastal Stories', exact: true })).toBeFocused();
   await collections.getByRole('button', { name: 'Back', exact: true }).click();

@@ -26,7 +26,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': 'Adds TV Shows library browsing with native Continue watching, Next up and Recently added suggestions, genres, search, A-Z/# and favourites. Hides old native page controls beneath theme videos while preserving playback. Guide artwork retains its proportions and stays clipped above the schedule. Requires File Transformation and Jellyfin Web in TV display mode.',
+        'changelog': 'Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.',
         'targetAbi': target,
         'sourceUrl': f'https://github.com/{repository}/releases/download/v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
@@ -44,8 +44,8 @@ versions.sort(key=lambda item: tuple(map(int, item['version'].split('.'))), reve
 manifest = [{
     'guid': plugin_id,
     'name': 'TV Item Layout',
-    'overview': 'Cinematic TV layouts for movies, series and Live TV.',
-    'description': 'Netflix-inspired media detail pages, Movies, TV Shows and Collections browsing, and a main Live TV guide for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal programme guide with highlighted show artwork. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
+    'overview': 'Cinematic TV browsing, live guide and player layouts.',
+    'description': 'Netflix-inspired Home, Movies, TV Shows, Music, Recordings and Collections, a horizontal Live TV guide, in-player browsing and pause artwork for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and tune channels directly from the guide. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
     'owner': 'jampez77',
     'category': 'General',
     'versions': versions,

@@ -115,6 +115,7 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
   }
   let id = item.Id;
   let type = item.Type;
+  if (type === 'Recording') type = 'Video';
   if (type === 'Program') {
     const start = Date.parse(item.StartDate || '');
     const end = Date.parse(item.EndDate || '');
@@ -124,8 +125,8 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     id = item.ChannelId;
     type = 'TvChannel';
   }
-  if (type !== 'Movie' && type !== 'Episode' && type !== 'TvChannel' && type !== 'Trailer') {
-    throw new Error('Choose an available episode, film, trailer, or live channel to play.');
+  if (!['Movie', 'Episode', 'TvChannel', 'Trailer', 'Audio', 'MusicAlbum', 'Video'].includes(type || '')) {
+    throw new Error('Choose an available video, album, song, or live channel to play.');
   }
   const position = type === 'TvChannel' || !Number.isFinite(ticks) ? 0 : Math.max(0, Math.trunc(ticks));
   if (clickCurrentMovie(item, position)) return;
@@ -147,9 +148,9 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     card.className = 'itemAction';
     card.dataset.id = id;
     card.dataset.type = type;
-    card.dataset.mediatype = 'Video';
+    card.dataset.mediatype = type === 'Audio' || type === 'MusicAlbum' ? 'Audio' : 'Video';
     card.dataset.serverid = serverId;
-    card.dataset.isfolder = 'false';
+    card.dataset.isfolder = type === 'MusicAlbum' ? 'true' : 'false';
     card.dataset.positionticks = String(position);
     container.appendChild(card);
     document.body.appendChild(container);

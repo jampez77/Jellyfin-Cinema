@@ -35,7 +35,10 @@ export class GuideView {
     });
     content.append(header, this.guide.element);
     this.element.append(content, this.status);
-    this.removeRemote = attachRemote(this.element, options.back, direction => this.guide.move(direction));
+    this.removeRemote = attachRemote(this.element, options.back, direction => {
+      if (direction === 'down' && document.activeElement === this.backButton) { this.guide.focus(); return true; }
+      return this.guide.move(direction);
+    });
   }
 
   async load(): Promise<void> {

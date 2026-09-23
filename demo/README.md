@@ -7,6 +7,11 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 - **TV Shows:** browse five fictional series using search, genres, A–Z/#, favourites and native-style episode suggestions. Open North of Nowhere to try its full episode browser. North of Nowhere has three seasons and six episodes per season. The first episode is watched; the second is partially watched. Down from the last episode advances to the next season; Up from the first returns to the previous season’s last episode.
 - **Movies:** the library includes search, letter filters, genres, favourites and suggestions. Open a card to view its details; After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
 - **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and artwork for the highlighted programme fits above the schedule, including future programmes. The schedule is calculated when the page loads.
+- **Home:** library links, Continue watching, Next up and latest additions, with a featured title. Native-only destinations such as settings/search are not simulated.
+- **Music:** fictional albums, artists and tracks, with search, genres, A–Z/#, favourites and suggestions. Open an artist to see albums, then an album to select its tracks.
+- **Recordings:** completed and active recordings, search and direct playback. Scheduling links point to Jellyfin's native pages, which the local fixture does not implement.
+
+Movies and TV Shows start on Suggestions. Selecting a currently live programme or a channel name in the guide starts its simulated channel; upcoming programmes stay selected without playback.
 
 The Live TV preview opens the main guide at `/#/livetv?collectionType=livetv`. Channel details remain available at `/#/details?id=channel-field`; their **Channels & guide** button links to the main guide.
 
@@ -19,6 +24,9 @@ Use the address bar to open an item directly:
 - `/#/movies?topParentId=library-movies`
 - `/#/details?id=movie-tide`
 - `/#/details?id=channel-field`
+- `/#/home`
+- `/#/music?topParentId=library-music&collectionType=music`
+- `/#/livetv?tab=3&collectionType=livetv`
 
 ## Failure and loading scenarios
 
@@ -36,3 +44,5 @@ Remove the query and reload to restore ordinary behaviour. All titles, descripti
 The preview includes **Coastal Stories** for After the Tide and **Into the Wilderness** for North of Nowhere. Collection cards open the styled collection page with links to its members. The Collections preview control opens the library list at `/#/list?parentId=library-collections`. Back restores the selected card. Series overviews now scroll down to recommendations as well as collections.
 
 Native theme-video integration is covered by browser tests using a local canvas video stream. The preview does not download or autoplay a sample theme video; installed Jellyfin clients use their existing theme player and preferences.
+
+In-player browsing and the pause screen are tested with real local canvas video streams in the browser suite. The regular demo playback screen remains a labelled simulation; it does not reproduce Jellyfin’s actual player. Test the integrated player UI on the installed server using Down/Browse or Pause.

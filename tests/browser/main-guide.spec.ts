@@ -19,10 +19,13 @@ test('the main Live TV route loads channels directly and focuses the first curre
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
   await expect(page.locator('body')).not.toHaveAttribute('data-unexpected-item-request');
   await expect(root.getByRole('button', { name: 'Jellyfin layout', exact: true })).toHaveCount(0);
+  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
+  await expect(root.locator('.tvl-epg-footer')).not.toBeVisible();
+  await expect(root.getByText(/24-hour guide|channels ·/)).toHaveCount(0);
   await expect(root.getByRole('region', { name: 'Selected programme' }).getByRole('img')).toHaveAttribute('alt', 'The Secret Life of Forests');
 });
 
-test('the main guide keeps upcoming selection separate from explicit live playback and returns from the player', async ({ page }) => {
+test('selecting a live programme tunes its channel while an upcoming selection stays in the guide', async ({ page }) => {
   await page.goto(guideRoute);
   const root = guide(page);
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
@@ -34,8 +37,7 @@ test('the main guide keeps upcoming selection separate from explicit live playba
   await expect(page).toHaveURL(/#\/livetv\?collectionType=livetv$/);
   await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
   await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('ArrowUp');
-  await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeFocused();
+  await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
   await page.keyboard.press('Enter');
   const player = page.getByRole('main', { name: 'Demo playback' });
   await expect(player.getByRole('heading')).toHaveText('Field Notes');
@@ -54,6 +56,34 @@ test('an empty main guide keeps Back available without inventing a channel', asy
   await expect(root.getByRole('button', { name: 'Back', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(root).toHaveCount(0);
+});
+
+test('clicking a live programme on another row plays that channel directly', async ({ page }) => {
+  await page.goto(guideRoute);
+  await guide(page).locator('[data-program="channel-outside-program-1"]').click();
+  await expect(page.getByRole('main', { name: 'Demo playback' }).getByRole('heading')).toHaveText('Outside');
+});
+
+test('select on a channel name tunes it even without programme information', async ({ page }) => {
+  await patchDemo(page, `const get = api.getChannels; api.getChannels = async () => (await get()).map(channel => ({...channel, CurrentProgram:undefined})); api.getPrograms = async () => [];`);
+  await page.goto(guideRoute);
+  const channel = guide(page).locator('[data-channel="channel-outside"]');
+  await channel.focus();
+  await expect(guide(page).getByRole('region', { name: 'Selected programme' })).toContainText('Outside');
+  await channel.evaluate(element => element.dispatchEvent(new CustomEvent('command', {bubbles:true, cancelable:true, detail:{command:'select'}})));
+  await expect(page.getByRole('main', { name: 'Demo playback' }).getByRole('heading')).toHaveText('Outside');
+});
+
+test('a live programme that has just ended does not tune on activation', async ({ page }) => {
+  await page.clock.install();
+  await page.goto(guideRoute);
+  const card = guide(page).locator('[data-program="channel-field-program-1"]');
+  await expect(card).toBeFocused();
+  // Change wall time without firing the periodic guide refresh.
+  await page.clock.setSystemTime(Date.now() + 5 * 60 * 60 * 1000);
+  await card.click();
+  await expect(guide(page)).toBeVisible();
+  await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
 });
 
 test('channel-list errors can be retried from the remote on the main guide', async ({ page }) => {
@@ -104,7 +134,7 @@ test('native view events activate a history-pushed guide and restore its host af
   await page.clock.runFor(100);
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
   await page.evaluate(() => {
-    history.pushState(null, '', '#/home');
+    history.pushState(null, '', '#/settings');
     document.querySelector('#liveTvSuggestedPage')!.dispatchEvent(new Event('viewshow'));
   });
   await expect(root).toHaveCount(0);
@@ -134,7 +164,7 @@ test('playback failures keep their useful message and allow another launch', asy
   await page.goto(guideRoute);
   const root = guide(page);
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
-  const watch = root.getByRole('button', { name: 'Watch live', exact: true });
+  const watch = root.locator('[data-program="channel-field-program-1"]');
   await watch.click();
   await expect(root.getByRole('status')).toHaveText('No tuner is currently available.');
   await expect(watch).not.toHaveAttribute('aria-busy', 'true');
@@ -150,7 +180,7 @@ test('a stalled live launch times out and cannot start later after cancellation'
   await page.goto(guideRoute);
   const root = guide(page);
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
-  const watch = root.getByRole('button', { name: 'Watch live', exact: true });
+  const watch = root.locator('[data-program="channel-field-program-1"]');
   await watch.click();
   await expect(root.getByRole('status')).toHaveText('Tuning channel…');
   await page.clock.fastForward(16_000);

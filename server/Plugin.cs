@@ -29,5 +29,5 @@ public sealed class Plugin : BasePlugin<BasePluginConfiguration>
 
     public override Guid Id => Guid.Parse(PluginId);
 
-    public override string Description => "Cinematic TV layouts for Jellyfin movie, series, and Live TV detail pages.";
+    public override string Description => "Cinematic Jellyfin TV browsing, live guide, in-player previews and pause artwork.";
 }

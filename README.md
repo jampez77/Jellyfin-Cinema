@@ -2,16 +2,25 @@
 
 Cinematic media detail pages for Jellyfin’s **TV layout**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV).
 
-This independent plugin styles media detail pages **before playback**, the Movies and TV Shows libraries and Collections, and replaces the main Live TV page with a landscape programme guide. It can run alongside InPlayerEpisodePreview-TV, which provides browsing inside the player. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
+This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
 ## The layouts
 
-- **TV Shows library:** the same browse layout as Movies, with All shows, Suggestions, Favourites, Genres, search, A–Z/# filters and Collections. Suggestions show Jellyfin’s Continue watching, Next up and Recently added items, with episode titles and numbers.
+- **Home:** a featured title, your libraries, Continue watching, Next up and latest additions, with access to native search, favourites and settings.
+- **Music:** albums, album artists, artists, songs, genres, suggestions and favourites, with search and A–Z/#. Open an artist’s albums or an album’s tracks and use Jellyfin’s native audio playback. Now playing opens its native playback controls; Playlists remains accessible through the native page.
+- **Recordings:** completed and active recordings, search and pagination, with direct details/playback. The recording schedule and series-recording controls remain available through Jellyfin’s native pages.
+
+- **TV Shows library:** the same browse layout as Movies, opening Suggestions by default, with All shows, Favourites, Genres, search, A–Z/# filters and Collections. Suggestions show Jellyfin’s Continue watching, Next up and Recently added items, with episode titles and numbers.
 - **TV Show details:** backdrop and title artwork, next-episode/resume action, and a dedicated browser with seasons on the left and episode thumbnails, synopses and watch progress on the right. Down from a season’s last episode opens the next season’s first episode; Up from its first episode opens the previous season’s last. Season and episode detail links open the corresponding show. Scroll down for collection links and More like this recommendations.
-- **Movies library:** All movies, Suggestions, Favourites and Genres, with search and A–Z/# title filters. Suggestions use Jellyfin’s continue-watching, recently-added and recommendation lists. Browse in pages, open a film and return to the same filters and selected card. Collections remain one click away.
+- **Movies library:** opens Suggestions by default, with All movies, Favourites and Genres, with search and A–Z/# title filters. Suggestions use Jellyfin’s continue-watching, recently-added and recommendation lists. Browse in pages, open a film and return to the same filters and selected card. Collections remain one click away.
 - **Movie details:** a large backdrop, title, Play/Resume, a trailer button with a clapperboard icon, favourites, runtime/rating/quality when available, cast and genres, and a More like this grid. Trailer playback uses Jellyfin’s own trailer action or an available local trailer; unavailable trailers show a clear message. Recommendations open their own detail pages. Collection cards show which collections contain the movie and open their collection pages in the same style.
 - **Collections:** a cinematic collections list and individual collection pages with artwork, descriptions and a remote-friendly grid. Open a member or nested collection, then use Back to return to the selected card. The Collections library and the Movies Collections tab use this layout.
-- **Live TV:** current programme, broadcast times and live progress, plus a landscape guide with channel rows and programmes laid out horizontally under a shared time axis. The highlighted programme’s artwork keeps its original proportions on the right and blends into the background, confined above the schedule, with its title, synopsis and live/upcoming status over a left fade. Missing or failed programme artwork falls back to the channel logo. Left/Right moves through a channel’s schedule; Up/Down moves between channels. Watch live tunes the selected channel; future programmes show details without changing playback.
+- **Live TV:** current programme, broadcast times and live progress, plus a landscape guide with channel rows and programmes laid out horizontally under a shared time axis. The highlighted programme’s artwork keeps its original proportions on the right and blends into the background, confined above the schedule, with its title, synopsis and live/upcoming status over a left fade. Missing or failed programme artwork falls back to the channel logo. Left/Right moves through a channel’s schedule; Up/Down moves between channels. Select a currently live programme or a channel name to tune that channel. Future programmes show details without changing playback. The hero has no separate Watch live button, and the guide has no channel-count footer.
+
+- **During playback:** Down or the Browse control opens episodes across every available season, similar films, or live channels. Left/Right browses, OK plays/resumes, and Back returns to playback. Episode browsing wraps across seasons and the whole series. Cinema intros use the current device’s queue to identify the upcoming feature. A new selection stays open until local playback is confirmed, with a retry if it fails.
+- **Pause screen:** logo/title, metadata, synopsis and optional disc artwork appear when video is paused. Missing logo/disc art can come from the season or series; the synopsis stays with the playing item. The treatment yields to native dialogs and in-player browsing, and disappears on resume.
+
+If the separate InPlayerEpisodePreview-TV or PauseScreen plugin is installed, its feature takes precedence to avoid duplicate controls. Disable the corresponding standalone plugin to use this plugin’s integrated treatment.
 
 Movie and series pages reveal Jellyfin’s existing theme video behind readable gradients when it is playing. Theme playback remains controlled by Jellyfin’s user settings; the plugin does not start another stream. Static artwork returns when the video is unavailable. Native page controls are hidden visually while our layout is open, while remaining available to Jellyfin’s playback actions.
 
@@ -27,11 +36,11 @@ npm run build
 npm run dev
 ```
 
-Open [the local preview](http://127.0.0.1:4173). The controls at the top switch between TV Shows, Movies, Live TV and Collections. This preview runs the production layout against fictional library data; playback is explicitly simulated. Its photos are local assets, and it does not connect to a server or need credentials. See [demo scenarios](demo/README.md).
+Open [the local preview](http://127.0.0.1:4173). The controls at the top switch between Home, TV Shows, Movies, Live TV, Collections, Music and Recordings. This preview runs the production layout against fictional library data; playback is explicitly simulated. Its photos are local assets, and it does not connect to a server or need credentials. See [demo scenarios](demo/README.md).
 
 ## Install
 
-The [v0.1.5 test release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.5) is available for Jellyfin 10.10.7, 10.11.x and 12.x. In **Dashboard → Plugins → Repositories**, add:
+The [v0.1.6 test release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.6) is available for Jellyfin 10.10.7, 10.11.x and 12.x. In **Dashboard → Plugins → Repositories**, add:
 
 ```text
 https://raw.githubusercontent.com/jampez77/Jellyfin-TV-Item-Layout/main/manifest.json
@@ -45,7 +54,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The final plugin version component identifies the server target: `0.1.5.1` for 10.10.7, `0.1.5.2` for 10.11.x and `0.1.5.3` for 12.x. The catalogue selects the compatible build. Release preparation is documented in [publishing](docs/publishing.md).
+The final plugin version component identifies the server target: `0.1.6.1` for 10.10.7, `0.1.6.2` for 10.11.x and `0.1.6.3` for 12.x. The catalogue selects the compatible build. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -70,6 +79,9 @@ The browser suite exercises the actual layout against a simulated Jellyfin API. 
 | `src/library-view.ts`, `src/library.css` | Shared Movies and TV Shows filters, suggestions and paginated browsing |
 | `src/collection-view.ts`, `src/collection.css` | Collections list and member browsing |
 | `src/api.ts`, `src/local-playback.ts` | Authenticated Jellyfin data and native playback bridge |
+| `src/browse-api.ts`, `src/browse-view.ts`, `src/browse.css` | Home, Music and Recordings |
+| `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
+| `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
 | `src/native-host.ts`, `src/native-host.css` | Native page visibility and restoration |
 | `src/index.ts`, `src/theme-video.ts` | Route lifecycle, native theme-video visibility and page restoration |
 | `server/` | Independent server plugin and File Transformation integration |
@@ -77,4 +89,4 @@ The browser suite exercises the actual layout against a simulated Jellyfin API. 
 
 ## Credits
 
-Integration and local playback code are adapted from [jampez77/InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV), based on [Namo2/InPlayerEpisodePreview](https://github.com/Namo2/InPlayerEpisodePreview). Original MIT notices are retained in [LICENSE.md](LICENSE.md) and the packaged server licence. The TV design takes inspiration from the supplied Netflix [overview](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-More-episodes.jpg) and [season browser](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-Change-season.jpg), and the supplied movie reference. No Netflix branding, film artwork, or fabricated ranking data is bundled. Demo photo sources are listed in [artwork credits](demo/assets/CREDITS.md).
+Integration and local playback code are adapted from [jampez77/InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV), based on [Namo2/InPlayerEpisodePreview](https://github.com/Namo2/InPlayerEpisodePreview). The pause-screen behavior is independently implemented from [jampez77/Jellyfin-PauseScreen](https://github.com/jampez77/Jellyfin-PauseScreen); its code is not copied. Original MIT notices for InPlayerEpisodePreview are retained in [LICENSE.md](LICENSE.md) and the packaged server licence. The TV design takes inspiration from the supplied Netflix [overview](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-More-episodes.jpg) and [season browser](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-Change-season.jpg), and the supplied movie reference. No Netflix branding, film artwork, or fabricated ranking data is bundled. Demo photo sources are listed in [artwork credits](demo/assets/CREDITS.md).

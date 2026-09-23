@@ -32,6 +32,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .demo-player button:focus-visible { outline: 3px solid white; outline-offset: 5px; }
 .demo-player-key { display: block; margin-top: 22px; color: #b6b8bf; font-size: 11px; }
 .demo-is-playing .demo-switcher { display: none; }
+#tv-layout[data-pane="home"] .tvl-browse-global { position:absolute; top:70px; right:4.5vw; }
+#tv-layout.tvl-browse-view .tvl-header > [data-focus-id="now-playing"] { position:absolute; top:68px; right:4.5vw; }
 @media (max-width: 650px) { .demo-switcher { top: 18px; gap: 1px; padding: 4px; } .demo-label { display: none; } .demo-switcher a { font-size: 10px; padding: 7px 10px; } .demo-native-brand { margin-top: 50px; } }
 @media (prefers-reduced-motion: reduce) { .demo-switcher a { transition: none; } }
 .demo-collection-page { overflow-y:auto; }

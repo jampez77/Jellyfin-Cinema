@@ -17,17 +17,17 @@ The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/j
 4. Restart Jellyfin. Check Dashboard → Plugins for **TV Item Layout**. The server log should contain `TV Item Layout registered with File Transformation`.
 5. Reload Jellyfin Web, then select **TV** display mode in your user's display settings. Fully close and reopen a web-based TV app to clear its loaded client. Open a movie, series, or Live TV item.
 
-The [v0.1.5 release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.5) adds matching TV Shows library browsing, hides native controls beneath theme videos, and fits guide artwork above the schedule without excessive cropping. Choose a plugin version that matches your Jellyfin server:
+The [v0.1.6 release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.6) adds Home, Music and Recordings layouts, integrated in-player browsing and pause artwork, direct guide selection, and Suggestions as the default Movies/TV Shows view. Choose a plugin version that matches your Jellyfin server:
 
 | Jellyfin server | TV Item Layout version |
 | --- | --- |
-| 10.10.7 | `0.1.5.1` |
-| 10.11.x | `0.1.5.2` |
-| 12.x | `0.1.5.3` |
+| 10.10.7 | `0.1.6.1` |
+| 10.11.x | `0.1.6.2` |
+| 12.x | `0.1.6.3` |
 
 The repository lists all three targets and Jellyfin filters them by server compatibility. Physical remotes and real-server playback still need installation testing.
 
-If TV Item Layout is already installed, update it from the catalogue, restart Jellyfin, and fully reopen the client. On Jellyfin 12 the new plugin version is **0.1.5.3**. In TV display mode, **Live TV** now opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Desktop and mobile layouts retain Jellyfin's normal pages.
+If TV Item Layout is already installed, update it from the catalogue, restart Jellyfin, and fully reopen the client. On Jellyfin 12 the new plugin version is **0.1.6.3**. In TV display mode, **Live TV** now opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Desktop and mobile layouts retain Jellyfin's normal pages.
 
 Theme videos use Jellyfin’s existing background player and follow its theme-video preference. If there is no playable theme video, the static backdrop remains. Collections list actual membership and open styled collection pages. The Collections library, explicit BoxSet list, and Movies → Collections tab also use the new layout. The Movies and TV Shows libraries also use the new style, including Jellyfin suggestions, favourites, genres, search and A–Z/# browsing. Native Upcoming, Networks and Episodes TV routes remain available through Jellyfin. Unrelated library lists and unsupported URL filters retain their native pages.
 
@@ -52,13 +52,13 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. Release `0.1.5` uses the target-specific plugin versions above. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. Release `0.1.6` uses the target-specific plugin versions above. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
 1. In Dashboard → Plugins → Repositories, add the repository from the [File Transformation installation instructions](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation#installation): `https://www.iamparadox.dev/jellyfin/plugins/manifest.json`.
 2. Install **File Transformation** from the catalogue, choosing a release compatible with your Jellyfin version.
-3. Download the matching archive from the [release assets](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.5). Stop Jellyfin. Create a folder named for the matching plugin version, such as `TV Item Layout_0.1.5.3` for Jellyfin 12, inside your server's configured `plugins` directory and extract the ZIP into it. Keep the DLL directly inside this new folder. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
+3. Download the matching archive from the [release assets](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.6). Stop Jellyfin. Create a folder named for the matching plugin version, such as `TV Item Layout_0.1.6.3` for Jellyfin 12, inside your server's configured `plugins` directory and extract the ZIP into it. Keep the DLL directly inside this new folder. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
 4. Start Jellyfin. Check Dashboard → Plugins for **TV Item Layout**. The server log should contain `TV Item Layout registered with File Transformation`.
 5. Reload Jellyfin Web, then select the TV display mode in your user's display settings. Open a movie, series, or Live TV item.
 
@@ -95,3 +95,9 @@ They do not start a Jellyfin server or establish native client compatibility.
 - The plugin changes media detail views and the main Live TV page in the web TV layout. Native Android TV, Roku, and other clients with their own UI are outside this integration.
 
 To uninstall, remove **TV Item Layout** through Dashboard → Plugins and restart, or stop Jellyfin and remove its versioned `TV Item Layout_…` plugin folder manually. Reload the web client and remove any manually inserted script tag. File Transformation can remain installed for other plugins.
+
+## Integrated player features
+
+In TV display mode, press Down during video playback or choose the Browse control to open the episode/film/channel browser. Pause video to show its artwork and synopsis. Existing standalone preview/pause plugins take precedence when detected; disable those plugins to use these integrated layouts.
+
+`TvItemLayout/PlaybackContext` is an authenticated, uncached read endpoint. It resolves only the request’s current user and device and returns playing identity and queue, without credentials or unrelated session data. It supports cinema intro resolution; browsing can still use the native player’s identity if this endpoint is unavailable. Native playback and user media permissions remain controlled by Jellyfin.

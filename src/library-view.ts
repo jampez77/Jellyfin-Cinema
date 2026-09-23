@@ -56,7 +56,7 @@ export class LibraryView {
   private removeRemote: () => void;
 
   constructor(private api: MediaApi, private options: Options) {
-    this.state = { tab: options.initialTab || 'all', search: '', letter: '', loadedCount: 0, ...options.state };
+    this.state = { tab: options.initialTab || 'suggestions', search: '', letter: '', loadedCount: 0, ...options.state };
     this.nextFocus = options.focusId || this.state.focusId || '';
     this.initialScroll = this.state.scrollTop || 0;
     this.restoring = !!(options.state || options.focusId);
@@ -111,7 +111,7 @@ export class LibraryView {
 
   private renderControls(): void {
     replace(this.navigation);
-    const tabs: [LibraryTab, string][] = [['all', `All ${this.plural}`], ['suggestions', 'Suggestions'], ['favorites', 'Favourites'], ['genres', 'Genres']];
+    const tabs: [LibraryTab, string][] = [['suggestions', 'Suggestions'], ['all', `All ${this.plural}`], ['favorites', 'Favourites'], ['genres', 'Genres']];
     for (const [tab, label] of tabs) {
       const control = button(label, '', 'tvl-library-tab', () => {
         this.change({ tab, search: '', letter: '', genreId: undefined, genreName: undefined }, `tab:${tab}`);

@@ -25,7 +25,7 @@ export class DetailView {
   private favoritePending = false;
   private restoreId = '';
 
-  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; focusId?: string }) {
+  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; openAdditional?: (item: Item) => boolean; focusId?: string }) {
     this.restoreId = options.focusId || '';
     this.element.id = 'tv-layout';
     this.element.setAttribute('role', 'dialog');
@@ -43,6 +43,7 @@ export class DetailView {
       const requested = await this.api.getItem(this.options.id);
       if (this.disposed) return;
       this.item = requested;
+      if (this.options.openAdditional?.(requested)) return;
       if (requested.Type === 'Season' || requested.Type === 'Episode') {
         if (!requested.SeriesId) { this.options.close(); return; }
         this.item = await this.api.getItem(requested.SeriesId);

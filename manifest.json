@@ -2,11 +2,35 @@
   {
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "TV Item Layout",
-    "overview": "Cinematic TV layouts for movies, series and Live TV.",
-    "description": "Netflix-inspired media detail pages, Movies, TV Shows and Collections browsing, and a main Live TV guide for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal programme guide with highlighted show artwork. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "overview": "Cinematic TV browsing, live guide and player layouts.",
+    "description": "Netflix-inspired Home, Movies, TV Shows, Music, Recordings and Collections, a horizontal Live TV guide, in-player browsing and pause artwork for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and tune channels directly from the guide. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "versions": [
+      {
+        "version": "0.1.6.3",
+        "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.6/TvItemLayout_0.1.6.3_jellyfin-12.0.0.zip",
+        "checksum": "996a1b35ff71cd178661e721e2dfffb1",
+        "timestamp": "2026-09-23T10:53:57Z"
+      },
+      {
+        "version": "0.1.6.2",
+        "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.6/TvItemLayout_0.1.6.2_jellyfin-10.11.0.zip",
+        "checksum": "768727739299dec4d5473a6a6a02076d",
+        "timestamp": "2026-09-23T10:53:57Z"
+      },
+      {
+        "version": "0.1.6.1",
+        "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.6/TvItemLayout_0.1.6.1_jellyfin-10.10.7.zip",
+        "checksum": "346444843328849bc3bb1583de100514",
+        "timestamp": "2026-09-23T10:53:57Z"
+      },
       {
         "version": "0.1.5.3",
         "changelog": "Adds TV Shows library browsing with native Continue watching, Next up and Recently added suggestions, genres, search, A-Z/# and favourites. Hides old native page controls beneath theme videos while preserving playback. Guide artwork retains its proportions and stays clipped above the schedule. Requires File Transformation and Jellyfin Web in TV display mode.",

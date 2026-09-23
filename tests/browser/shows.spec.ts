@@ -1,9 +1,19 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const route = '/#/tv?topParentId=library-tv&collectionType=tvshows';
+const baseRoute = '/#/tv?topParentId=library-tv&collectionType=tvshows';
+const route = `${baseRoute}&tab=0`;
 const shows = (page: Page) => page.getByRole('dialog', { name: 'TV Shows', exact: true });
 const cards = (page: Page) => shows(page).locator('[data-show-item]');
 const search = (page: Page) => shows(page).getByRole('searchbox', { name: 'Search shows', exact: true });
+
+test('TV Shows opens Suggestions first by default', async ({ page }) => {
+  await page.goto(baseRoute);
+  const root = shows(page);
+  await expect(root.locator('[data-library-tab]').first()).toHaveText('Suggestions');
+  await expect(root.getByRole('button', { name: 'Suggestions', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(root.getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
+  await expect(root.getByRole('region', { name: 'Next up', exact: true })).toBeVisible();
+});
 
 async function patchDemo(page: Page, source: string) {
   await page.route('**/dist/demo.js', async request => {
@@ -37,7 +47,7 @@ test('TV library browses shows with search, A-Z/# and library-scoped genres', as
 
 test('TV suggestions show episode identity and open the selected episode rather than next up', async ({ page }) => {
   await patchDemo(page, `api.serverId = 'active-server';`);
-  await page.goto(`${route}&tab=1`);
+  await page.goto(`${baseRoute}&tab=1`);
   await expect(shows(page).getByRole('region', { name: 'Continue watching', exact: true }).locator('[data-show-item]')).toHaveCount(2);
   await expect(shows(page).getByRole('region', { name: 'Next up', exact: true }).locator('[data-show-item]')).toHaveCount(2);
   const episode = shows(page).getByRole('button', { name: 'North of Nowhere: S3 · E6 · Here, at Last', exact: true });
@@ -115,16 +125,16 @@ test('show pagination restores loaded cards through its own API and never querie
 
 test('TV URL genres and native viewshow activate the library while unsupported native tabs remain available', async ({ page }) => {
   await page.clock.install();
-  await page.goto(`${route}&tab=3`);
+  await page.goto(`${baseRoute}&tab=3`);
   await expect(shows(page).getByRole('heading', { name: 'Browse genres', exact: true })).toBeVisible();
   for (const suffix of ['&tab=2', '&tab=4', '&tab=5', '&genres=Drama']) {
-    await page.goto(`${route}${suffix}`);
+    await page.goto(`${baseRoute}${suffix}`);
     await page.clock.runFor(100);
     await expect(page.locator('#tv-layout')).toHaveCount(0);
     await expect(page.locator('#tvRecommendedPage')).not.toHaveAttribute('aria-hidden', 'true');
   }
   await page.evaluate(() => {
-    history.pushState(null, '', '#/tv?topParentId=library-tv');
+    history.pushState(null, '', '#/tv?topParentId=library-tv&tab=0');
     document.querySelector('#tvRecommendedPage')!.dispatchEvent(new CustomEvent('viewshow', { detail: { params: { topParentId: 'library-tv' } } }));
   });
   await expect(cards(page)).toHaveCount(5);
@@ -159,5 +169,5 @@ test('show requests can retry, show an empty search, and discard responses after
     document.dispatchEvent(new Event('release-shows'));
   }));
   await expect(shows(page)).toHaveCount(0);
-  await expect(page.getByRole('dialog', { name: 'Movies', exact: true }).locator('[data-movie-item]')).toHaveCount(5);
+  await expect(page.getByRole('dialog', { name: 'Movies', exact: true }).getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
 });

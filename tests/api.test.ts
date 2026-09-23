@@ -45,6 +45,27 @@ test('adapter exposes the active Jellyfin server identity for native detail navi
   }
 });
 
+test('playback context uses the authenticated plugin endpoint and rejects malformed or stale responses', async () => {
+  let currentUser = 'user-a';
+  let result: unknown = { PlayingItemId: 'intro', PlaylistItemId: 'queue-1', Queue: [{Id:'intro'}, {Id:'feature'}, null] };
+  const api = client({ getCurrentUserId: () => currentUser, getUrl: (path: string) => path,
+    getJSON: async (path: string) => { assert.equal(path, 'TvItemLayout/PlaybackContext'); return result; } });
+  assert.equal(api.userId, 'user-a');
+  assert.deepEqual((await api.getPlaybackContext!())?.Queue, [{Id:'intro'}, {Id:'feature'}]);
+  result = null; assert.equal(await api.getPlaybackContext!(), null);
+  result = { PlayingItemId:'movie', Queue: {} };
+  await assert.rejects(api.getPlaybackContext!(), /invalid playback/i);
+  currentUser = 'user-b';
+  await assert.rejects(api.getPlaybackContext!(), /account changed/i);
+});
+
+test('disc artwork uses its own tag and does not mistake a poster for disc art', () => {
+  const api = client({ getImageUrl: (id: string, options: unknown) => JSON.stringify({ id, options }) });
+  assert.equal(api.image({Id:'item', Name:'Item', ImageTags:{Primary:'poster'}}, 'disc'), null);
+  assert.deepEqual(JSON.parse(api.image({Id:'item', Name:'Item', ImageTags:{Disc:'disc'}}, 'disc')!),
+    {id:'item', options:{type:'Disc',tag:'disc',maxWidth:700,quality:90}});
+});
+
 test('movie pages send real scoped filters and retain the raw continuation offset', async () => {
   let requestedUser = '';
   let query: Record<string, unknown> = {};
@@ -489,6 +510,27 @@ test('account changes invalidate in-flight results and prevent subsequent favori
   assert.equal(writes, 0);
 });
 
+test('replaced clients, server switches and sign-out invalidate pending reads and writes', async () => {
+  for (const change of ['replace', 'server', 'sign-out']) {
+    let serverId = 'server-a';
+    let resolveItem!: (item: Item) => void;
+    let writes = 0;
+    const api = client({
+      serverId: () => serverId,
+      getItem: () => new Promise<Item>(resolve => { resolveItem = resolve; }),
+      updateFavoriteStatus: async () => { writes++; }
+    });
+    const pending = api.getItem('movie');
+    if (change === 'replace') client();
+    else if (change === 'server') serverId = 'server-b';
+    else global('ApiClient', undefined);
+    resolveItem({ Id: 'movie', Name: 'Old item' });
+    await assert.rejects(pending, /account changed/i);
+    await assert.rejects(api.setFavorite('movie', true), /account changed/i);
+    assert.equal(writes, 0);
+  }
+});
+
 test('access and missing-item failures have actionable messages', async () => {
   for (const [status, message] of [[401, /sign in/i], [403, /access/i], [404, /no longer available/i]] as const) {
     const api = client({ getItem: async () => { throw { status }; } });
@@ -597,6 +639,16 @@ function bridgePage(options: { handled?: boolean; registered?: boolean } = {}) {
 }
 
 const movie: Item = { Id: 'movie', Name: 'Movie', Type: 'Movie' };
+
+test('audio, albums and recorded videos use native playback metadata and remove the temporary bridge', async () => {
+  for (const type of ['Audio', 'MusicAlbum', 'Video']) {
+    const bridge = bridgePage();
+    await client().play({Id:'media', Name:'Media', Type:type}, 120, () => true);
+    assert.deepEqual(bridge.commands, [{ command:'play', data:{id:'media', type,
+      mediatype:type === 'Video' ? 'Video' : 'Audio', serverid:'server-a', isfolder:type === 'MusicAlbum' ? 'true' : 'false', positionticks:'120'} }]);
+    assert.ok(bridge.containers.every(container => container.removed));
+  }
+});
 
 test('movie trailers use the native Trailer control for local and remote sources', async () => {
   for (const metadata of [{ LocalTrailerCount: 1 }, { LocalTrailerCount: 0, RemoteTrailers: [{ Url: 'https://www.youtube.com/watch?v=abc' }] }]) {
