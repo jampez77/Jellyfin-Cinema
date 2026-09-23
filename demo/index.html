@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="description" content="An interactive preview of cinematic Jellyfin TV, movie and Live TV detail pages.">
+    <title>Jellyfin TV Item Layout · Preview</title>
+    <link rel="stylesheet" href="/demo/demo.css">
+  </head>
+  <body class="layout-tv">
+    <nav class="demo-switcher" aria-label="Preview media type">
+      <span class="demo-label"><span aria-hidden="true"></span>Preview</span>
+      <a href="#/details?id=series-north" data-demo-type="series">TV Shows</a>
+      <a href="#/details?id=movie-tide" data-demo-type="movie">Movies</a>
+      <a href="#/details?id=channel-field" data-demo-type="live">Live TV</a>
+    </nav>
+    <main class="itemDetailPage demo-native-page">
+      <div class="demo-native-brand">JELLYFIN <span>LOCAL PREVIEW</span></div>
+      <div class="demo-native-content">
+        <p class="demo-native-eyebrow">YOUR NEXT GREAT STORY</p>
+        <h1>Your library.<br>A different perspective.</h1>
+        <p>Explore the TV Show, Movie and Live TV detail layouts with fictional media. Use your arrow keys and Enter, or browse with a mouse.</p>
+        <a class="demo-native-open" href="#/details?id=series-north">Explore TV Shows <span aria-hidden="true">→</span></a>
+        <small>This local preview has no connection to a Jellyfin server. Playback is simulated.</small>
+      </div>
+    </main>
+    <script src="/dist/demo.js"></script>
+    <script src="/dist/jellyfin-tv-layout.js"></script>
+  </body>
+</html>

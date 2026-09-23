@@ -1,0 +1,168 @@
+import type { Item, MediaApi } from './types';
+import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
+
+type Query = Record<string, string | number | boolean>;
+type ItemResult = { Items?: Item[]; TotalRecordCount?: number };
+interface JellyfinClient extends PlaybackClient {
+  getCurrentUserId(): string;
+  getItem(userId: string, id: string): Promise<Item>;
+  getSeasons(seriesId: string, query: Query): Promise<ItemResult>;
+  getEpisodes(seriesId: string, query: Query): Promise<ItemResult>;
+  getNextUpEpisodes(query: Query): Promise<ItemResult>;
+  getSimilarItems(id: string, query: Query): Promise<ItemResult>;
+  getLiveTvChannels(query: Query): Promise<ItemResult>;
+  getLiveTvPrograms(query: Query): Promise<ItemResult>;
+  updateFavoriteStatus(userId: string, id: string, favorite: boolean): Promise<unknown>;
+  getImageUrl(id: string, options: Query): string;
+}
+
+declare const ApiClient: JellyfinClient | undefined;
+
+const PAGE_SIZE = 200;
+const MAX_PAGES = 100;
+
+function available(item: Item): boolean {
+  return !!item?.Id && item.LocationType !== 'Virtual' && !item.IsMissing
+    && !item.IsVirtualItem && !item.IsPlaceHolder && item.PlayAccess !== 'None';
+}
+
+function itemsFrom(result: ItemResult, label: string): Item[] {
+  if (!result || !Array.isArray(result.Items)) {
+    throw new Error(`Jellyfin returned an invalid ${label} list. Open the page again to retry.`);
+  }
+  return result.Items.filter((item): item is Item => !!item && typeof item.Id === 'string' && !!item.Id);
+}
+
+function identity(id: string): string {
+  return /^[\da-f]{32}$|^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id)
+    ? id.replace(/-/g, '').toLowerCase() : id;
+}
+
+async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: string): Promise<Item[]> {
+  const unique = new Map<string, Item>();
+  let start = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const result = await fetch(start);
+    const batch = itemsFrom(result, label);
+    const count = result.Items!.length;
+    const total = Number.isInteger(result.TotalRecordCount) && result.TotalRecordCount! >= 0
+      ? result.TotalRecordCount! : null;
+    if (!count) {
+      if (total !== null && start < total) throw new Error(`Jellyfin returned an incomplete ${label} list. Try again.`);
+      return [...unique.values()];
+    }
+    const before = unique.size;
+    for (const item of batch) unique.set(identity(item.Id), item);
+    if (unique.size === before) throw new Error(`Jellyfin repeated a ${label} page. Refresh the library and try again.`);
+    start += count;
+    if (total !== null ? start >= total : count < PAGE_SIZE) return [...unique.values()];
+  }
+  throw new Error(`The ${label} list exceeded the browsing limit. Refresh your Jellyfin library and try again.`);
+}
+
+function imageFor(client: JellyfinClient, item: Item, kind: 'backdrop' | 'thumb' | 'logo'): string | null {
+  let id = item.Id;
+  let type: string;
+  let tag: string | undefined;
+  if (kind === 'logo') {
+    const logo = item as Item & { ParentLogoItemId?: string; ParentLogoImageTag?: string };
+    type = 'Logo';
+    tag = item.ImageTags?.Logo;
+    if (!tag && logo.ParentLogoItemId && logo.ParentLogoImageTag) {
+      id = logo.ParentLogoItemId;
+      tag = logo.ParentLogoImageTag;
+    }
+  } else if (kind === 'backdrop' && item.BackdropImageTags?.length) {
+    type = 'Backdrop';
+    tag = item.BackdropImageTags[0];
+  } else if (kind === 'backdrop' && item.ParentBackdropItemId && item.ParentBackdropImageTags?.length) {
+    type = 'Backdrop';
+    id = item.ParentBackdropItemId;
+    tag = item.ParentBackdropImageTags[0];
+  } else if (item.ImageTags?.Thumb) {
+    type = 'Thumb';
+    tag = item.ImageTags.Thumb;
+  } else if (item.Type !== 'Episode' && item.BackdropImageTags?.length) {
+    type = 'Backdrop';
+    tag = item.BackdropImageTags[0];
+  } else {
+    type = 'Primary';
+    tag = item.ImageTags?.Primary;
+  }
+  if (!id || !tag) return null;
+  return client.getImageUrl(id, {
+    type, tag, maxWidth: kind === 'backdrop' ? 1920 : kind === 'logo' ? 800 : 640, quality: 90
+  });
+}
+
+/** Reuse the current web client's server and credentials; never store tokens. */
+export function createJellyfinApi(): MediaApi | null {
+  if (typeof ApiClient === 'undefined' || !ApiClient?.getCurrentUserId?.()) return null;
+  const client = ApiClient;
+  const userId = client.getCurrentUserId();
+  function assertSession(): void {
+    if (client.getCurrentUserId() !== userId) throw new Error('Your Jellyfin account changed. Open the media page again.');
+  }
+  async function read<T>(action: () => Promise<T>): Promise<T> {
+    assertSession();
+    try {
+      const result = await action();
+      assertSession();
+      return result;
+    } catch (error) {
+      const status = (error as { status?: number; statusCode?: number } | null)?.status
+        ?? (error as { statusCode?: number } | null)?.statusCode;
+      if (status === 401 || status === 403) throw new Error('Sign in to Jellyfin again and check access to this media.');
+      if (status === 404) throw new Error('This media is no longer available. Refresh your Jellyfin library.');
+      throw error instanceof Error ? error : new Error('Jellyfin could not load this media. Check your connection and try again.');
+    }
+  }
+  return {
+    getItem: id => read(async () => {
+      const item = await client.getItem(userId, id);
+      if (!item?.Id || identity(item.Id) !== identity(id)) throw new Error('Jellyfin did not return the requested media.');
+      return item;
+    }),
+    getSeasons: seriesId => read(async () => itemsFrom(await client.getSeasons(seriesId, {
+      UserId: userId, IsMissing: false, EnableImages: false, EnableUserData: true
+    }), 'season').filter(available).sort((a, b) => (a.IndexNumber ?? Number.MAX_SAFE_INTEGER) - (b.IndexNumber ?? Number.MAX_SAFE_INTEGER))),
+    getEpisodes: (seriesId, seasonId) => read(async () => (await pages(startIndex => client.getEpisodes(seriesId, {
+      UserId: userId, ...(seasonId ? { SeasonId: seasonId } : {}), Fields: 'Overview',
+      IsMissing: false, EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableUserData: true,
+      StartIndex: startIndex, Limit: PAGE_SIZE
+    }), 'episode')).filter(item => available(item) && item.Type === 'Episode')
+      .sort((a, b) => (a.ParentIndexNumber ?? Number.MAX_SAFE_INTEGER) - (b.ParentIndexNumber ?? Number.MAX_SAFE_INTEGER)
+        || (a.IndexNumber ?? Number.MAX_SAFE_INTEGER) - (b.IndexNumber ?? Number.MAX_SAFE_INTEGER)
+        || a.Id.localeCompare(b.Id))),
+    getNextEpisode: seriesId => read(async () => itemsFrom(await client.getNextUpEpisodes({
+      UserId: userId, SeriesId: seriesId, Fields: 'Overview,MediaSourceCount', Limit: 1, EnableUserData: true
+    }), 'next episode').find(item => available(item) && item.Type === 'Episode') || null),
+    getSimilar: id => read(async () => itemsFrom(await client.getSimilarItems(id, {
+      UserId: userId, Limit: 24, Fields: 'Overview,Genres', EnableUserData: true
+    }), 'similar item').filter(available)),
+    getChannels: () => read(async () => (await pages(startIndex => client.getLiveTvChannels({
+      UserId: userId, AddCurrentProgram: true, Fields: 'Overview,Genres',
+      EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableUserData: true,
+      SortBy: 'ChannelNumber,SortName', SortOrder: 'Ascending', EnableFavoriteSorting: false,
+      StartIndex: startIndex, Limit: PAGE_SIZE
+    }), 'channel')).filter(item => available(item) && item.Type === 'TvChannel')
+      .sort((a, b) => (a.ChannelNumber || a.Number || '').localeCompare(b.ChannelNumber || b.Number || '', undefined, { numeric: true })
+        || (a.Name || '').localeCompare(b.Name || '', undefined, { numeric: true }))),
+    getPrograms: channelId => read(async () => {
+      // Keep the detail-page schedule to the next day, including programmes
+      // already airing. Fix the cutoff once so all pages use the same window.
+      const maxStartDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      return (await pages(startIndex => client.getLiveTvPrograms({
+        UserId: userId, ChannelIds: channelId, HasAired: false, MaxStartDate: maxStartDate,
+        SortBy: 'StartDate', SortOrder: 'Ascending', Fields: 'Overview,Genres',
+        EnableImages: true, EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
+      }), 'programme')).sort((a, b) => Date.parse(a.StartDate || '') - Date.parse(b.StartDate || ''));
+    }),
+    setFavorite: (id, favorite) => read(async () => { await client.updateFavoriteStatus(userId, id, favorite); }),
+    play: (item, ticks, isCurrent) => read(() => dispatchPlayback(client, item, ticks,
+      () => isCurrent() && client.getCurrentUserId() === userId)),
+    playTrailer: (item, isCurrent) => read(() => dispatchTrailerPlayback(client, userId, item,
+      () => isCurrent() && client.getCurrentUserId() === userId)),
+    image: (item, kind) => imageFor(client, item, kind)
+  };
+}

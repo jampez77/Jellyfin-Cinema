@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">10.11.0</JellyfinVersion>
+    <TargetFramework Condition="'$(JellyfinVersion)' == '10.10.7'">net8.0</TargetFramework>
+    <TargetFramework Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('10.11.'))">net9.0</TargetFramework>
+    <TargetFramework Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('12.'))">net10.0</TargetFramework>
+    <DefineConstants Condition="'$(JellyfinVersion)' == '10.10.7'">$(DefineConstants);JELLYFIN_1010</DefineConstants>
+    <ReleaseVersion>0.1.0</ReleaseVersion>
+    <PluginVersion Condition="'$(JellyfinVersion)' == '10.10.7'">$(ReleaseVersion).1</PluginVersion>
+    <PluginVersion Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('10.11.'))">$(ReleaseVersion).2</PluginVersion>
+    <PluginVersion Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('12.'))">$(ReleaseVersion).3</PluginVersion>
+    <AssemblyVersion>$(PluginVersion)</AssemblyVersion>
+    <FileVersion>$(PluginVersion)</FileVersion>
+    <Version>$(PluginVersion)</Version>
+    <LangVersion>12</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Jellyfin.Plugin.TvItemLayout</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="verification/**" />
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <EmbeddedResource Include="../dist/jellyfin-tv-layout.js" LogicalName="Jellyfin.Plugin.TvItemLayout.ClientScript.js" />
+  </ItemGroup>
+
+  <Target Name="RequireClientScript" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('../dist/jellyfin-tv-layout.js')" Text="Build the client first: run npm ci and npm run build from the repository root." />
+  </Target>
+</Project>

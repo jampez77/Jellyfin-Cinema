@@ -1,0 +1,36 @@
+[
+  {
+    "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
+    "name": "TV Item Layout",
+    "overview": "Cinematic TV layouts for movies, series and Live TV.",
+    "description": "Netflix-inspired media detail pages for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal Live TV guide with programme artwork. Install File Transformation separately for automatic loading. First test release; native Android TV, Roku and other independent clients are not supported.",
+    "owner": "jampez77",
+    "category": "General",
+    "versions": [
+      {
+        "version": "0.1.0.3",
+        "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.0/TvItemLayout_0.1.0.3_jellyfin-12.0.0.zip",
+        "checksum": "b7b78e564ebc546318504b4a132e34a5",
+        "timestamp": "2026-09-23T07:38:24Z"
+      },
+      {
+        "version": "0.1.0.2",
+        "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.0/TvItemLayout_0.1.0.2_jellyfin-10.11.0.zip",
+        "checksum": "0b8f40b44df4a21d819215e8dfafea6b",
+        "timestamp": "2026-09-23T07:38:24Z"
+      },
+      {
+        "version": "0.1.0.1",
+        "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.0/TvItemLayout_0.1.0.1_jellyfin-10.10.7.zip",
+        "checksum": "bf6e86581b7fb4120e0831758f74ec3c",
+        "timestamp": "2026-09-23T07:38:24Z"
+      }
+    ]
+  }
+]

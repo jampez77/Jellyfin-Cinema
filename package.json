@@ -1,0 +1,19 @@
+{
+  "name": "jellyfin-tv-item-layout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cinematic, remote-friendly Jellyfin media detail pages",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/dev.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.25.11",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

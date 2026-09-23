@@ -1,0 +1,7 @@
+node_modules/
+dist/
+server/**/bin/
+server/**/obj/
+test-results/
+playwright-report/
+.DS_Store

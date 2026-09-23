@@ -1,0 +1,219 @@
+/* Namespaced to coexist with Jellyfin and InPlayerEpisodePreview-TV. Chrome 79 compatible. */
+body.tvl-open { overflow: hidden !important; }
+.tvl-root { --tvl-muted: #b1b4b8; --tvl-accent: #d3e7de; box-sizing: border-box; position: fixed; z-index: 9998; inset: 0; top: 0; right: 0; bottom: 0; left: 0; background: #101112; color: #f5f5f2; font: 400 1.25vw/1.5 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: clamp(15px, 1.25vw, 24px); overflow: hidden; isolation: isolate; text-align: left; }
+.tvl-root *, .tvl-root *::before, .tvl-root *::after { box-sizing: border-box; }
+.tvl-root button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tvl-root h1, .tvl-root h2, .tvl-root h3, .tvl-root p { margin: 0; }
+.tvl-root svg { display: block; flex: 0 0 auto; width: 1.25em; height: 1.25em; }
+.tvl-root button:focus { outline: none; }
+.tvl-root button:disabled { cursor: default; opacity: .45; }
+.tvl-backdrop { position: absolute; z-index: -2; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 80% 20%, #2e4448, #0e1113 75%); }
+.tvl-backdrop img { width: 100%; height: 100%; object-fit: cover; object-position: 68% 45%; opacity: .88; }
+.tvl-backdrop::after { content: ''; position: absolute; inset: 0; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, rgba(8,12,14,.98) 0%, rgba(8,12,14,.83) 28%, rgba(8,12,14,.2) 67%, rgba(8,12,14,.04) 100%), linear-gradient(0deg,#101112 0%,rgba(16,17,18,.9) 4%,transparent 45%,rgba(0,0,0,.22) 100%); }
+.tvl-content { height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #4a4c4e transparent; }
+.tvl-content::-webkit-scrollbar, .tvl-episode-list::-webkit-scrollbar, .tvl-program-list::-webkit-scrollbar, .tvl-seasons::-webkit-scrollbar { width: 4px; }
+.tvl-content::-webkit-scrollbar-thumb, .tvl-episode-list::-webkit-scrollbar-thumb, .tvl-program-list::-webkit-scrollbar-thumb, .tvl-seasons::-webkit-scrollbar-thumb { background: #626466; border-radius: 5px; }
+.tvl-header { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 1.5vw 4.5vw; z-index: 2; height: 6vw; min-height: 70px; }
+.tvl-button { display: inline-flex; align-items: center; justify-content: flex-start; border: 2px solid transparent; border-radius: 4px; color: #f4f4f2; background: transparent; min-height: 2.8em; padding: .5em .9em; text-align: left; transition: background-color .16s, border-color .16s; }
+.tvl-button svg { margin-right: .7em; }
+.tvl-button:hover { background: rgba(255,255,255,.12); }
+.tvl-keyboard .tvl-button:focus { border-color: #f5f5f2; background: rgba(255,255,255,.13); }
+.tvl-button.tvl-primary { background: #f6f6f3; color: #101112; font-weight: 650; padding: .6em 1.3em; min-height: 3em; }
+.tvl-button.tvl-primary:hover { background: #dfe4e0; }
+.tvl-keyboard .tvl-primary:focus { outline: 2px solid white; outline-offset: 4px; border-color: #fff; background: #fff; }
+.tvl-back { font-size: .88em; padding-left: 0; border-radius: 2px; color: #e1e3e2; }
+.tvl-back svg { width: 1.4em; }
+.tvl-original { font-size: .7em; text-transform: uppercase; letter-spacing: .15em; color: #c4c8c7; }
+.tvl-hero { min-height: calc(100% - 10.5vw); min-height: calc(100% - max(6vw, 70px) - 4.5vw); display: flex; align-items: center; padding: 2vw 5.5vw 4.5vw; }
+.tvl-hero-copy { width: 47vw; max-width: 840px; }
+.tvl-eyebrow { display: flex; align-items: center; font-size: .65em; font-weight: 600; letter-spacing: .24em; color: #cbd6d2; text-transform: uppercase; margin-bottom: 1.3em; }
+.tvl-kicker-mark { display: inline-block; margin-right: .6em; color: #e4f0e9; font-size: 1.8em; font-weight: 800; font-style: italic; line-height: 1; }
+.tvl-title-wrap { margin: .3em 0 1.4em; }
+.tvl-title { font-family: 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-size: 5vw; font-size: clamp(42px, 5vw, 96px); line-height: .99; letter-spacing: -.025em; font-weight: 900; text-transform: uppercase; max-width: 10.5em; text-wrap: balance; overflow-wrap: break-word; }
+.tvl-logo { max-width: 100%; max-height: 20vh; object-fit: contain; object-position: left; }
+.tvl-meta { display: flex; align-items: center; flex-wrap: wrap; color: #d0d2d1; margin: 0 0 1.1em; font-size: .84em; }
+.tvl-meta > * { margin-right: .85em; }
+.tvl-rating, .tvl-quality { font-size: .83em; line-height: 1.2; padding: .13em .4em; border: 1px solid rgba(230,230,230,.45); border-radius: 2px; }
+.tvl-community { color: #c8dfd1; }
+.tvl-episode-name { font-size: 1.03em; font-weight: 600; letter-spacing: .015em; margin: .7em 0 .4em !important; }
+.tvl-synopsis { color: #e0e2df; font-size: .93em; line-height: 1.55; max-width: 38em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.tvl-actions { display: flex; flex-direction: column; align-items: flex-start; margin-top: 1.6em; width: 26vw; min-width: 280px; }
+.tvl-actions > .tvl-button { width: 100%; margin-bottom: .3em; font-size: .9em; }
+.tvl-actions > .tvl-favorite { font-size: .8em; color: #bac1bd; }
+.tvl-actions > .tvl-favorite[aria-pressed=true] { color: #e7f5eb; }
+.tvl-favorite[aria-pressed=true] svg, .tvl-icon-button[aria-pressed=true] svg { fill: currentColor; }
+.tvl-genre-line { margin-top: 1.1em !important; color: #959d9a; font-size: .73em; }
+.tvl-footer { display: flex; align-items: center; justify-content: space-between; padding: .5vw 5.5vw 2vw; height: 4.5vw; min-height: 40px; color: #989f9b; }
+.tvl-footer-kind { font-size: .61em; letter-spacing: .2em; }
+.tvl-remote-hint { white-space: pre; font-size: .65em; color: #828985; }
+.tvl-resume { display: flex; align-items: center; font-size: .7em; color: #c1c6c2; margin-top: 1.1em; }
+.tvl-progress { height: 3px; background: rgba(221,227,223,.22); position: relative; overflow: hidden; }
+.tvl-progress > span { display: block; height: 100%; background: #df4052; }
+.tvl-resume .tvl-progress { width: 10vw; margin-right: 1em; }
+.tvl-status { position: absolute; z-index: 5; bottom: 2.4vw; left: 50%; transform: translateX(-50%); max-width: 70vw; padding: .65em 1em; font-size: .8em; background: #272c2c; color: white; border-radius: 5px; box-shadow: 0 6px 25px #0005; text-align: center; }
+.tvl-status:empty { display: none; }
+.tvl-loading { padding: 2em 0; color: #abb5af; font-size: .85em; }
+.tvl-content > .tvl-loading { margin: 16vh 8vw; }
+.tvl-empty { padding: 3em 1em; max-width: 42em; color: #b2bbb5; }
+.tvl-empty h1, .tvl-empty h2 { color: #f1f2ef; font-size: 1.35em; line-height: 1.3; margin-bottom: .55em; }
+.tvl-empty p { font-size: .9em; margin-bottom: 1.5em; }
+.tvl-content > .tvl-empty { margin: 12vh 8vw; }
+.tvl-browser { display: flex; height: calc(100% - 6vw); height: calc(100% - max(6vw, 70px)); padding: 3vw 5.5vw 3vw; }
+.tvl-root[data-pane=episodes] .tvl-backdrop, .tvl-root[data-pane=guide] .tvl-backdrop { opacity: .22; filter: blur(6px); }
+.tvl-root[data-pane=similar] .tvl-backdrop { opacity: .12; }
+.tvl-sidebar { width: 29%; padding-right: 3.5vw; flex-shrink: 0; min-height: 0; display: flex; flex-direction: column; }
+.tvl-title-compact { margin: .5em 0 1.1em; }
+.tvl-title-compact .tvl-title { font-size: 2.6vw; font-size: clamp(30px, 2.6vw, 58px); line-height: 1.04; }
+.tvl-title-compact .tvl-logo { max-height: 12vh; }
+.tvl-sidebar .tvl-meta { font-size: .67em; line-height: 1.7; }
+.tvl-sidebar .tvl-eyebrow { font-size: .52em; margin-bottom: 1em; }
+.tvl-seasons { margin-top: 1.6vw; padding: 6px; margin-left: -6px; overflow-y: auto; }
+.tvl-season { display: flex; width: 100%; padding: .78em .7em; margin-bottom: .5em; font-size: .91em; color: #b1b9b4; border-radius: 3px; min-height: 3.4em; }
+.tvl-season > span:first-child { flex: 1; }
+.tvl-season .tvl-season-count { margin-left: .8em; font-size: .75em; color: #8e9790; }
+.tvl-season > svg { width: .9em; height: .9em; margin: 0 0 0 .6em; opacity: 0; }
+.tvl-season[aria-pressed=true] { color: #fff; background: rgba(255,255,255,.09); }
+.tvl-season[aria-pressed=true] > svg { opacity: 1; }
+.tvl-keyboard .tvl-season:focus { border-color: #fff; background: rgba(255,255,255,.1); }
+.tvl-browser-main { width: 71%; padding-left: 3.8vw; border-left: 1px solid rgba(203,214,207,.13); display: flex; flex-direction: column; min-height: 0; }
+.tvl-browser-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1.3vw; flex-shrink: 0; }
+.tvl-browser-heading h2 { font-size: 1.2em; font-weight: 500; }
+.tvl-browser-subtitle { font-size: .52em; letter-spacing: .18em; color: #8e9893; }
+.tvl-episode-list { overflow-y: auto; padding: 5px 1vw 2vw 5px; margin-left: -5px; }
+.tvl-episode { display: flex; align-items: center; width: 100%; border: 2px solid transparent; padding: .65vw; margin: 0 0 .8vw; background: transparent; color: inherit; border-radius: 4px; text-align: left; transition: background-color .16s; }
+.tvl-episode:hover { background: rgba(255,255,255,.05); }
+.tvl-keyboard .tvl-episode:focus { border-color: #f3f4ed; background: rgba(255,255,255,.055); }
+.tvl-episode-thumb { position: relative; flex-shrink: 0; width: 40%; padding-top: 22.5%; border-radius: 2px; overflow: hidden; background: #293137; }
+.tvl-episode-thumb > img, .tvl-film-art > img { position: absolute; inset: 0; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.tvl-episode-thumb::after { content:''; position:absolute; bottom:0; left:0; right:0; height:50%; background:linear-gradient(transparent,#0009); }
+.tvl-episode-number { position: absolute; bottom: .5em; left: .7em; font-size: .6em; z-index: 1; }
+.tvl-thumb-play { position:absolute; z-index: 2; top:50%; left:50%; transform:translate(-50%,-50%); width:2.5em; height:2.5em; border:2px solid white; border-radius:50%; background:#0006; display:flex; align-items:center; justify-content:center; opacity:0; }
+.tvl-thumb-play svg { width:1em; height:1em; }
+.tvl-episode:focus .tvl-thumb-play, .tvl-episode:hover .tvl-thumb-play { opacity:1; }
+.tvl-thumb-progress { position:absolute; left:0; bottom:0; height:3px; z-index:2; background:#df4052; }
+.tvl-episode-copy { padding: .5em 0 .5em 1.4em; flex:1; min-width:0; }
+.tvl-episode-title { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:.6em; }
+.tvl-episode-title h3 { font-size:.9em; font-weight:600; line-height:1.3; margin-right:.6em; }
+.tvl-episode-title > span { font-size:.7em; white-space:nowrap; color:#b6bfb9; }
+.tvl-episode-copy p { font-size:.72em; color:#aeb8b1; line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.tvl-watched, .tvl-continue { display:flex; align-items:center; font-size:.57em; color:#c4d4c8; margin-top:.8em; }
+.tvl-watched svg { width:1em; height:1em; margin-right:.4em; }
+.tvl-movie-hero { min-height: 61vh; align-items: flex-end; padding-top:8vh; padding-bottom:4vw; }
+.tvl-root[data-kind=Movie] .tvl-backdrop { height:90vh; }
+.tvl-movie-hero .tvl-hero-copy { width:52vw; }
+.tvl-movie-hero .tvl-title { max-width:9em; font-size:6vw; font-size:clamp(48px,6vw,116px); }
+.tvl-movie-hero .tvl-synopsis { display:none; }
+.tvl-movie-hero .tvl-title-wrap { margin-bottom:1.7em; }
+.tvl-actions-movie { flex-direction:row; align-items:center; width:auto; min-width:0; }
+.tvl-actions-movie > .tvl-button { width:auto; margin:0 .8em 0 0; white-space:nowrap; font-size:.8em; }
+.tvl-actions-movie .tvl-primary { min-width:9em; justify-content:center; }
+.tvl-actions-movie > .tvl-trailer { border:1px solid #b1b9b3; background:rgba(24,30,29,.6); padding:.6em 1.1em; min-height:3em; }
+.tvl-actions-movie > .tvl-trailer:hover { background:rgba(255,255,255,.16); }
+.tvl-actions-movie > .tvl-icon-button { border:1px solid #a1aaa5; border-radius:50%; width:3em; height:3em; min-height:3em; padding:0; justify-content:center; }
+.tvl-icon-button svg { margin:0; }
+.tvl-icon-button > span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.tvl-film-details { display:flex; padding:1.5vw 5.5vw 3vw; background:linear-gradient(transparent,#101112); }
+.tvl-film-description { width:62%; padding-right:6vw; font-size:.88em; color:#d5d9d6; line-height:1.7; }
+.tvl-film-description .tvl-tagline { color:#fff; font-weight:550; margin-bottom:.6em; }
+.tvl-facts { width:38%; margin:0; font-size:.75em; line-height:1.7; }
+.tvl-facts > div { margin-bottom:.8em; }
+.tvl-facts dt, .tvl-facts dd { display:inline; margin:0; }
+.tvl-facts dt { color:#858e88; margin-right:.4em; }
+.tvl-movie-recommendations { padding:2vw 5.5vw 5vw; background:#101112; }
+.tvl-section-title { font-size:1.55em; line-height:1.3; font-weight:600; margin-bottom:1.3em !important; }
+.tvl-film-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-gap:1.8vw; }
+.tvl-film-card { padding:0; background:#222527; color:#eee; border:2px solid transparent; border-radius:5px; text-align:left; overflow:hidden; }
+.tvl-keyboard .tvl-film-card:focus { outline:2px solid #fff; outline-offset:4px; }
+.tvl-film-card:hover { background:#2b3031; }
+.tvl-film-art { width:100%; padding-top:56.25%; position:relative; background:#303a3b; }
+.tvl-film-duration { position:absolute; top:.6em; right:.8em; font-size:.75em; text-shadow:0 1px 8px #000; }
+.tvl-film-copy { padding:1.2em; }
+.tvl-film-copy h3 { font-size:1em; margin-bottom:.6em; }
+.tvl-card-meta { display:flex; align-items:center; font-size:.75em; margin-bottom:.8em; }
+.tvl-card-meta > * { margin-right:1em; }
+.tvl-film-copy p { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; color:#aeb7b2; font-size:.77em; line-height:1.6; }
+.tvl-similar { padding:3vw 5.5vw 5vw; }
+.tvl-similar > .tvl-eyebrow { margin-bottom:1em; }
+.tvl-live-dot { width:.65em; height:.65em; border-radius:50%; background:#e54e58; margin-right:.7em; box-shadow:0 0 12px #e54e5830; }
+.tvl-eyebrow-divider { margin:0 1em; color:#727d76; }
+.tvl-on-air { color:#d0e2d6; }
+.tvl-live-progress { max-width:24em; margin-top:1.2em; }
+.tvl-live-progress .tvl-progress > span { background:#b5d1c0; }
+.tvl-live-times { display:flex; justify-content:space-between; color:#a8b5ac; font-size:.65em; margin-top:.6em; }
+.tvl-title-small { font-size:3em; font-weight:650; text-transform:none; }
+.tvl-channel { font-size:.8em; }
+.tvl-channel-number { margin-right:1em; color:#87968c; font-size:.9em; min-width:1.5em; flex:0 0 auto !important; }
+.tvl-guide .tvl-browser-heading { border-bottom:1px solid #66736940; padding-bottom:1.5em; }
+.tvl-watch-channel { font-size:.65em; }
+.tvl-program-list { overflow:auto; }
+.tvl-program { display:flex; padding:1.7em 0; border-bottom:1px solid #66736940; }
+.tvl-keyboard .tvl-program:focus { outline:2px solid #fff; outline-offset:-3px; background:#ffffff08; }
+.tvl-program-time { width:18%; flex-shrink:0; display:flex; flex-direction:column; font-size:.9em; color:#bbc4bf; }
+.tvl-program-time > span+span { font-size:.55em; margin-top:.6em; letter-spacing:.1em; color:#839088; }
+.tvl-program-live .tvl-program-time > span+span { color:#d1e7d8; }
+.tvl-program-copy h3 { font-size:1em; margin-bottom:.5em; }
+.tvl-program-copy p { font-size:.78em; line-height:1.6; color:#a9b5ad; }
+.tvl-program-copy .tvl-live-progress { margin-top:1.3em; width:100%; }
+.tvl-program-end { display:inline-block; margin-top:1em; color:#859389; font-size:.65em; }
+.tvl-no-art::before { content:''; position:absolute; width:100%; height:100%; top:0; left:0; background:linear-gradient(135deg,#34454b,#1a2025); }
+@media (min-width:1800px) { .tvl-root { font-size:24px; } }
+@media (max-width:850px) {
+  .tvl-root { font-size:16px; }
+  .tvl-header { padding:16px 5vw; }
+  .tvl-hero { padding-top:5vw; padding-bottom:5vw; }
+  .tvl-hero-copy { width:60vw; }
+  .tvl-title { font-size:7vw; }
+  .tvl-actions { width:34vw; min-width:220px; }
+  .tvl-sidebar { width:31%; padding-right:2vw; }
+  .tvl-browser-main { width:69%; padding-left:2.5vw; }
+  .tvl-browser-subtitle { display:none; }
+  .tvl-episode-copy { padding-left:1em; }
+  .tvl-episode-copy p { -webkit-line-clamp:2; }
+  .tvl-episode-title { display:block; }
+  .tvl-episode-title > span { display:none; }
+  .tvl-remote-hint { display:none; }
+  .tvl-movie-hero .tvl-hero-copy { width:75vw; }
+  .tvl-actions-movie { width:auto; }
+  .tvl-film-details { padding-top:3vw; }
+}
+@media (max-width:550px) {
+  .tvl-header { padding:12px 5vw; }
+  .tvl-original { font-size:.55em; }
+  .tvl-backdrop::after { background:linear-gradient(90deg,#0b1115ed,#0b11156b),linear-gradient(0deg,#101112,transparent); }
+  .tvl-hero-copy { width:90%; }
+  .tvl-title { font-size:11vw; }
+  .tvl-actions { width:80vw; }
+  .tvl-hero { min-height:calc(100% - 110px); }
+  .tvl-movie-hero { min-height:50vh; }
+  .tvl-movie-hero .tvl-hero-copy { width:100%; }
+  .tvl-movie-hero .tvl-title { font-size:12vw; }
+  .tvl-actions-movie { width:auto; flex-wrap:wrap; }
+  .tvl-actions-movie > .tvl-button { margin-bottom:.6em; }
+  .tvl-film-details { display:block; padding-top:1em; }
+  .tvl-film-description,.tvl-facts { width:100%; padding:0; }
+  .tvl-facts { margin-top:1.5em; }
+  .tvl-film-grid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-gap:12px; }
+  .tvl-film-copy { padding:10px; }
+  .tvl-film-copy p { display:none; }
+  .tvl-browser { padding:4vw; }
+  .tvl-sidebar { width:34%; }
+  .tvl-sidebar .tvl-title { font-size:6vw; }
+  .tvl-sidebar .tvl-meta { display:none; }
+  .tvl-sidebar .tvl-eyebrow { font-size:.42em; letter-spacing:.08em; }
+  .tvl-browser-main { width:66%; }
+  .tvl-season { font-size:.72em; padding:.7em .4em; }
+  .tvl-season-count,.tvl-season > svg { display:none; }
+  .tvl-episode { display:block; padding:8px; margin-bottom:8px; }
+  .tvl-episode-thumb { width:100%; padding-top:56.25%; }
+  .tvl-episode-copy { padding:.8em 0 .3em; }
+  .tvl-episode-copy p { display:none; }
+  .tvl-browser-heading h2 { font-size:.9em; }
+  .tvl-channel-number { display:none; }
+  .tvl-guide .tvl-browser-heading { flex-direction:column; align-items:flex-start; }
+  .tvl-watch-channel { margin-top:1em; }
+  .tvl-program { display:block; }
+  .tvl-program-time { width:auto; flex-direction:row; margin-bottom:.8em; }
+  .tvl-program-time > span+span { margin-left:1em; }
+  .tvl-status { max-width:90vw; width:max-content; }
+}
+@media (prefers-reduced-motion:reduce) { .tvl-root * { transition:none !important; scroll-behavior:auto !important; } }
