@@ -176,6 +176,118 @@ test('movie catalogue requests cannot return data after an account change', asyn
   await assert.rejects(api.getMovies({ parentId: 'library' }), /account changed/i);
 });
 
+test('TV catalogue requests apply series filters, library scope and raw pagination offsets', async () => {
+  const requests: { user: string; query: Record<string, unknown> }[] = [];
+  const api = client({ getItems: async (user: string, query: Record<string, unknown>) => {
+    requests.push({ user, query });
+    return { Items: [
+      { Id: 'series', Name: 'Series', Type: 'Series' },
+      { Id: 'movie', Name: 'Movie', Type: 'Movie' },
+      { Id: 'virtual', Name: 'Virtual show', Type: 'Series', IsVirtualItem: true },
+      { Id: 'blocked', Name: 'Blocked show', Type: 'Series', PlayAccess: 'None' }
+    ], TotalRecordCount: 14 };
+  } });
+  const page = await api.getShows({ parentId: 'tv-library', search: '  North  ', letter: 'n',
+    favorite: true, genreId: 'mystery', startIndex: 10, limit: 20 });
+  assert.deepEqual(page, { items: [{ Id: 'series', Name: 'Series', Type: 'Series' }], total: 14, nextStartIndex: 14 });
+  assert.equal(requests[0].user, 'user-a');
+  assert.deepEqual(requests[0].query, {
+    IncludeItemTypes: 'Series', Recursive: true, IsMissing: false, CollapseBoxSetItems: false,
+    SortBy: 'SortName,ProductionYear', SortOrder: 'Ascending', ParentId: 'tv-library',
+    SearchTerm: 'North', NameStartsWith: 'N', GenreIds: 'mystery', IsFavorite: true,
+    Fields: 'Overview,Genres', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
+    EnableUserData: true, EnableTotalRecordCount: true, StartIndex: 10, Limit: 20
+  });
+});
+
+test('TV pagination bounds requests, maps # and rejects incomplete pages', async () => {
+  let query: Record<string, unknown> = {};
+  const api = client({ getItems: async (_user: string, options: Record<string, unknown>) => {
+    query = options; return { Items: [], TotalRecordCount: 0 };
+  } });
+  assert.deepEqual(await api.getShows({ letter: '#', favorite: false, search: ' ', startIndex: -1, limit: 1000 }),
+    { items: [], total: 0, nextStartIndex: 0 });
+  assert.equal(query.NameLessThan, 'A');
+  assert.equal(query.StartIndex, 0); assert.equal(query.Limit, 100);
+  for (const key of ['IsFavorite', 'NameStartsWith', 'SearchTerm', 'ParentId']) assert.ok(!(key in query));
+  await assert.rejects(api.getShows({ letter: 'invalid' }), /choose a letter/i);
+  const incomplete = client({ getItems: async () => ({ Items: [], TotalRecordCount: 10 }) });
+  await assert.rejects(incomplete.getShows({}), /incomplete TV show page/i);
+});
+
+test('TV genres paginate with the selected series library scope', async () => {
+  const requests: { user: string; query: Record<string, unknown> }[] = [];
+  const api = client({ getGenres: async (user: string, query: Record<string, unknown>) => {
+    requests.push({ user, query });
+    return query.StartIndex === 0
+      ? { Items: [{ Id: 'drama', Name: 'Drama', Type: 'Genre' }], TotalRecordCount: 2 }
+      : { Items: [{ Id: 'documentary', Name: 'Documentary', Type: 'Genre' }], TotalRecordCount: 2 };
+  } });
+  assert.deepEqual((await api.getShowGenres('tv-library')).map(item => item.Name), ['Drama', 'Documentary']);
+  assert.deepEqual(requests.map(({ query }) => query.StartIndex), [0, 1]);
+  assert.ok(requests.every(({ user, query }) => user === 'user-a' && query.ParentId === 'tv-library'
+    && query.IncludeItemTypes === 'Series' && query.EnableTotalRecordCount === true));
+});
+
+test('TV suggestions use native scoped progress, next-up and latest episode sources', async () => {
+  const queries: Record<string, unknown>[] = [];
+  const api = client({
+    getItems: async (user: string, query: Record<string, unknown>) => {
+      assert.equal(user, 'user-a'); queries.push(query);
+      return { Items: [episode('resume', 2, { UserData: { PlaybackPositionTicks: 123 } }),
+        episode('missing', 3, { IsMissing: true }), { Id: 'film', Name: 'Film', Type: 'Movie' }] };
+    },
+    getNextUpEpisodes: async (query: Record<string, unknown>) => {
+      queries.push(query); return { Items: [episode('next', 4), episode('orphan', 1, { SeriesId: undefined })] };
+    },
+    getUrl: (path: string, query: Record<string, unknown>) => {
+      assert.equal(path, 'Users/user-a/Items/Latest'); queries.push(query); return path;
+    },
+    getJSON: async () => [
+      { Id: 'grouped', Name: 'Grouped latest series', Type: 'Series', ChildCount: 3 },
+      episode('latest', 5), { Id: 'movie', Name: 'Movie', Type: 'Movie' },
+      episode('blocked', 6, { PlayAccess: 'None' })
+    ]
+  });
+  const sections = await api.getShowSuggestions('tv-library');
+  assert.deepEqual(sections.map(section => [section.title, section.items.map(item => item.Id)]), [
+    ['Continue watching', ['resume']], ['Next up', ['next']], ['Recently added', ['grouped', 'latest']]
+  ]);
+  assert.equal(sections[0].items[0].UserData?.PlaybackPositionTicks, 123);
+  assert.equal(sections[1].items[0].SeriesId, 'show');
+  assert.equal(queries[0].IncludeItemTypes, 'Episode');
+  assert.equal(queries[0].Filters, 'IsResumable');
+  assert.equal(queries[1].UserId, 'user-a');
+  assert.equal(queries[1].Limit, 24);
+  assert.equal(queries[2].IncludeItemTypes, 'Episode');
+  assert.equal(queries[2].Limit, 30);
+  assert.ok(queries.every(query => query.ParentId === 'tv-library' && query.EnableUserData === true));
+});
+
+test('TV suggestions retain honest empty results and fail on invalid or failed native reads', async () => {
+  const base = { getItems: async () => ({ Items: [] }), getNextUpEpisodes: async () => ({ Items: [] }),
+    getUrl: (path: string) => path, getJSON: async () => [] };
+  assert.deepEqual(await client(base).getShowSuggestions(), []);
+  await assert.rejects(client({ ...base, getJSON: async () => ({ Items: [] }) }).getShowSuggestions(), /invalid TV suggestions/i);
+  await assert.rejects(client({ ...base, getNextUpEpisodes: async () => ({ Items: null }) }).getShowSuggestions(), /invalid next episode list/i);
+  await assert.rejects(client({ ...base, getItems: async () => { throw { status: 403 }; } }).getShowSuggestions(), /sign in/i);
+});
+
+test('TV queries and suggestions cannot return data after the Jellyfin account changes', async () => {
+  let user = 'user-a';
+  const listing = client({ getCurrentUserId: () => user,
+    getItems: async () => { user = 'user-b'; return { Items: [], TotalRecordCount: 0 }; } });
+  await assert.rejects(listing.getShows({}), /account changed/i);
+  user = 'user-a';
+  let finish: (value: unknown[]) => void = () => {};
+  const suggestions = client({ getCurrentUserId: () => user,
+    getItems: async () => ({ Items: [] }), getNextUpEpisodes: async () => ({ Items: [] }),
+    getUrl: (path: string) => path, getJSON: () => new Promise(resolve => { finish = resolve; }) });
+  const pending = suggestions.getShowSuggestions('tv-library');
+  user = 'user-b'; finish([]);
+  await assert.rejects(pending, /account changed/i);
+});
+
 test('episodes retain every available page while excluding missing and blocked entries', async () => {
   const requests: { series: string; query: Record<string, unknown> }[] = [];
   const api = client({ getEpisodes: async (series: string, query: Record<string, unknown>) => {

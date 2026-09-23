@@ -84,8 +84,47 @@ test('programme artwork ends at the schedule edge after viewport and content hei
   await page.addStyleTag({ content: '.tvl-header { height: 95px !important; min-height: 95px !important; }' });
   await expectArtworkBoundary(page);
   await expect(page.locator('#tv-layout .tvl-epg-row').first()).toHaveCSS('height', '74px');
+  await page.locator('#tv-layout .tvl-content').evaluate(content => { content.scrollTop = 20; });
+  await expectArtworkBoundary(page);
   expect(errors).toEqual([]);
 });
+
+for (const [shape, width, height] of [['landscape', 1920, 1080], ['portrait', 600, 900], ['wide', 2400, 500]] as const) {
+  test(`${shape} programme artwork keeps its composition and guide boundary despite native image styles`, async ({ page }) => {
+    await page.route('**/guide-native-art.svg', route => route.fulfill({
+      contentType: 'image/svg+xml',
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="#447f92"/><circle cx="50%" cy="50%" r="${Math.min(width, height) / 3}" fill="#e7bb68"/></svg>`
+    }));
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('/#/details?id=channel-field');
+    await expect(page.getByRole('button', { name: 'Channels & guide', exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      const api = window.TvItemLayoutDemo!.api;
+      const original = api.image;
+      api.image = (item, kind) => item.Type === 'Program' ? '/guide-native-art.svg' : original(item, kind);
+    });
+    await page.getByRole('button', { name: 'Channels & guide', exact: true }).click();
+    await expect(page.locator('[data-program="channel-field-program-1"]')).toBeFocused();
+    // Native skins sometimes prescribe viewport-sized backgrounds for all images.
+    await page.addStyleTag({ content: `
+      body #tv-layout img { position: fixed !important; width: 100vw !important; min-width: 100vw !important; max-width: none !important; height: 100vh !important; min-height: 100vh !important; max-height: none !important; aspect-ratio: 1 !important; object-fit: cover !important; transform: scale(2) !important; margin: 30px !important; padding: 20px !important; box-sizing: content-box !important; }
+      body .tvl-epg-detail-art { height: 100vh !important; min-height: 100vh !important; max-height: none !important; overflow: visible !important; transform: translateY(50px) !important; padding: 20px !important; }
+    ` });
+    const image = page.locator('.tvl-epg-detail-art > img');
+    await expect.poll(() => image.evaluate(node => (node as HTMLImageElement).naturalWidth)).toBe(width);
+    for (const viewport of [{ width: 1280, height: 720 }, { width: 1024, height: 600 }]) {
+      await page.setViewportSize(viewport);
+      await expectArtworkBoundary(page);
+      await expect(image).toHaveCSS('object-fit', 'contain');
+      const dimensions = await image.evaluate(node => {
+        const image = node as HTMLImageElement;
+        const box = image.getBoundingClientRect();
+        return { width: box.width, height: box.height, aspect: image.naturalWidth / image.naturalHeight };
+      });
+      expect(dimensions.width).toBeCloseTo(Math.min(viewport.width * .66, dimensions.height * dimensions.aspect), 0);
+    }
+  });
+}
 
 for (const missing of [true, false]) {
   test(`guide remains usable when highlighted programme artwork is ${missing ? 'missing' : 'unavailable'}`, async ({ page }) => {
@@ -128,6 +167,7 @@ for (const failed of [false, true]) test(`channel logo ${failed ? 'failure falls
   const banner = root.getByRole('region', { name: 'Selected programme' });
   await expect(root.locator('[data-program="channel-field-program-1"]')).toBeFocused();
   await expect(banner.locator('.tvl-epg-channel-art img')).toHaveAttribute('src', failed ? /forest\.jpg$/ : /channel-logo\.svg$/);
+  await page.addStyleTag({ content: 'body #tv-layout img { min-height: 100vh !important; min-width: 100vw !important; box-sizing: content-box !important; object-fit: cover !important; }' });
   await expect(banner.locator('img')).toHaveCSS('object-fit', 'contain');
   await expect.poll(() => banner.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expectArtworkBoundary(page);

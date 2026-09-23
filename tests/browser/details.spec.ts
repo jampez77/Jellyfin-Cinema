@@ -147,9 +147,9 @@ test('leaving movie details cancels a trailer that is still loading', async ({ p
     document.addEventListener('trailer-settled', () => resolve(), { once: true });
     document.dispatchEvent(new Event('release-trailer'));
   }));
-  await expect(page).toHaveURL(/#\/details\?id=series-north$/);
+  await expect(page).toHaveURL(/#\/tv\?topParentId=library-tv$/);
   await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
-  await expect(detail(page).getByRole('button', { name: 'Resume S1 · E2', exact: true })).toBeFocused();
+  await expect(page.getByRole('dialog', { name: 'TV Shows', exact: true }).locator('[data-show-item]').first()).toBeFocused();
 });
 
 test('Live TV guide switches channels and plays only through its explicit live action', async ({ page }) => {

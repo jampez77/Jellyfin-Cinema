@@ -23,6 +23,8 @@ export class HorizontalGuide {
   private busy = false;
   private anchorTime = Date.now();
   private layoutObserver?: ResizeObserver;
+  private contentScroller?: HTMLElement;
+  private artworkScroll = () => this.setArtworkHeight();
   private resize = () => this.setWidth();
 
   constructor(private api: MediaApi, private options: GuideOptions) {
@@ -43,6 +45,12 @@ export class HorizontalGuide {
   async load(): Promise<void> {
     const header = this.element.previousElementSibling;
     if (header) this.layoutObserver?.observe(header);
+    const scroller = this.element.parentElement || undefined;
+    if (this.contentScroller !== scroller) {
+      this.contentScroller?.removeEventListener('scroll', this.artworkScroll);
+      this.contentScroller = scroller;
+      this.contentScroller?.addEventListener('scroll', this.artworkScroll, {passive: true});
+    }
     const revision = ++this.revision;
     this.busy = true;
     replace(this.detail, el('p', 'tvl-epg-message', 'Loading your channels and programme guide…'));
@@ -145,7 +153,7 @@ export class HorizontalGuide {
 
   focus(): void { if (this.valid()) this.focusSelection(); }
 
-  destroy(): void { this.disposed = true; this.revision++; this.layoutObserver?.disconnect(); window.removeEventListener('resize', this.resize); }
+  destroy(): void { this.disposed = true; this.revision++; this.layoutObserver?.disconnect(); this.contentScroller?.removeEventListener('scroll', this.artworkScroll); window.removeEventListener('resize', this.resize); }
 
   private valid(revision = this.revision): boolean { return !this.disposed && revision === this.revision && this.options.isCurrent(); }
   private slots(row: GuideRow): GuideSlot[] { return guideSlots(row.programs, this.windowStart); }

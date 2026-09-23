@@ -1,4 +1,4 @@
-import type { Item, MediaApi } from '../src/types';
+import type { Item, LibraryQuery, MediaApi } from '../src/types';
 import { el, picture, replace } from '../src/dom';
 
 // This file belongs to the preview only. It is never included in the installer bundle.
@@ -11,7 +11,7 @@ const seasons: Item[] = [];
 const episodes = new Map<string, Item[]>();
 const channels: Item[] = [];
 const schedules = new Map<string, Item[]>();
-const favorites = new Set<string>(['movie-blue']);
+const favorites = new Set<string>(['movie-blue', 'series-harbour']);
 
 function register(item: Item, photo: string): Item {
   library.set(item.Id, item);
@@ -87,6 +87,38 @@ seasonStories.forEach((stories, seasonIndex) => {
     : ['forest', 'ocean', 'mountains', 'forest', 'mountains', 'ocean'][index]!)));
 });
 
+const seriesIds = ['series-north'];
+const moreShows = [
+  { id:'series-harbour', name:'The Last Harbour', year:2025, photo:'ocean', genres:['Drama', 'Mystery'],
+    overview:'A harbourmaster returns to her island home to find a ship nobody remembers arriving. Each tide reveals another part of the town’s unfinished story.',
+    episodes:['A Ship in the Night', 'Low Tide', 'The Lantern Room'] },
+  { id:'series-signal', name:'Signal 24', year:2024, photo:'mountains', genres:['Mystery', 'Sci-Fi'],
+    overview:'An isolated radio station begins receiving messages from tomorrow. Its small crew must decide which warnings to trust and which futures to change.',
+    episodes:['The First Transmission', 'Dead Air', 'Tomorrow’s Voice'] },
+  { id:'series-1999', name:'1999', year:2023, photo:'forest', genres:['Drama', 'History'],
+    overview:'Four friends reunite in the town where they grew up, on the eve of a new millennium. A summer they thought forgotten connects the lives they lead today.',
+    episodes:['The Reunion', 'Summer on Tape', 'Midnight'] },
+  { id:'series-wild', name:'Wild Country', year:2025, photo:'forest', genres:['Documentary', 'Adventure'],
+    overview:'Follow the changing seasons across mountains, forests and remote coastlines, through the lives of the animals and people who call them home.',
+    episodes:['Mountain Spring', 'Under the Canopy', 'The Living Coast'] },
+];
+for (const spec of moreShows) {
+  seriesIds.push(spec.id);
+  register({ Id:spec.id, Type:'Series', Name:spec.name, Overview:spec.overview, ProductionYear:spec.year,
+    OfficialRating:'TV-14', Genres:spec.genres, ChildCount:1, RecursiveItemCount:spec.episodes.length,
+    ImageTags:{Primary:'demo'}, BackdropImageTags:['demo'] }, spec.photo);
+  const season = register({ Id:`season-${spec.id.slice(7)}-1`, Type:'Season', Name:'Season 1',
+    SeriesId:spec.id, SeriesName:spec.name, IndexNumber:1, ChildCount:spec.episodes.length }, spec.photo);
+  seasons.push(season);
+  episodes.set(season.Id, spec.episodes.map((name, index) => register({
+    Id:`episode-${spec.id.slice(7)}-1-${index+1}`, Type:'Episode', Name:name, Overview:spec.overview,
+    SeriesId:spec.id, SeriesName:spec.name, SeasonId:season.Id, ParentIndexNumber:1, IndexNumber:index+1,
+    RunTimeTicks:(44+index*3)*MINUTE, ProductionYear:spec.year, OfficialRating:'TV-14', Genres:spec.genres,
+    ImageTags:{Primary:'demo'}, UserData:spec.id==='series-harbour' && index===0
+      ? {PlaybackPositionTicks:12*MINUTE, PlayedPercentage:27.3} : {},
+  }, spec.photo)));
+}
+
 const movieCast = [
   { Name: 'Romy Bell', Type: 'Actor', Role: 'Wren' },
   { Name: 'Elias North', Type: 'Actor', Role: 'Miles' },
@@ -117,10 +149,12 @@ const collectionMembers = new Map<string, string[]>([
 ]);
 register({ Id:'library-collections', Type:'CollectionFolder', CollectionType:'boxsets', Name:'Collections' }, 'mountains');
 register({ Id:'library-movies', Type:'CollectionFolder', CollectionType:'movies', Name:'Movies' }, 'ocean');
+register({ Id:'library-tv', Type:'CollectionFolder', CollectionType:'tvshows', Name:'TV Shows' }, 'mountains');
 register({ Id:'collection-coast', Type:'BoxSet', Name:'Coastal Stories', Overview:'Journeys shaped by the sea. Discover stories of homecoming, chance encounters and life along the coast.', ChildCount:2 }, 'ocean');
 register({ Id:'collection-wilderness', Type:'BoxSet', Name:'Into the Wilderness', Overview:'Step beyond the familiar. Mountain mysteries and open-country adventures from your library.', ChildCount:3 }, 'mountains');
 
 const movieGenres = [...new Set(movieIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
+const showGenres = [...new Set(seriesIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
 const movieSortName = (item:Item) => item.Name.replace(/^(the|an|a)\s+/i,'').toLocaleLowerCase();
 
 // Anchor each schedule to the current half hour, so the fixture always has a live show.
@@ -223,6 +257,19 @@ function showPlayer(item: Item, ticks: number) {
   requestAnimationFrame(() => back.focus());
 }
 
+function browseLibrary(ids: string[], genres: Item[], parentId: string, query: LibraryQuery) {
+  if (query.parentId && query.parentId !== parentId) return {items:[],total:0,nextStartIndex:query.startIndex||0};
+  const genre=genres.find(item=>item.Id===query.genreId)?.Name;
+  const items=list(ids.map(id=>library.get(id)!)).filter(item=>
+    (!query.search || item.Name.toLocaleLowerCase().includes(query.search.trim().toLocaleLowerCase()))
+    && (!query.favorite || favorites.has(item.Id))
+    && (!query.genreId || !!genre&&item.Genres?.includes(genre))
+    && (!query.letter || (query.letter==='#'?movieSortName(item).charAt(0)<'a':movieSortName(item).startsWith(query.letter.toLocaleLowerCase())))
+  ).sort((a,b)=>movieSortName(a).localeCompare(movieSortName(b)));
+  const start=query.startIndex||0;const page=items.slice(start,start+(query.limit||60));
+  return {items:page,total:items.length,nextStartIndex:start+page.length};
+}
+
 const api: MediaApi = {
   getItem: (id) => respond(() => {
     const item = library.get(id);
@@ -231,24 +278,26 @@ const api: MediaApi = {
     if (scenario === 'empty' && result.Type === 'TvChannel') delete result.CurrentProgram;
     return result;
   }, id),
-  getSeasons: (seriesId) => respond(() => list(seriesId === 'series-north' ? seasons : []), seriesId),
+  getSeasons: (seriesId) => respond(() => list(seasons.filter(season=>season.SeriesId===seriesId)), seriesId),
   getEpisodes: (_seriesId, seasonId) => respond(() => list(episodes.get(seasonId) || []), seasonId),
-  getNextEpisode: (seriesId) => respond(() => scenario === 'empty' || seriesId !== 'series-north' ? null : copy(library.get('episode-north-1-2')!), seriesId),
+  getNextEpisode: (seriesId) => respond(() => {
+    if (scenario==='empty') return null;
+    const item = seriesId==='series-north' ? library.get('episode-north-1-2')
+      : episodes.get(seasons.find(season=>season.SeriesId===seriesId)?.Id||'')?.[0];
+    return item ? copy(item) : null;
+  }, seriesId),
   getSimilar: (id) => respond(() => list(movieIds.filter((movieId) => movieId !== id).map((movieId) => library.get(movieId)!)), id),
   getCollections: (id) => respond(() => list([...collectionMembers].filter(([,members]) => members.includes(id)).map(([collectionId]) => library.get(collectionId)!)), id),
-  getCollectionList: () => respond(() => list([...collectionMembers.keys()].map(id=>library.get(id)!))),
+  getCollectionList: (parentId) => respond(() => list([...collectionMembers].filter(([,members])=>parentId!=='library-tv'||members.some(id=>seriesIds.includes(id))).map(([id])=>library.get(id)!))),
   getCollectionItems: (id) => respond(() => list((collectionMembers.get(id) || []).map(member=>library.get(member)!)),id),
-  getMovies: (query) => respond(() => {
-    const genre=movieGenres.find(item=>item.Id===query.genreId)?.Name;
-    const items=list(movieIds.map(id=>library.get(id)!)).filter(item=>
-      (!query.search || item.Name.toLocaleLowerCase().includes(query.search.trim().toLocaleLowerCase()))
-      && (!query.favorite || favorites.has(item.Id))
-      && (!query.genreId || !!genre&&item.Genres?.includes(genre))
-      && (!query.letter || (query.letter==='#'?movieSortName(item).charAt(0)<'a':movieSortName(item).startsWith(query.letter.toLocaleLowerCase())))
-    ).sort((a,b)=>movieSortName(a).localeCompare(movieSortName(b)));
-    const start=query.startIndex||0;const page=items.slice(start,start+(query.limit||60));
-    return {items:page,total:items.length,nextStartIndex:start+page.length};
-  },query.search),
+  getMovies: (query) => respond(() => browseLibrary(movieIds, movieGenres, 'library-movies', query), query.search),
+  getShows: (query) => respond(() => browseLibrary(seriesIds, showGenres, 'library-tv', query), query.search),
+  getShowGenres: (parentId) => respond(() => list(!parentId || parentId==='library-tv' ? showGenres : [])),
+  getShowSuggestions: (parentId) => respond(() => scenario==='empty' || parentId && parentId!=='library-tv' ? [] : [
+    {title:'Continue watching',items:['episode-north-1-2','episode-harbour-1-1'].map(id=>copy(library.get(id)!))},
+    {title:'Next up',items:['episode-signal-1-1','episode-wild-1-1'].map(id=>copy(library.get(id)!))},
+    {title:'Recently added',items:['series-1999','series-wild','episode-north-3-6'].map(id=>copy(library.get(id)!))},
+  ]),
   getMovieGenres: () => respond(()=>list(movieGenres)),
   getMovieSuggestions: () => respond(()=>scenario==='empty'?[]:[
     {title:'Continue watching',items:[copy(library.get('movie-tide')!)]},
@@ -275,7 +324,8 @@ function syncRoute() {
   const current = library.get(params.get('id') || 'series-north');
   const guide = location.hash.startsWith('#/livetv');
   const movies = location.hash.startsWith('#/movies');
-  nativePage.id=movies?'moviesPage':'';
+  const shows = /^#\/tv(?:\?|$)/.test(location.hash);
+  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':'';
   const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
   const collectionList = /^#\/(list|boxsets)\?/.test(location.hash) && (params.get('parentId')==='library-collections'||location.hash.startsWith('#/boxsets')||params.get('type')==='BoxSet');
   nativePage.classList.toggle('mainAnimatedPage',collectionList);
@@ -299,7 +349,7 @@ function syncRoute() {
   } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
   const type = collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
-    if (link.dataset.demoType === type && (guide || movies || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
+    if (link.dataset.demoType === type && (guide || movies || shows || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();

@@ -26,7 +26,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': 'Adds the Movies library with native Jellyfin suggestions, genres, search, A-Z/# browsing, favourites and paginated results. Returning from a film restores browsing filters and focus. Guide artwork now ends at the top of the schedule. Preserves the active server when opening details so native theme videos can start. Requires File Transformation and Jellyfin Web in TV display mode.',
+        'changelog': 'Adds TV Shows library browsing with native Continue watching, Next up and Recently added suggestions, genres, search, A-Z/# and favourites. Hides old native page controls beneath theme videos while preserving playback. Guide artwork retains its proportions and stays clipped above the schedule. Requires File Transformation and Jellyfin Web in TV display mode.',
         'targetAbi': target,
         'sourceUrl': f'https://github.com/{repository}/releases/download/v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
@@ -45,7 +45,7 @@ manifest = [{
     'guid': plugin_id,
     'name': 'TV Item Layout',
     'overview': 'Cinematic TV layouts for movies, series and Live TV.',
-    'description': 'Netflix-inspired media detail pages, Movies and Collections browsing, and a main Live TV guide for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal programme guide with highlighted show artwork. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
+    'description': 'Netflix-inspired media detail pages, Movies, TV Shows and Collections browsing, and a main Live TV guide for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal programme guide with highlighted show artwork. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
     'owner': 'jampez77',
     'category': 'General',
     'versions': versions,

@@ -2,36 +2,38 @@ import styles from './style.css';
 import guideStyles from './guide.css';
 import themeVideoStyles from './theme-video.css';
 import collectionStyles from './collection.css';
-import movieStyles from './movies.css';
+import libraryStyles from './library.css';
+import nativeHostStyles from './native-host.css';
+import { NativeHostMask } from './native-host';
 import { observeThemeVideo } from './theme-video';
 import { createJellyfinApi } from './api';
 import { DetailView } from './view';
 import { GuideView } from './guide-view';
 import { CollectionView } from './collection-view';
-import { MoviesView, type MovieTab, type MovieBrowseState } from './movies-view';
+import { LibraryView, type LibraryTab, type LibraryBrowseState } from './library-view';
 import type { MediaApi, Item } from './types';
 
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+movieStyles;document.head.append(sheet);
-let view:DetailView|GuideView|CollectionView|MoviesView|null=null;
-let activeKey='';let dismissed='';let previousFocus:HTMLElement|null=null;
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles;document.head.append(sheet);
+let view:DetailView|GuideView|CollectionView|LibraryView|null=null;
+let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
-let hiddenHost:HTMLElement|null=null;let previousAria:string|null=null;
+const nativeHostMask=new NativeHostMask();
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
-const movieStates=new Map<string,MovieBrowseState>();
+const libraryStates=new Map<string,LibraryBrowseState>();
 const movieCollectionOrigins=new Map<string,string>();
 const detailOrigins=new Set<string>();
 let stopThemeVideo: (() => void) | undefined;
-const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage';
+const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:MovieTab}|CollectionRoute;
+type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute;
 function close(restore=true):void{
   stopThemeVideo?.();stopThemeVideo=undefined;
-  view?.destroy();view=null;activeKey='';
-  if(hiddenHost){if(previousAria===null)hiddenHost.removeAttribute('aria-hidden');else hiddenHost.setAttribute('aria-hidden',previousAria);hiddenHost=null;}
+  view?.destroy();view=null;activeKey='';openedHash='';
+  nativeHostMask.clear();
   if(document.body.classList.contains('tvl-open'))document.body.classList.remove('tvl-open');
   if(restore&&previousFocus?.isConnected)previousFocus.focus({preventScroll:true});
 }
@@ -57,8 +59,14 @@ function currentRoute():Route|null{
     const parentId=params.get('topParentId')||undefined;
     const tab=params.get('tab')||'0';
     if(tab==='3')return {kind:'collections',scope:'movies',parentId};
-    const tabs:Record<string,MovieTab>={'0':'movies','1':'suggestions','2':'favorites','4':'genres'};
+    const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','2':'favorites','4':'genres'};
     if(tabs[tab])return {kind:'movies',parentId,tab:tabs[tab]};
+  }
+  if(/^tv\/?$/i.test(path)){
+    if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
+    const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','3':'genres'};
+    const tab=tabs[params.get('tab')||'0'];
+    if(tab)return {kind:'shows',parentId:params.get('topParentId')||undefined,tab};
   }
   if(!/^details\/?$/i.test(path))return null;
   const id=params.get('id');
@@ -73,12 +81,8 @@ function back():void{
   else location.hash='/home';
 }
 function hideNativeHost(route:Route):void{
-  const selector=route.kind==='guide'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='movies'||route.scope==='movies'?'#moviesPage':route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
-  const host=Array.from(document.querySelectorAll<HTMLElement>(selector)).find(node=>!node.classList.contains('hide')&&!node.hidden
-    && (route.kind!=='collections'||route.scope!=='list'||!route.parentId||Array.from(node.querySelectorAll<HTMLElement>('.itemsContainer')).some(items=>items.dataset.parentid===route.parentId)));
-  if(!host||host===hiddenHost)return;
-  if(hiddenHost){if(previousAria===null)hiddenHost.removeAttribute('aria-hidden');else hiddenHost.setAttribute('aria-hidden',previousAria);}
-  hiddenHost=host;previousAria=host.getAttribute('aria-hidden');host.setAttribute('aria-hidden','true');
+  const selector=route.kind==='guide'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.scope==='movies'?'#moviesPage':route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
+  nativeHostMask.setSelector(selector);
 }
 function refresh():void{
   const tv=document.documentElement.classList.contains('layout-tv')||document.body.classList.contains('layout-tv');
@@ -88,7 +92,7 @@ function refresh():void{
   if(dismissed===location.hash)return;
   const api=window.TvItemLayoutDemo?.api||createJellyfinApi();
   if(!api){close(false);return;}
-  const key=route.kind==='guide'?'guide':route.kind==='detail'?`detail:${route.id}`:route.kind==='movies'?`movies:${location.hash}`:`collections:${route.scope}:${route.parentId||''}`;
+  const key=route.kind==='guide'?'guide':route.kind==='detail'?`detail:${route.id}`:route.kind==='movies'||route.kind==='shows'?`library:${location.hash}`:`collections:${route.scope}:${route.parentId||''}`;
   if(activeKey===key&&view){hideNativeHost(route);return;}
   if(route.kind==='collections'&&route.verifyParent){
     if(pendingHash===location.hash)return;
@@ -126,21 +130,30 @@ function collectionBack(route:CollectionRoute):void{
   back();
 }
 function openRoute(route:Route,api:MediaApi,key:string):void{
-  close(false);activeKey=key;previousFocus=document.activeElement as HTMLElement;
+  close(false);activeKey=key;openedHash=location.hash;previousFocus=document.activeElement as HTMLElement;
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
   const go=(id:string)=>navigate(id,api.serverId);
   if(route.kind==='guide')view=new GuideView(api,{back});
   else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
-  else if(route.kind==='movies'){
+  else if(route.kind==='movies'||route.kind==='shows'){
     const hash=location.hash;
-    view=new MoviesView(api,{parentId:route.parentId,initialTab:route.tab,back,navigate:go,focusId,state:movieStates.get(hash),onState:state=>{
-      movieStates.set(hash,state);
-      if(movieStates.size>100)movieStates.delete(movieStates.keys().next().value!);
+    view=new LibraryView(api,{kind:route.kind,parentId:route.parentId,initialTab:route.tab,back,navigate:go,focusId,state:libraryStates.get(hash),onState:state=>{
+      libraryStates.set(hash,state);
+      if(libraryStates.size>100)libraryStates.delete(libraryStates.keys().next().value!);
     },openCollections:()=>{
       rememberFocus('collections');
-      const params=new URLSearchParams(hash.split('?')[1]||'');params.set('tab','3');
+      const params=new URLSearchParams(hash.split('?')[1]||'');
+      if(route.kind==='shows'){
+        const collections=new URLSearchParams();
+        if(route.parentId)collections.set('parentId',route.parentId);
+        collections.set('type','BoxSet');
+        const serverId=params.get('serverId')||api.serverId;
+        if(serverId)collections.set('serverId',serverId);
+        location.hash=`/list?${collections}`;return;
+      }
+      params.set('tab','3');
       const target=`#/movies?${params}`;movieCollectionOrigins.set(target,hash);
       if(movieCollectionOrigins.size>100)movieCollectionOrigins.delete(movieCollectionOrigins.keys().next().value!);
       location.hash=target;
@@ -165,8 +178,10 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   void view.load();
 }
 const schedule=()=>{window.clearTimeout(timer);timer=window.setTimeout(refresh,30);};
-// Ignore a previous native view finishing its transition after the new overlay opens.
-const hide=(event:Event)=>{if(event.target===hiddenHost)close(false);};
+// Native cached pages rotate DOM slots, so DOM order cannot identify the owner.
+// A hide event on the overlay's current route belongs to an outgoing native
+// transition. Release the overlay once navigation has actually left its route.
+const hide=(event:Event)=>{if(location.hash!==openedHash&&nativeHostMask.owns(event.target))close(false);};
 const show=(event:Event)=>{
   const target=event.target as HTMLElement;
   if(target.matches?.(nativePages))schedule();

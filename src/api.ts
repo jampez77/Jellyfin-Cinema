@@ -1,4 +1,4 @@
-import type { Item, MediaApi, SuggestionSection } from './types';
+import type { Item, ItemPage, LibraryQuery, MediaApi, SuggestionSection } from './types';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 
 type Query = Record<string, string | number | boolean>;
@@ -151,6 +151,39 @@ export function createJellyfinApi(): MediaApi | null {
     Fields: 'Overview', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
     EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
   })), 'collection')).filter(item => item.Type === 'BoxSet'));
+  const libraryPage = (type: 'Movie' | 'Series', options: LibraryQuery): Promise<ItemPage> => read(async () => {
+    const label = type === 'Movie' ? 'movie' : 'TV show';
+    const start = Number.isFinite(options.startIndex) ? Math.min(2_147_483_647, Math.max(0, Math.trunc(options.startIndex!))) : 0;
+    const limit = Number.isFinite(options.limit) ? Math.min(MAX_MOVIE_PAGE_SIZE, Math.max(1, Math.trunc(options.limit!))) : MOVIE_PAGE_SIZE;
+    const letter = options.letter?.trim().toUpperCase();
+    if (letter && !/^[A-Z#]$/.test(letter)) throw new Error('Choose a letter from A to Z, or #.');
+    const search = options.search?.trim();
+    const result = await client.getItems(userId, {
+      IncludeItemTypes: type, Recursive: true, IsMissing: false, CollapseBoxSetItems: false,
+      SortBy: 'SortName,ProductionYear', SortOrder: 'Ascending',
+      ...(options.parentId ? { ParentId: options.parentId } : {}),
+      ...(search ? { SearchTerm: search } : {}),
+      ...(letter === '#' ? { NameLessThan: 'A' } : letter ? { NameStartsWith: letter } : {}),
+      ...(options.genreId ? { GenreIds: options.genreId } : {}),
+      ...(options.favorite ? { IsFavorite: true } : {}),
+      Fields: 'Overview,Genres', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
+      EnableUserData: true, EnableTotalRecordCount: true, StartIndex: start, Limit: limit
+    });
+    const items = itemsFrom(result, label).filter(item => item.Type === type && available(item));
+    const count = result.Items!.length;
+    const total = result.TotalRecordCount;
+    if (!Number.isSafeInteger(total) || total! < 0 || count > limit
+      || (count > 0 && total! < start + count) || (count === 0 && start < total!)) {
+      throw new Error(`Jellyfin returned an incomplete ${label} page. Try again.`);
+    }
+    return { items, total: total!, nextStartIndex: start + count };
+  });
+  const libraryGenres = (type: 'Movie' | 'Series', parentId?: string) => read(async () => (await pages(startIndex => read(() => client.getGenres(userId, {
+    IncludeItemTypes: type, Recursive: true, SortBy: 'SortName', SortOrder: 'Ascending',
+    ...(parentId ? { ParentId: parentId } : {}),
+    EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableTotalRecordCount: true,
+    StartIndex: startIndex, Limit: PAGE_SIZE
+  })), type === 'Movie' ? 'movie genre' : 'TV show genre')).filter(item => item.Type === 'Genre'));
   return {
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     getItem: id => read(async () => {
@@ -158,38 +191,38 @@ export function createJellyfinApi(): MediaApi | null {
       if (!item?.Id || identity(item.Id) !== identity(id)) throw new Error('Jellyfin did not return the requested media.');
       return item;
     }),
-    getMovies: options => read(async () => {
-      const start = Number.isFinite(options.startIndex) ? Math.min(2_147_483_647, Math.max(0, Math.trunc(options.startIndex!))) : 0;
-      const limit = Number.isFinite(options.limit) ? Math.min(MAX_MOVIE_PAGE_SIZE, Math.max(1, Math.trunc(options.limit!))) : MOVIE_PAGE_SIZE;
-      const letter = options.letter?.trim().toUpperCase();
-      if (letter && !/^[A-Z#]$/.test(letter)) throw new Error('Choose a letter from A to Z, or #.');
-      const search = options.search?.trim();
-      const result = await client.getItems(userId, {
-        IncludeItemTypes: 'Movie', Recursive: true, IsMissing: false, CollapseBoxSetItems: false,
-        SortBy: 'SortName,ProductionYear', SortOrder: 'Ascending',
-        ...(options.parentId ? { ParentId: options.parentId } : {}),
-        ...(search ? { SearchTerm: search } : {}),
-        ...(letter === '#' ? { NameLessThan: 'A' } : letter ? { NameStartsWith: letter } : {}),
-        ...(options.genreId ? { GenreIds: options.genreId } : {}),
-        ...(options.favorite ? { IsFavorite: true } : {}),
-        Fields: 'Overview,Genres', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
-        EnableUserData: true, EnableTotalRecordCount: true, StartIndex: start, Limit: limit
-      });
-      const items = movieItems(result, 'movie');
-      const count = result.Items!.length;
-      const total = result.TotalRecordCount;
-      if (!Number.isSafeInteger(total) || total! < 0 || count > limit
-        || (count > 0 && total! < start + count) || (count === 0 && start < total!)) {
-        throw new Error('Jellyfin returned an incomplete movie page. Try again.');
-      }
-      return { items, total: total!, nextStartIndex: start + count };
+    getMovies: options => libraryPage('Movie', options),
+    getMovieGenres: parentId => libraryGenres('Movie', parentId),
+    getShows: options => libraryPage('Series', options),
+    getShowGenres: parentId => libraryGenres('Series', parentId),
+    getShowSuggestions: parentId => read(async () => {
+      const scope: Query = parentId ? { ParentId: parentId } : {};
+      const artwork: Query = { Fields: 'Overview,Genres', EnableImages: true,
+        EnableImageTypes: 'Primary,Thumb,Backdrop,Logo', EnableUserData: true };
+      // Jellyfin's TV suggestions are episodes from the user's progress and
+      // latest additions. The latest endpoint can group episodes into a series.
+      // https://github.com/jellyfin/jellyfin-web/blob/v12.0/src/apps/legacy/controllers/shows/tvrecommended.js
+      const [resume, next, latest] = await Promise.all([
+        read(() => client.getItems(userId, { ...scope, ...artwork, IncludeItemTypes: 'Episode',
+          Recursive: true, IsMissing: false, CollapseBoxSetItems: false, Filters: 'IsResumable',
+          SortBy: 'DatePlayed', SortOrder: 'Descending', Limit: 12, EnableTotalRecordCount: false })),
+        read(() => client.getNextUpEpisodes({ ...scope, ...artwork, UserId: userId, Limit: 24,
+          EnableTotalRecordCount: false })),
+        read(() => client.getJSON(client.getUrl(`Users/${encodeURIComponent(userId)}/Items/Latest`, {
+          ...scope, ...artwork, IncludeItemTypes: 'Episode', Limit: 30
+        })))
+      ]);
+      if (!Array.isArray(latest)) throw new Error('Jellyfin returned invalid TV suggestions. Try again.');
+      const episodes = (result: ItemResult, label: string) => itemsFrom(result, label)
+        .filter(item => item.Type === 'Episode' && !!item.SeriesId && available(item));
+      const sections: SuggestionSection[] = [
+        { title: 'Continue watching', items: episodes(resume, 'resumable episode').slice(0, 12) },
+        { title: 'Next up', items: episodes(next, 'next episode').slice(0, 24) },
+        { title: 'Recently added', items: itemsFrom({ Items: latest }, 'latest TV show')
+          .filter(item => available(item) && (item.Type === 'Series' || item.Type === 'Episode' && !!item.SeriesId)).slice(0, 30) }
+      ];
+      return sections.filter(section => section.items.length > 0);
     }),
-    getMovieGenres: parentId => read(async () => (await pages(startIndex => read(() => client.getGenres(userId, {
-      IncludeItemTypes: 'Movie', Recursive: true, SortBy: 'SortName', SortOrder: 'Ascending',
-      ...(parentId ? { ParentId: parentId } : {}),
-      EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableTotalRecordCount: true,
-      StartIndex: startIndex, Limit: PAGE_SIZE
-    })), 'movie genre')).filter(item => item.Type === 'Genre')),
     getMovieSuggestions: parentId => read(async () => {
       const scope: Query = parentId ? { ParentId: parentId } : {};
       const artwork: Query = { Fields: 'Overview,Genres', EnableImages: true,
