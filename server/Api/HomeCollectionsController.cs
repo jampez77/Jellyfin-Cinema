@@ -154,5 +154,7 @@ public sealed record HomeCollectionsRequest(
     [property: JsonPropertyName("Revision")] string? Revision,
     [property: JsonPropertyName("Settings")] JsonElement Settings);
 public sealed record HomeCollectionsResponse(
-    [property: JsonPropertyName("Revision")] string? Revision,
-    [property: JsonPropertyName("Settings")] JsonElement? Settings);
+    // Jellyfin globally omits null JSON properties. Missing settings must keep
+    // both fields so clients can distinguish first use from a malformed reply.
+    [property: JsonPropertyName("Revision"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? Revision,
+    [property: JsonPropertyName("Settings"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? Settings);
