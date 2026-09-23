@@ -132,7 +132,7 @@ export class BrowseView {
   }
   private async getPage(startIndex: number): Promise<ItemPage> {
     if (this.options.kind === 'recordings') return this.api.getRecordings({ status: this.state.tab === 'active' ? 'active' : this.state.tab === 'completed' ? 'completed' : 'all',
-      search: this.state.search, startIndex, limit: pageSize });
+      parentId: this.options.parentId, search: this.state.search, startIndex, limit: pageSize });
     const item = this.options.item;
     if (this.playlist) return this.api.getPlaylistItems(item!.Id, { startIndex, limit: pageSize });
     return this.api.getMusic({ kind: item?.Type === 'MusicAlbum' ? 'songs' : item?.Type === 'MusicArtist' ? 'albums' : this.state.tab as MusicKind,

@@ -1,0 +1,11 @@
+.tvl-profile-open { overflow:hidden !important; }
+.tvl-profile-overlay { position:fixed;top:0;right:0;bottom:0;left:0;z-index:100010;overflow:auto;background:#080c10bd;color:#f5f5f2;font:1.15rem/1.5 'Segoe UI','Helvetica Neue',Arial,sans-serif; }
+.tvl-profile-menu { box-sizing:border-box;width:23em;max-width:90vw;margin:6rem 4vw 2rem auto;padding:1.6em;background:#19241d;border:1px solid #d3e7de30;border-radius:12px;box-shadow:0 14px 50px #0008; }
+.tvl-profile-menu h2 { margin:0;font-size:1.5em;letter-spacing:-.025em; }
+.tvl-profile-name { margin:.25em 0 1.3em;color:#b9c4bd;overflow-wrap:anywhere; }
+.tvl-profile-menu .tvl-button { display:flex;width:100%;margin-top:.65em;padding:.7em 1em;border-radius:7px;background:#26342c;color:#f5f5f2;font:inherit;cursor:pointer; }
+.tvl-profile-menu .tvl-primary { background:#f5f5f2;color:#101112;font-weight:650; }
+.tvl-profile-menu .tvl-button:hover { background:#35483b;color:#f5f5f2; }
+.tvl-profile-menu .tvl-button:focus { outline:3px solid #d3e7de;outline-offset:3px; }
+.tvl-profile-status { margin:1em 0 0;font-size:.9em;color:#f0d6bb; }
+@media(max-width:600px) { .tvl-profile-menu { margin:4rem auto 1rem;padding:1.3em; } }

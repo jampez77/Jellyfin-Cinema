@@ -78,6 +78,48 @@ test('Recording status uses native unbounded active IDs and never relies on the 
   assert.ok(requests.every(r=>r.path==='LiveTv/Recordings'&&r.query.IsInProgress!==false));
 });
 
+test('Recording libraries use configured DVR IDs and descendants, never a folder name',async()=>{
+  const recordingId='79a2726d3c50e769a8af1e4184e4fccf';
+  const {api,requests}=setup(({path})=>path==='LiveTv/Recordings/Folders'
+    ? {Items:[item('79A2726D-3C50-E769-A8AF-1E4184E4FCCF','CollectionFolder',{Name:'Saved TV'})],TotalRecordCount:1}
+    : path==='Items/recorded-series/Ancestors'?[item(recordingId,'CollectionFolder')]
+    : [item('ordinary-library','CollectionFolder',{Name:'Recordings'})]);
+  assert.equal(await api.isRecordingFolder!(recordingId),true);
+  assert.equal(requests.length,1);
+  assert.equal(await api.isRecordingFolder!('recorded-series'),true);
+  assert.equal(await api.isRecordingFolder!('ordinary-library'),false);
+  assert.ok(requests.every(request=>request.query.UserId==='user'));
+  const noDvr=setup(()=>({Items:[],TotalRecordCount:0}));
+  assert.equal(await noDvr.api.isRecordingFolder!('ordinary-library'),false);
+  assert.equal(noDvr.requests.length,1);
+  const invalid=setup(({path})=>path.endsWith('/Folders')?{Items:[item(recordingId)]}:{});
+  await assert.rejects(invalid.api.isRecordingFolder!('child'),/invalid recording folder ancestry/i);
+});
+
+test('Recording library and subfolder pages query only their descendants, including active/completed filters',async()=>{
+  const local=[item('saved','Episode'),item('active-local','Video')];
+  const {api,requests}=setup(({path,query})=>path==='LiveTv/Recordings'
+    ? {Items:[local[1],item('active-elsewhere','Video')],TotalRecordCount:2}
+    : {Items:local.slice(Number(query.StartIndex),Number(query.StartIndex)+Number(query.Limit)),TotalRecordCount:2});
+  const all=await api.getRecordings({parentId:'recorded-series'});
+  assert.deepEqual(all.items.map(item=>[item.Id,item.IsInProgress]),[['saved',false],['active-local',true]]);
+  const active=await api.getRecordings({parentId:'recorded-series',status:'active'});
+  assert.deepEqual(active.items.map(item=>item.Id),['active-local']);assert.equal(active.total,1);
+  const completed=await api.getRecordings({parentId:'recorded-series',status:'completed'});
+  assert.deepEqual(completed.items.map(item=>item.Id),['saved']);assert.equal(completed.total,1);
+  assert.ok(requests.filter(request=>request.path==='Items').every(request=>request.query.ParentId==='recorded-series'
+    &&request.query.Recursive===true&&request.query.IncludeItemTypes==='Movie,Episode,Video'));
+  assert.ok(requests.filter(request=>request.path==='LiveTv/Recordings').every(request=>request.query.IsInProgress===true));
+});
+
+test('An empty recording library stays empty even when another DVR folder has recordings',async()=>{
+  const {api}=setup(({path})=>path==='Items'?{Items:[],TotalRecordCount:0}
+    : {Items:[item('elsewhere','Video')],TotalRecordCount:1});
+  for(const status of ['all','active','completed'] as const){
+    assert.deepEqual(await api.getRecordings({parentId:'empty-recordings',status}),{items:[],total:0,nextStartIndex:0});
+  }
+});
+
 test('Active recordings paginate locally when Jellyfin ignores Limit and return honest filtered totals',async()=>{
   const recordings=Array.from({length:60},(_,i)=>item(`active-${i}`,'Video',{Name:i%2?'Mountain':'Forest'}));
   const {api,requests}=setup(()=>({Items:recordings,TotalRecordCount:recordings.length}));
@@ -114,5 +156,6 @@ test('All browse reads use the caller session guard and reject failed sources',a
   await assert.rejects(api.getMusicGenres(),/Account changed/);
   await assert.rejects(api.getMusicSuggestions(),/Account changed/);
   await assert.rejects(api.getRecordings(),/Account changed/);
+  await assert.rejects(api.isRecordingFolder!('recordings'),/Account changed/);
   const invalid=setup(()=>null);await assert.rejects(invalid.api.getMusic({kind:'albums'}),/invalid music/i);
 });
