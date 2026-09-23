@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.6.3",
+        "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.6/TvItemLayout_0.2.6.3_jellyfin-12.0.0.zip",
+        "checksum": "3530c33ac411d65145eb06602272dda7",
+        "timestamp": "2026-09-23T16:14:09Z"
+      },
+      {
+        "version": "0.2.6.2",
+        "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.6/TvItemLayout_0.2.6.2_jellyfin-10.11.0.zip",
+        "checksum": "05c91a3cdf0b62382fb544ad0e054386",
+        "timestamp": "2026-09-23T16:14:09Z"
+      },
+      {
+        "version": "0.2.6.1",
+        "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.6/TvItemLayout_0.2.6.1_jellyfin-10.10.7.zip",
+        "checksum": "5838725982023a44a861e630e7bb7640",
+        "timestamp": "2026-09-23T16:14:09Z"
+      },
+      {
         "version": "0.2.5.3",
         "changelog": "Adds Switch profile and Settings to the TV avatar while preserving native desktop behavior. Covers recording folders opened from Home with the Cinema recordings layout. Redesigns the native music queue with larger artwork, clear playback controls and themed track rows. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",

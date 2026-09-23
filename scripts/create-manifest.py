@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds Switch profile and Settings to the TV avatar while preserving native desktop behavior. Covers recording folders opened from Home with the Cinema recordings layout. Redesigns the native music queue with larger artwork, clear playback controls and themed track rows. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        'changelog': "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

@@ -6,7 +6,7 @@ Cinematic browsing for Jellyfin’s **TV layout**, inspired by Netflix and built
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
-**0.2.5 is available as a prerelease** ([release notes](docs/releases/v0.2.5.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It adds TV profile switching, covers recording-library folders, and gives the music queue a larger cinematic layout. The affected routes and native markup were inspected on Jellyfin 12; this release still needs installation and physical-TV testing.
+**0.2.6 is available as a prerelease** ([release notes](docs/releases/v0.2.6.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It themes Search, Settings, login and native folder lists, adds administrator Dashboard shortcuts, and offers direct switching to public profiles that Jellyfin already permits without a password. The affected routes and native markup were inspected on Jellyfin 12; this release still needs installation and physical-TV testing.
 
 ## The layouts
 
@@ -14,7 +14,10 @@ This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordi
 - **Music:** albums, album artists, artists, songs, playlists, genres, suggestions and favourites, with search and A–Z/#. Playlist detail pages show ordered track rows with artwork and duration. Play the whole playlist or start at a selected entry, preserving repeated tracks and the complete queue. Album Play buttons have space for their focus outline. Jellyfin’s native music player and Now playing queue use larger album artwork, clear track details and matching queue rows while retaining their playback controls and actions.
 - **Recordings:** completed and active recordings, search and pagination, with direct details/playback. Recording folders opened from the Home library tile also use this layout and keep browsing scoped to that folder. Schedule, Series recordings, recording details and DVR dialogs receive matching styling while keeping Jellyfin’s native permissions, scheduling and editing actions.
 
-- **Profiles:** in TV mode, select your avatar for **Switch profile** or **Settings**. Switching uses Jellyfin’s native sign-out and user-selection flow, including its existing password requirements. Desktop and mobile retain Jellyfin’s current avatar and account menu.
+- **Profiles:** in TV mode, select your avatar for **Switch profile**, **Settings**, or **Dashboard** when the signed-in user is an administrator. The switcher shows Jellyfin’s public profiles. Accounts already allowed without a password can open Home directly; protected and hidden accounts use native sign-in. Cinema does not store additional credentials or change password requirements. Desktop and mobile retain Jellyfin’s current avatar and account menu.
+- **Search and Settings:** the native search field, remote alphabet keyboard, suggestions/results and user preference forms share the Cinema layout. Settings includes Dashboard for the signed-in administrator, with permission checked again on selection.
+- **Login:** large profile cards, a matching password form, readable focus states and themed native Quick Connect/error dialogs in TV display mode. Native authentication and saved device layout remain in control.
+- **Native folder libraries:** mixed-content and historic recording libraries receive matching headings, controls and cards while retaining native contents, filters and navigation. A previous recording library can differ from the server’s current DVR library; Cinema styles both without merging or redirecting them.
 
 - **TV Shows library:** opens Suggestions by default, followed by Favourites, Genres, Collections and **All shows** last. Search and A–Z/# filters help find a title. Suggestions show Jellyfin’s Continue watching, Next up and Recently added items, with episode titles and numbers.
 - **TV Show details:** backdrop and title artwork, next-episode/resume action, and a dedicated browser with seasons on the left and episode thumbnails, synopses and watch progress on the right. Down from a season’s last episode opens the next season’s first episode; Up from its first episode opens the previous season’s last. **Ends at** beside the ratings estimates when the selected episode will finish, including in the series hero, and uses the remaining duration when resuming. Season and episode detail links open the corresponding show. Scroll down for collection links and More like this recommendations.
@@ -62,7 +65,7 @@ Open [the local preview](http://127.0.0.1:4173). The controls at the top switch 
 
 ## Install
 
-The [v0.2.5 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.5) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.5 release notes](docs/releases/v0.2.5.md) for changes and validation status.
+The [v0.2.6 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.6) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.6 release notes](docs/releases/v0.2.6.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -78,7 +81,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.5.1` for 10.10.7, `0.2.5.2` for 10.11.x and `0.2.5.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.6.1` for 10.10.7, `0.2.6.2` for 10.11.x and `0.2.6.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -103,13 +106,15 @@ TVL_FEATURED_SOURCE=/tmp/tvl-featured-audit npx playwright test tests/browser/fe
 
 Its server-side feed generation and external trailer providers are not covered by these fixtures. Native Home tests run without the external checkout.
 
-The native music queue checks load Jellyfin 12's actual template and styles from an external checkout. They skip when that source is unavailable; Jellyfin source is not bundled with Cinema:
+The native music queue and login checks load Jellyfin 12's actual templates and styles from an external checkout. Login checks also exercise its native controller with simulated server responses. They skip when that source is unavailable; Jellyfin source is not bundled with Cinema:
 
 ```sh
 git clone https://github.com/jellyfin/jellyfin-web.git /tmp/tvl-jellyfin-web-12-audit
 git -C /tmp/tvl-jellyfin-web-12-audit checkout 0e83c6a724b31f3e9b5a499244331a288c060a4a
-TVL_JELLYFIN_WEB_SOURCE=/tmp/tvl-jellyfin-web-12-audit npx playwright test tests/browser/music-player-native.spec.ts
+TVL_JELLYFIN_WEB_SOURCE=/tmp/tvl-jellyfin-web-12-audit npx playwright test tests/browser/music-player-native.spec.ts tests/browser/login-native.spec.ts
 ```
+
+Optional theme-conflict checks use an external [ElegantFin stylesheet](https://github.com/lscambo13/ElegantFin), audited with v26.09.05. Set `TVL_ELEGANTFIN_CSS` to a downloaded CSS file when running the browser suite. Those checks explicitly skip without the stylesheet; it is not bundled with Cinema. The login theme check also needs `TVL_JELLYFIN_WEB_SOURCE` above.
 
 ## Project structure
 
@@ -124,7 +129,9 @@ TVL_JELLYFIN_WEB_SOURCE=/tmp/tvl-jellyfin-web-12-audit npx playwright test tests
 | `src/api.ts`, `src/local-playback.ts` | Authenticated Jellyfin data and native playback bridge |
 | `src/browse-api.ts`, `src/browse-view.ts`, `src/browse.css` | Music and Recordings |
 | `src/music-player.css`, `src/native-recordings.ts`, `src/recordings.css` | Native music player, queue and DVR styling |
-| `src/profile-menu.ts`, `src/profile-menu.css` | TV avatar menu and native profile-switching bridge |
+| `src/profile-menu.ts`, `src/profile-menu.css`, `src/profile-auth.ts` | TV avatar menu, profile chooser and guarded native authentication handover |
+| `src/native-user-pages.ts`, `src/native-user-pages.css`, `src/current-user-policy.ts` | Native Search and Settings styling with current-account Dashboard permission checks |
+| `src/native-login.ts`, `src/login.css`, `src/native-folder.ts`, `src/native-folder.css` | Signed-out login and ordinary folder styling without replacing native controllers |
 | `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
 | `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, local preferences and numbered artwork |
 | `src/home-collection-editor.ts`, `src/home-row-card.ts`, `src/home-row-placement.ts` | Collection row editor, shared Home/preview cards and placement among native Home sections |
