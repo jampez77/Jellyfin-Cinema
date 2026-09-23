@@ -213,7 +213,7 @@ test('slow loading and pending playback are canceled when navigation leaves the 
   expect(await page.evaluate(() => (window as any).__browserPlays)).toEqual([]);
 });
 
-test('native dialogs retain input and a standalone preview integration never gets duplicate controls', async ({ page }) => {
+test('native dialogs and available standalone preview controls retain input', async ({ page }) => {
   await fixture(page); await player(page, 'browse-movie');
   await page.evaluate(() => {
     const dialog = document.createElement('section'); dialog.id = 'native-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true');
@@ -221,16 +221,68 @@ test('native dialogs retain input and a standalone preview integration never get
     const input = document.createElement('input'); dialog.append(input); document.body.append(dialog); input.focus();
   });
   expect(await remote(page, 'down')).toBe(true); await expect(browser(page)).toHaveCount(0);
-  await page.evaluate(() => { document.querySelector('#native-dialog')!.remove(); const button = document.createElement('button'); button.id = 'popupPreviewButton'; document.querySelector('.buttons')!.append(button); });
+  await page.evaluate(() => { document.querySelector('#native-dialog')!.remove(); const button = document.createElement('button'); button.id = 'popupPreviewButton'; button.textContent = 'Standalone preview'; document.querySelector('.buttons')!.append(button); });
   await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
   expect(await remote(page, 'down')).toBe(true); await expect(browser(page)).toHaveCount(0);
-  await page.locator('#popupPreviewButton').evaluate(element => element.remove());
+  await page.locator('#popupPreviewButton').evaluate((element: HTMLButtonElement) => { element.disabled = true; });
   await expect(page.locator('#tvl-player-browse')).toBeVisible();
-  await page.route('**/InPlayerPreview/ClientScript', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
-  await page.evaluate(() => { const script = document.createElement('script'); script.src = '/InPlayerPreview/ClientScript'; document.body.append(script); });
+  await remote(page, 'down'); await expect(browser(page)).toBeVisible();
+  await page.locator('#popupPreviewButton').evaluate((element: HTMLButtonElement) => { element.disabled = false; });
+  await expect(browser(page)).toHaveCount(0);
   await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
-  expect(await remote(page, 'down')).toBe(true);
+  await page.locator('#popupPreviewButton').evaluate((element: HTMLElement) => { element.style.display = 'none'; });
+  await expect(page.locator('#tvl-player-browse')).toBeVisible();
 });
+
+test('a stale standalone script and hidden preview markup do not disable Down', async ({ page }) => {
+  await fixture(page); await player(page);
+  await page.route('**/InPlayerPreview/ClientScript', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
+  await page.addScriptTag({ url: '/InPlayerPreview/ClientScript' });
+  await page.evaluate(() => {
+    const stale = document.createElement('section'); stale.hidden = true;
+    stale.innerHTML = '<button id="popupPreviewButton">Preview</button><div id="tvEpisodePreview"></div><div id="previewPopup"></div>';
+    document.body.append(stale);
+  });
+  await expect(page.locator('#tvl-player-browse')).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await remote(page, 'down');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  expect(await page.evaluate(() => (window as any).__browserPlays)).toEqual([]);
+});
+
+for (const order of ['before', 'after']) {
+  test(`a working standalone TV preview takes Down when its handler loads ${order} the layout`, async ({ page }) => {
+    const standalone = () => {
+      const handle = (event: Event) => {
+        const down = event.type === 'keydown' ? (event as KeyboardEvent).key === 'ArrowDown' : (event as CustomEvent).detail?.command === 'down';
+        if (!down || document.querySelector('#tvEpisodePreview')) return;
+        const panel = document.createElement('section'); panel.id = 'tvEpisodePreview';
+        panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+        panel.style.cssText = 'position:fixed;inset:20%;z-index:3000;background:black';
+        panel.innerHTML = '<button>Standalone TV preview</button>'; document.body.append(panel);
+        (window as any).__standaloneOpens = ((window as any).__standaloneOpens || 0) + 1;
+        event.preventDefault(); event.stopImmediatePropagation();
+      };
+      window.addEventListener('keydown', handle, true); window.addEventListener('command', handle, true);
+    };
+    if (order === 'before') await page.addInitScript(standalone);
+    await fixture(page); await player(page);
+    await page.route('**/InPlayerPreview/ClientScript', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
+    await page.addScriptTag({ url: '/InPlayerPreview/ClientScript' });
+    if (order === 'after') await page.evaluate(standalone);
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('button', { name: 'Standalone TV preview' })).toBeVisible();
+    await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
+    await expect(browser(page)).toHaveCount(0);
+    await page.locator('#tvEpisodePreview').evaluate(element => element.remove());
+    await remote(page, 'down');
+    await expect(page.getByRole('button', { name: 'Standalone TV preview' })).toBeVisible();
+    await expect(browser(page)).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__standaloneOpens)).toBe(2);
+  });
+}
 
 test('watched films restart from zero and descriptions render as plain text', async ({ page }) => {
   await fixture(page, `items.get('browse-next').UserData.Played=true;items.get('browse-next').Overview='<p>A <strong>new</strong> mystery.</p>';`);

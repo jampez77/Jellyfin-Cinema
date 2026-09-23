@@ -8,7 +8,7 @@
 .tvl-library-tabs { display: flex; flex-wrap: wrap; align-items: center; padding: 0 5.5vw 1.1vw; border-bottom: 1px solid #a3c4ad21; }
 .tvl-library-tab { border-radius: 3px; padding: .6em 1em; margin-right: .4em; color: #a6b4ab; font-size: .83em !important; min-height: 2.8em; }
 .tvl-library-tab[aria-pressed=true] { color: #eaf2e8; background: #26342c; }
-.tvl-library-collections { margin-left: auto; margin-right: 0; }
+.tvl-library-tab:last-child { margin-right: 0; }
 .tvl-library-filters { padding: 1.2vw 5.5vw 1.5vw; }
 .tvl-library-search { display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 1em; }
 .tvl-library-search-input { box-sizing: border-box; width: 25em; max-width: 60%; min-height: 2.7em; padding: .55em .85em; background: #1b2520; color: #eef3ef; border: 2px solid #43554a; border-radius: 4px; font: inherit; font-size: .78em; }

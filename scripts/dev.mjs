@@ -13,4 +13,4 @@ createServer(async (req, res) => {
     const contents = await readFile(filename);
     res.writeHead(200, {'Content-Type': types[path.extname(filename)] || 'application/octet-stream', 'Cache-Control':'no-store'}).end(contents);
   } catch { res.writeHead(404).end('Not found'); }
-}).listen(port, '127.0.0.1', () => console.log(`TV Item Layout demo: http://127.0.0.1:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`Jellyfin Cinema demo: http://127.0.0.1:${port}`));

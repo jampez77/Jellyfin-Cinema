@@ -1,4 +1,4 @@
-# Local preview
+# Jellyfin Cinema local preview
 
 Run `npm install`, `npm run build`, and `npm run dev` from the project root. Open [the preview](http://127.0.0.1:4173/).
 
@@ -7,11 +7,11 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 - **TV Shows:** browse five fictional series using search, genres, A–Z/#, favourites and native-style episode suggestions. Open North of Nowhere to try its full episode browser. North of Nowhere has three seasons and six episodes per season. The first episode is watched; the second is partially watched. Down from the last episode advances to the next season; Up from the first returns to the previous season’s last episode.
 - **Movies:** the library includes search, letter filters, genres, favourites and suggestions. Open a card to view its details; After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
 - **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and artwork for the highlighted programme fits above the schedule, including future programmes. The schedule is calculated when the page loads.
-- **Home:** a native-shaped Home fixture with My Media, Continue watching/listening, Next up, Live TV navigation and latest additions. The installed layout styles Jellyfin's existing sections in place, preserving its user preferences and plugins. The preview's fictional featured hero is labelled; it is not the Featured plugin. Native-only destinations such as settings/search are not simulated.
+- **Home:** use **Customize collection rows** at the bottom to choose collections, add rows of their members and enable outlined rank images beside posters. Choices persist for the demo account in this browser. The rest is a native-shaped Home fixture with My Media, Continue watching/listening, Next up, Live TV navigation and latest additions. The installed layout styles Jellyfin's existing sections in place, preserving its user preferences and plugins. The preview's fictional featured hero is labelled; it is not the Featured plugin. Native-only destinations such as settings/search are not simulated.
 - **Music:** fictional albums, artists and tracks, with search, genres, A–Z/#, favourites and suggestions. Open an artist to see albums, then an album to select its tracks.
 - **Recordings:** completed and active recordings, search and direct playback. Scheduling links point to Jellyfin's native pages, which the local fixture does not implement.
 
-Movies and TV Shows start on Suggestions. Selecting a currently live programme or a channel name in the guide starts its simulated channel; upcoming programmes stay selected without playback.
+Movies and TV Shows start on Suggestions, with All movies/shows last. Movie/show details include **Add to collection**; demo additions and newly created collections last until page reload. Selecting a currently live programme or a channel name in the guide starts its simulated channel; upcoming programmes stay selected without playback.
 
 The Live TV preview opens the main guide at `/#/livetv?collectionType=livetv`. Channel details remain available at `/#/details?id=channel-field`; their **Channels & guide** button links to the main guide.
 

@@ -24,6 +24,7 @@ export class PlayerBrowser {
   private stopContext: () => void;
   private observer: MutationObserver;
   private frame: number | undefined;
+  private pendingOpen: number | undefined;
   private destroyed = false;
   private held = new Set<string>();
   private content = el('div', 'tvl-player-content');
@@ -48,7 +49,7 @@ export class PlayerBrowser {
     this.previous.dataset.playerAction = 'previous'; this.next.dataset.playerAction = 'next';
     this.stopContext = context.subscribe(this.sync);
     this.observer = new MutationObserver(this.schedule);
-    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden'] });
+    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden', 'style', 'disabled', 'aria-disabled'] });
     window.addEventListener('keydown', this.keyDown, true); window.addEventListener('keyup', this.keyUp, true);
     window.addEventListener('command', this.command, true); window.addEventListener('blur', this.blur);
     document.addEventListener('focusin', this.focus, true); document.addEventListener('pointerdown', this.pointer, true);
@@ -56,9 +57,26 @@ export class PlayerBrowser {
     this.sync();
   }
   private standalone(): boolean {
-    return !!document.querySelector('#popupPreviewButton, #tvEpisodePreview, #previewPopup')
-      || Array.from(document.scripts).some(script => /(?:InPlayerEpisodePreview|inplayer-episode-preview)/i.test(script.src)
-        || /(?:^|\/)InPlayerPreview\/ClientScript(?:[?#]|$)/i.test(script.src));
+    const osd = this.context.getSnapshot()?.osd;
+    return Array.from(document.querySelectorAll<HTMLElement>('#tvEpisodePreview, #previewPopup')).some(visible)
+      || Array.from(document.querySelectorAll<HTMLElement>('#popupPreviewButton')).some(control =>
+        !!osd?.contains(control) && visible(control) && !control.matches(':disabled, [aria-disabled="true"]'));
+  }
+  private standaloneScript(): boolean {
+    return Array.from(document.scripts).some(script => /(?:InPlayerEpisodePreview|inplayer-episode-preview)/i.test(script.src)
+      || /(?:^|\/)InPlayerPreview\/ClientScript(?:[?#]|$)/i.test(script.src));
+  }
+  private openAfterStandalone(): void {
+    if (this.pendingOpen !== undefined) return;
+    const current = this.active();
+    // The standalone TV edition creates its panel on Down, with no idle button.
+    // Let all of its input listeners run first, regardless of script load order.
+    // A leftover/failed script alone must not leave the player without browsing.
+    this.pendingOpen = window.setTimeout(() => {
+      this.pendingOpen = undefined;
+      const active = this.active();
+      if (current && active && current.key === active.key && sameMediaId(current.playingItemId, active.playingItemId)) void this.open();
+    }, 0);
   }
   private dialog(): boolean {
     return Array.from(document.querySelectorAll<HTMLElement>('.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"]'))
@@ -314,6 +332,10 @@ export class PlayerBrowser {
     if (!this.active() || this.standalone() || this.dialog()) return false;
     if (!this.element) {
       if (command !== 'down' || (document.activeElement as HTMLElement)?.closest('input, textarea, select, [contenteditable="true"]')) return false;
+      if (this.standaloneScript()) {
+        if (!repeat) this.openAfterStandalone();
+        return false;
+      }
       if (!repeat) void this.open(); return true;
     }
     const season = (document.activeElement as HTMLElement)?.closest<HTMLButtonElement>('[data-season]');
@@ -369,6 +391,7 @@ export class PlayerBrowser {
   destroy(): void {
     this.destroyed = true; this.close(false); this.entry.remove(); this.stopContext(); this.observer.disconnect();
     if (this.frame !== undefined) cancelAnimationFrame(this.frame);
+    if (this.pendingOpen !== undefined) clearTimeout(this.pendingOpen);
     window.removeEventListener('keydown', this.keyDown, true); window.removeEventListener('keyup', this.keyUp, true);
     window.removeEventListener('command', this.command, true); window.removeEventListener('blur', this.blur);
     document.removeEventListener('focusin', this.focus, true); document.removeEventListener('pointerdown', this.pointer, true);

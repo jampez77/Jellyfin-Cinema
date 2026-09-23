@@ -10,9 +10,13 @@ test('Movies opens Suggestions first by default and preserves an explicit All mo
   await page.goto(baseRoute);
   const root = movies(page);
   await expect(root.locator('[data-library-tab]').first()).toHaveText('Suggestions');
+  await expect(root.locator('.tvl-library-tabs > button')).toHaveText(['Suggestions','Favourites','Genres','Collections','All movies']);
   await expect(root.getByRole('button', { name: 'Suggestions', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(root.getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
-  await root.getByRole('button', { name: 'All movies', exact: true }).click();
+  await root.getByRole('button', { name: 'Collections', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(root.getByRole('button', { name: 'All movies', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
   await root.getByRole('button', { name: 'After the Tide', exact: true }).click();
   await page.getByRole('dialog', { name: 'After the Tide details', exact: true }).getByRole('button', {name:'Back', exact:true}).click();
   await expect(root.getByRole('button', { name: 'All movies', exact: true })).toHaveAttribute('aria-pressed', 'true');

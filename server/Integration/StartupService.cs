@@ -9,9 +9,9 @@ namespace Jellyfin.Plugin.TvItemLayout.Integration;
 
 public sealed class StartupService(ILogger<StartupService> logger) : IScheduledTask
 {
-    public string Name => "TV Item Layout startup";
+    public string Name => "Jellyfin Cinema startup";
     public string Key => "Jellyfin.Plugin.TvItemLayout.Startup";
-    public string Description => "Register the TV Item Layout client with File Transformation.";
+    public string Description => "Register the Jellyfin Cinema client with File Transformation.";
     public string Category => "Startup Services";
 
     public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
@@ -41,12 +41,12 @@ public sealed class StartupService(ILogger<StartupService> logger) : IScheduledT
                 ["callbackMethod"] = nameof(IndexHtmlInjector.FileTransformer)
             };
             register.Invoke(null, [payload]);
-            logger.LogInformation("TV Item Layout registered with File Transformation (client {Version}).", ClientScriptAsset.CacheVersion);
+            logger.LogInformation("Jellyfin Cinema registered with File Transformation (client {Version}).", ClientScriptAsset.CacheVersion);
             progress.Report(100);
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "TV Item Layout could not register with File Transformation.");
+            logger.LogError(exception, "Jellyfin Cinema could not register with File Transformation.");
             LogManualSetup();
         }
 
@@ -66,7 +66,7 @@ public sealed class StartupService(ILogger<StartupService> logger) : IScheduledT
     }
 
     private void LogManualSetup() => logger.LogWarning(
-        "TV Item Layout needs a compatible File Transformation plugin to load its client automatically. " +
+        "Jellyfin Cinema needs a compatible File Transformation plugin to load its client automatically. " +
         "No web files were modified. Install File Transformation and restart, or manually load " +
         "<Jellyfin base URL>/TvItemLayout/ClientScript from Jellyfin Web's index.html; see docs/server.md.");
 }
