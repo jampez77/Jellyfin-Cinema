@@ -1,56 +1,123 @@
-/* Native 10.11/12 nowPlayingBar + playback/queue markup. Jellyfin retains
-   layout, visibility, playback handlers, slider geometry and queue ownership. */
+/* Native Jellyfin 10.11/12 queue and audio controls. Keep native nodes,
+   hidden/disabled states, slider hit areas, playback handlers and queue actions. */
 .layout-tv .nowPlayingBar {
   background:linear-gradient(110deg,#1e2923,#141817 65%);
   color:#f5f5f2;
   box-shadow:0 -1px 0 #c3d4c329,0 -12px 36px #0005;
 }
-.layout-tv .nowPlayingBar .nowPlayingBarText { color:#f5f5f2; font-weight:600; }
+.layout-tv .nowPlayingBar .nowPlayingBarText { color:#f5f5f2;font-weight:600; }
 .layout-tv .nowPlayingBar .nowPlayingBarSecondaryText,
-.layout-tv .nowPlayingBar .nowPlayingBarCurrentTime { color:#b9c4bd; font-weight:400; }
+.layout-tv .nowPlayingBar .nowPlayingBarCurrentTime { color:#b9c4bd;font-weight:400; }
 .layout-tv .nowPlayingBar .nowPlayingImage { border-radius:6px; }
-.layout-tv .nowPlayingBar button { color:#f5f5f2; border-radius:50%; }
-.layout-tv .nowPlayingBar .playPauseButton { background:#f5f5f2; color:#101112; }
-.layout-tv .nowPlayingBar button:hover { background:#34413a; color:#f5f5f2; }
-.layout-tv .nowPlayingBar button:focus { outline:2px solid #d3e7de; outline-offset:2px; }
-.layout-tv .nowPlayingBar .buttonActive { color:#d3e7de; background:#34413a; }
+.layout-tv .nowPlayingBar button { color:#f5f5f2;border-radius:50%; }
+.layout-tv .nowPlayingBar .playPauseButton { background:#f5f5f2;color:#101112; }
+.layout-tv .nowPlayingBar button:hover { background:#34413a;color:#f5f5f2; }
+.layout-tv .nowPlayingBar button:focus { outline:2px solid #d3e7de;outline-offset:2px; }
+.layout-tv .nowPlayingBar .buttonActive { color:#d3e7de;background:#34413a; }
 
-.layout-tv #nowPlayingPage { background:#101112; color:#f5f5f2; }
-.layout-tv #nowPlayingPage .remoteControlContent { max-width:1440px; margin:0 auto; }
-.layout-tv #nowPlayingPage .nowPlayingInfoContainer {
-  background:linear-gradient(120deg,#202b24,#181d1a 70%);
-  border:1px solid #d3e7de24;
-  border-radius:14px;
-  padding:1.5em;
-  box-shadow:0 18px 48px #0003;
+/* The native TV player is #/queue; the mini bar is normally hidden in TV mode.
+   Give this page the same generous artwork, cream type and charcoal surface as
+   Cinema's album pages instead of recolouring the stock compact control box. */
+.layout-tv #nowPlayingPage {
+  background:#101112;
+  background-image:radial-gradient(ellipse at 12% 12%,#24362b80,transparent 55%);
+  color:#f5f5f2;
+  font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  padding:6.5rem 0 2rem!important;
 }
-.layout-tv #nowPlayingPage .nowPlayingPageImage { border-radius:9px; box-shadow:0 8px 24px #0006; }
+.layout-tv #nowPlayingPage .remoteControlContent {
+  box-sizing:border-box;
+  width:100%;max-width:1520px;margin:0 auto;
+  padding:1.5rem 5vw 4rem!important;
+  background:transparent!important;
+  border:0;border-radius:0;box-shadow:none;
+}
+.layout-tv #nowPlayingPage .nowPlayingInfoContainer {
+  display:grid;
+  grid-template-columns:minmax(180px,30%) minmax(0,1fr);
+  grid-column-gap:3.5rem;
+  align-items:center;
+  padding:0;margin:0;
+  background:transparent;border:0;border-radius:0;box-shadow:none;
+}
+.layout-tv #nowPlayingPage .nowPlayingPageImageContainer {
+  box-sizing:border-box;position:relative;width:100%;min-width:0;
+  margin:0!important;align-self:start;
+}
+.layout-tv #nowPlayingPage .nowPlayingPageImage {
+  display:block;width:100%;max-width:100%;height:auto;max-height:none;
+  object-fit:contain;border-radius:12px;
+  box-shadow:0 20px 60px #0008;
+}
+.layout-tv #nowPlayingPage .nowPlayingPageImageContainerNoAlbum {
+  overflow:hidden;border-radius:12px;background:#23372b;
+  box-shadow:0 20px 60px #0008;
+}
+.layout-tv #nowPlayingPage .nowPlayingPageImageContainerNoAlbum .cardImageContainer {
+  background:linear-gradient(145deg,#3f5748,#1a2420);color:#c6d6c9;
+}
+.layout-tv #nowPlayingPage .nowPlayingPageImageContainerNoAlbum .cardImageIcon { font-size:6rem; }
+.layout-tv #nowPlayingPage .nowPlayingPageImageContainer:empty { height:0;padding-bottom:100%;border-radius:12px;background:linear-gradient(145deg,#344b3c,#19231e); }
+.layout-tv #nowPlayingPage .nowPlayingPageImageContainer:empty::before { content:'♫';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:6rem;color:#b9cdbc; }
+.layout-tv #nowPlayingPage .nowPlayingInfoControls { display:flex;flex-direction:column;justify-content:center;min-width:0;width:100%;margin:0; }
+.layout-tv #nowPlayingPage .infoContainer { min-width:0;align-items:flex-start; }
+.layout-tv #nowPlayingPage .nowPlayingInfoContainerMedia { min-width:0;width:100%;margin:0 0 1.6rem;text-align:start; }
 .layout-tv #nowPlayingPage .nowPlayingPageTitle,
-.layout-tv #nowPlayingPage .nowPlayingSongName { color:#f5f5f2; letter-spacing:-.025em; }
+.layout-tv #nowPlayingPage .nowPlayingSongName {
+  color:#f5f5f2;font-size:2.3rem;font-size:clamp(1.6rem,2.8vw,3.2rem);
+  font-weight:700;line-height:1.13;letter-spacing:-.035em;
+  margin:0 0 .6rem;text-align:start;overflow-wrap:break-word;white-space:normal;
+}
 .layout-tv #nowPlayingPage .nowPlayingAlbum,
-.layout-tv #nowPlayingPage .nowPlayingArtist,
+.layout-tv #nowPlayingPage .nowPlayingArtist { color:#b9c4bd;line-height:1.5;font-size:1rem;white-space:normal;overflow-wrap:break-word; }
+.layout-tv #nowPlayingPage .nowPlayingAlbum a,
+.layout-tv #nowPlayingPage .nowPlayingArtist a { display:inline-block;padding:.15rem 0;font:inherit;border-radius:3px; }
 .layout-tv #nowPlayingPage .positionTime,
-.layout-tv #nowPlayingPage .runtime { color:#b9c4bd; }
-.layout-tv #nowPlayingPage button { color:#f5f5f2; border-radius:8px; }
-.layout-tv #nowPlayingPage .btnPlayPause { color:#f5f5f2; }
+.layout-tv #nowPlayingPage .runtime { color:#b9c4bd;white-space:nowrap;font-size:.85rem;font-variant-numeric:tabular-nums; }
+.layout-tv #nowPlayingPage .nowPlayingPositionSliderContainer { min-width:0;width:auto;flex:1;margin:.5rem 1rem; }
+.layout-tv #nowPlayingPage .nowPlayingButtonsContainer { display:flex;flex-direction:column!important;align-items:stretch;margin-top:.85rem; }
+.layout-tv #nowPlayingPage .nowPlayingInfoButtons { justify-content:flex-start;flex-wrap:wrap;font-size:1rem;margin:0; }
+.layout-tv #nowPlayingPage .nowPlayingSecondaryButtons {
+  justify-content:flex-start;margin-top:1.2rem;padding-top:1rem;
+  border-top:1px solid #c4d9cf24;
+}
+.layout-tv #nowPlayingPage .nowPlayingSecondaryButtons .volumecontrol { margin-inline-start:auto; }
+.layout-tv #nowPlayingPage .nowPlayingVolumeSliderContainer { width:8rem;max-width:30vw;margin-inline-start:.35rem; }
+.layout-tv #nowPlayingPage button { color:#f5f5f2;border-radius:8px; }
+.layout-tv #nowPlayingPage .nowPlayingInfoButtons>button,
+.layout-tv #nowPlayingPage .nowPlayingSecondaryButtons>button,
+.layout-tv #nowPlayingPage .volumecontrol>button,
+.layout-tv #nowPlayingPage .playlistSectionButton>button { flex-shrink:0;margin:.25rem;padding:.65rem; }
+.layout-tv #nowPlayingPage .nowPlayingInfoButtons .btnPlayPause { color:#101112;background:#f5f5f2!important;border-radius:50%;margin:.3rem .65rem;font-size:1.2rem;padding:.55rem; }
+.layout-tv #nowPlayingPage .btnPlayPause .material-icons { font-size:2.5rem; }
 .layout-tv #nowPlayingPage button:hover,
 .layout-tv #nowPlayingPage .listItem:hover { background-color:#25322b; }
+.layout-tv #nowPlayingPage .nowPlayingInfoButtons .btnPlayPause:hover { background:#d3e7de!important;color:#101112; }
 .layout-tv #nowPlayingPage button:focus,
 .layout-tv #nowPlayingPage a:focus,
-.layout-tv #nowPlayingPage input:focus { outline:2px solid #d3e7de; outline-offset:3px; }
-.layout-tv #nowPlayingPage .buttonActive { color:#d3e7de; background:#34413a; }
-.layout-tv #nowPlayingPage .playlistSection { margin-top:1.8em; }
-.layout-tv #nowPlayingPage .nowPlayingPlaylist { border-radius:10px; background:#161c18; }
-.layout-tv #nowPlayingPage .listItem { border-bottom:1px solid #d3e7de16; border-radius:6px; color:#f5f5f2; }
+.layout-tv #nowPlayingPage input:focus { outline:2px solid #d3e7de!important;outline-offset:3px; }
+.layout-tv #nowPlayingPage button:disabled { opacity:.35; }
+.layout-tv #nowPlayingPage .buttonActive { color:#d3e7de;background:#34413a; }
+.layout-tv #nowPlayingPage .playlistSection { margin-top:3rem;padding-top:1rem;border-top:1px solid #c4d9cf24; }
+.layout-tv #nowPlayingPage .playlistSectionButton { padding:.3rem .25rem .7rem;background:transparent;color:inherit; }
+.layout-tv #nowPlayingPage .nowPlayingPlaylist { border-radius:10px;background:#161c18;padding:.5rem; }
+.layout-tv #nowPlayingPage .nowPlayingPlaylist .listItem {
+  min-height:4.8rem;box-sizing:border-box;padding:.5rem .65rem;
+  margin:.2rem 0;border-bottom:1px solid #d3e7de16;border-radius:7px;
+  background:transparent;color:#f5f5f2;transform:none;
+}
+.layout-tv #nowPlayingPage .nowPlayingPlaylist .listItem:focus,
+.layout-tv #nowPlayingPage .nowPlayingPlaylist .listItem:focus-within { background:#2b3d31;color:#f5f5f2;box-shadow:inset 0 0 0 1px #c4d9cf60; }
+.layout-tv #nowPlayingPage .listItemBody { min-width:0; }
 .layout-tv #nowPlayingPage .listItemBodyText { color:#b9c4bd; }
-.layout-tv #nowPlayingPage .listItemBodyText:first-child { color:#f5f5f2; }
-.layout-tv #nowPlayingPage .listItemImage { border-radius:5px; }
-.layout-tv #nowPlayingPage .playlistIndexIndicatorImage { background-color:#34413a; color:#d3e7de; }
+.layout-tv #nowPlayingPage .listItemBodyText:first-child { color:#f5f5f2;font-weight:600; }
+.layout-tv #nowPlayingPage .listItemImage { width:3.8rem;height:3.8rem;border-radius:5px; }
+.layout-tv #nowPlayingPage .playlistIndexIndicatorImage { background-color:#34413a;color:#d3e7de; }
 .layout-tv #nowPlayingPage .contextMenuList a { color:#f5f5f2; }
 
-/* Colour the native slider pieces without replacing their hit areas. */
+/* Colour native slider pieces without replacing their geometry or hit areas. */
 .layout-tv .nowPlayingBar .mdl-slider,
-.layout-tv #nowPlayingPage .mdl-slider { color:#d3e7de; accent-color:#d3e7de; }
+.layout-tv #nowPlayingPage .mdl-slider { color:#d3e7de;accent-color:#d3e7de; }
 .layout-tv .nowPlayingBar .mdl-slider-background-lower,
 .layout-tv #nowPlayingPage .mdl-slider-background-lower { background:#d3e7de; }
 .layout-tv .nowPlayingBar .mdl-slider-background-upper,
@@ -59,6 +126,17 @@
 .layout-tv #nowPlayingPage .mdl-slider::-webkit-slider-thumb { background:#f5f5f2; }
 .layout-tv .nowPlayingBar .mdl-slider::-moz-range-thumb,
 .layout-tv #nowPlayingPage .mdl-slider::-moz-range-thumb { background:#f5f5f2; }
-@media(max-width:760px) {
-  .layout-tv #nowPlayingPage .nowPlayingInfoContainer { padding:.8em; border-radius:10px; }
+@media(max-width:1000px) {
+  .layout-tv #nowPlayingPage .nowPlayingInfoContainer { grid-column-gap:2rem;grid-template-columns:minmax(160px,28%) minmax(0,1fr); }
+  .layout-tv #nowPlayingPage .remoteControlContent { padding-left:3vw!important;padding-right:3vw!important; }
+}
+@media(max-width:680px) {
+  .layout-tv #nowPlayingPage { padding-top:5rem!important; }
+  .layout-tv #nowPlayingPage .nowPlayingInfoContainer { grid-template-columns:minmax(0,1fr);grid-row-gap:1.8rem;height:auto; }
+  .layout-tv #nowPlayingPage .nowPlayingPageImageContainer { max-width:280px;justify-self:center; }
+  .layout-tv #nowPlayingPage .nowPlayingPageImageContainer:empty { padding-bottom:min(100%,280px); }
+  .layout-tv #nowPlayingPage .nowPlayingInfoControls { width:100%; }
+  .layout-tv #nowPlayingPage .nowPlayingInfoContainerMedia { width:100%;margin-bottom:1.2rem; }
+  .layout-tv #nowPlayingPage .nowPlayingSecondaryButtons .volumecontrol { margin-inline-start:0; }
+  .layout-tv #nowPlayingPage .playlistSection { margin-top:2rem; }
 }

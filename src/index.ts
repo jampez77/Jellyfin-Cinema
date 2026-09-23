@@ -8,6 +8,8 @@ import browseStyles from './browse.css';
 import recordingsStyles from './recordings.css';
 import musicPlayerStyles from './music-player.css';
 import { NativeRecordingsTheme } from './native-recordings';
+import { ProfileMenu } from './profile-menu';
+import profileMenuStyles from './profile-menu.css';
 import homeStyles from './home.css';
 import homeCollectionStyles from './home-collections.css';
 import { HomeCollections } from './home-collections';
@@ -29,7 +31,7 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
 let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
@@ -38,6 +40,7 @@ let disposed=false;
 let accountScope:string|null|undefined;
 const nativeHostMask=new NativeHostMask();
 const nativeRecordingsTheme=new NativeRecordingsTheme();
+const profileMenu=new ProfileMenu();
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
 const libraryStates=new Map<string,LibraryBrowseState>();
@@ -88,7 +91,7 @@ function currentRoute():Route|null{
     // Do not replace a filtered search or an unrelated generic library list.
     const supported=['parentId','serverId','collectionType','type'];
     if(!onlyParams(params,supported))return null;
-    if(params.get('type')==='Recordings')return {kind:'recordings',scope:'list'};
+    if(params.get('type')==='Recordings')return {kind:'recordings',scope:'list',parentId:params.get('parentId')||undefined};
     if(params.get('type')&&params.get('type')!=='BoxSet')return null;
     const parentId=params.get('parentId')||undefined;
     if(params.get('type')==='BoxSet')return {kind:'collections',scope:'list',parentId};
@@ -143,6 +146,7 @@ function refresh():void{
   updateAccount(api);
   const tv=document.documentElement.classList.contains('layout-tv')||document.body.classList.contains('layout-tv');
   nativeRecordingsTheme.update(tv && !!api);
+  profileMenu.update(tv && !!api, scopeOf(api));
   const route=currentRoute();
   if(pendingHash && pendingHash!==location.hash){pendingHash='';probeRevision++;}
   if(!tv||!route){dismissed='';pendingHash='';probeRevision++;close(false);return;}
@@ -155,10 +159,15 @@ function refresh():void{
     if(pendingHash===location.hash)return;
     close(false);
     const hash=location.hash;pendingHash=hash;const revision=++probeRevision;
-    void api.getItem(route.parentId!).then(parent=>{
+    void api.getItem(route.parentId!).then(async parent=>{
+      if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
+      if(parent.CollectionType==='boxsets'){
+        pendingHash='';openRoute(route,api,key);return;
+      }
+      const recordingFolder=await api.isRecordingFolder?.(parent.Id);
       if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
       pendingHash='';
-      if(parent.CollectionType==='boxsets')openRoute(route,api,key);
+      if(recordingFolder)openRoute({kind:'recordings',scope:'list',parentId:parent.Id},api,key);
       else dismissed=hash;
     }).catch(()=>{if(revision===probeRevision){pendingHash='';dismissed=hash;}});
     return;
@@ -298,5 +307,5 @@ const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerCo
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
 schedule();
