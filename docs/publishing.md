@@ -9,3 +9,11 @@ The GitHub repository is `jampez77/Jellyfin-TV-Item-Layout`. Jellyfin reads the 
 5. Verify that the public raw manifest resolves, every referenced release asset downloads without authentication, and both its MD5 and SHA-256 match. Verify that 10.10.7, 10.11.x and 12.x each select the correct highest compatible plugin version.
 
 Treat published version numbers and their assets as immutable. Use a new release version for subsequent fixes so Jellyfin offers an update and clients retrieve the new bundle.
+
+## Jellyfin Cinema rename
+
+Version 0.2.0 changes the public plugin name and adds `imageUrl` for the catalogue cover. Keep GUID `1a06b74f-7609-4af9-899d-430c9b5a52b1`, the `Jellyfin.Plugin.TvItemLayout` assembly/namespace, `/TvItemLayout` routes, `jellyfin-tv-layout.js`, legacy archive names and the repository URL stable for existing clients and installations. The npm package and public documentation use Jellyfin Cinema.
+
+The checked-in catalogue cover is `assets/catalogue/jellyfin-cinema.png`; its built-in image generation prompt is recorded alongside it in `prompt.txt`. Ensure its public raw URL resolves when publishing. Artwork is illustrative, not a screenshot of a real library.
+
+Prepared release entries point to assets that may not yet be public. Publish the matching release archives before merging that manifest to `main`, then run the public-download and checksum checks above. A successful local package build is not a published release.

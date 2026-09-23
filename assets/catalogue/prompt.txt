@@ -1,0 +1,11 @@
+Generated with the built-in image_gen tool.
+
+Use case: ads-marketing
+Asset type: repository and plugin catalogue cover, wide 16:9 landscape, 2048x1152.
+Primary request: A polished cinematic brand graphic for "Jellyfin Cinema", a sophisticated television media browsing interface.
+Scene and subject: Dark charcoal backdrop with a refined, slightly angled smoked-glass widescreen interface on the right. Within the glass screen, show a curated row of tall fictional film posters and a second subtle shelf of poster cards, with one large elegant outlined ranking numeral beside a poster. Original poster imagery only: misty mountains, a lone sailing boat, abstract orbital light, and a forest at dusk. No recognizable films, characters or real-world studio logos.
+Composition: A clean, deliberate wide layout. Large, exceptionally legible title in the left half with generous clear space around it, balanced by the glass screen illustration in the right half. Keep all important elements comfortably inside the canvas. The screen is a stylized product illustration rather than a literal app screenshot.
+Typography: The exact prominent title "Jellyfin Cinema", elegantly typeset in warm cream, two lines allowed. No other words or letters anywhere in the image.
+Style and materials: Premium editorial product illustration with restrained photorealistic glass reflections, subtle film grain, soft depth, and precise edges. A quiet, confident home cinema mood rather than loud neon gaming.
+Lighting and palette: Deep charcoal and near-black, muted sage green accent glow, warm cream typography, gently lit glass borders and understated warm highlights.
+Constraints: 16:9 wide framing. Verbatim title spelling. No extra slogans, captions, watermarks, invented logos, controls with tiny illegible text, or copyright film imagery.

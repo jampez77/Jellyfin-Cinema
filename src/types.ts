@@ -56,12 +56,15 @@ export interface MediaApi extends BrowseApi {
   getCollections(itemId: string): Promise<Item[]>;
   getCollectionList(parentId?: string): Promise<Item[]>;
   getCollectionItems(collectionId: string): Promise<Item[]>;
+  canManageCollections?(): Promise<boolean>;
+  addToCollection?(collectionId: string, itemId: string): Promise<void>;
+  createCollection?(name: string, itemId: string): Promise<Item>;
   getChannels(): Promise<Item[]>;
   getPrograms(channelId: string): Promise<Item[]>;
   setFavorite(id: string, favorite: boolean): Promise<void>;
   play(item: Item, ticks: number, isCurrent: () => boolean): Promise<void>;
   playTrailer(item: Item, isCurrent: () => boolean): Promise<void>;
-  image(item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc'): string | null;
+  image(item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc' | 'poster'): string | null;
 }
 
 declare global {

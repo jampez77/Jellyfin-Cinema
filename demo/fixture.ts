@@ -341,6 +341,20 @@ const api: MediaApi = {
   getCollections: (id) => respond(() => list([...collectionMembers].filter(([,members]) => members.includes(id)).map(([collectionId]) => library.get(collectionId)!)), id),
   getCollectionList: (parentId) => respond(() => list([...collectionMembers].filter(([,members])=>parentId!=='library-tv'||members.some(id=>seriesIds.includes(id))).map(([id])=>library.get(id)!))),
   getCollectionItems: (id) => respond(() => list((collectionMembers.get(id) || []).map(member=>library.get(member)!)),id),
+  canManageCollections: () => respond(() => true),
+  addToCollection: (collectionId, itemId) => respond(() => {
+    const members = collectionMembers.get(collectionId);
+    if (!members || !library.has(itemId)) throw new Error('This collection or title is no longer available.');
+    if (!members.includes(itemId)) members.push(itemId);
+  }),
+  createCollection: (name, itemId) => respond(() => {
+    const trimmed = name.trim();
+    if (!trimmed || !library.has(itemId)) throw new Error('Enter a collection name first.');
+    const id = `collection-demo-${collectionMembers.size + 1}`;
+    const item: Item = { Id:id, Name:trimmed, Type:'BoxSet', ChildCount:1 };
+    library.set(id,item); collectionMembers.set(id,[itemId]);
+    return copy(item);
+  }),
   getMovies: (query) => respond(() => browseLibrary(movieIds, movieGenres, 'library-movies', query), query.search),
   getShows: (query) => respond(() => browseLibrary(seriesIds, showGenres, 'library-tv', query), query.search),
   getShowGenres: (parentId) => respond(() => list(!parentId || parentId==='library-tv' ? showGenres : [])),

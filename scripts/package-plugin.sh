@@ -4,7 +4,7 @@ set -euo pipefail
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 project="$repo_dir/server/Jellyfin.Plugin.TvItemLayout.csproj"
 target="${1:-10.11.0}"
-release_version="0.1.7"
+release_version="0.2.0"
 
 case "$target" in
     all) targets=(10.10.7 10.11.0 12.0.0) ;;
@@ -44,7 +44,7 @@ with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
     archive.write(root / 'server/LICENSE.InPlayerEpisodePreview.md', 'LICENSE.InPlayerEpisodePreview.md')
     archive.write(root / 'docs/server.md', 'INSTALL.md')
     archive.writestr('build-info.json', json.dumps({
-        'name': 'TV Item Layout',
+        'name': 'Jellyfin Cinema',
         'id': '1a06b74f-7609-4af9-899d-430c9b5a52b1',
         'version': plugin_version,
         'jellyfinVersion': jellyfin_version,

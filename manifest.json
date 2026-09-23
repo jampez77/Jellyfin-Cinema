@@ -1,12 +1,37 @@
 [
   {
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
-    "name": "TV Item Layout",
-    "overview": "Cinematic TV browsing, live guide and player layouts.",
-    "description": "Netflix-inspired Home, Movies, TV Shows, Music, Recordings and Collections, a horizontal Live TV guide, in-player browsing and pause artwork for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and tune channels directly from the guide. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "name": "Jellyfin Cinema",
+    "overview": "Cinematic TV browsing, personal collection rows and in-player navigation.",
+    "description": "A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Ranked Home artwork numbers items in collection order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-TV-Item-Layout/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
+      {
+        "version": "0.2.0.3",
+        "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.2.0/TvItemLayout_0.2.0.3_jellyfin-12.0.0.zip",
+        "checksum": "3f2075a20016c239f1914646f714ca79",
+        "timestamp": "2026-09-23T12:07:03Z"
+      },
+      {
+        "version": "0.2.0.2",
+        "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.2.0/TvItemLayout_0.2.0.2_jellyfin-10.11.0.zip",
+        "checksum": "8218c9a0739ec7eeca1071d956c7705e",
+        "timestamp": "2026-09-23T12:07:03Z"
+      },
+      {
+        "version": "0.2.0.1",
+        "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.2.0/TvItemLayout_0.2.0.1_jellyfin-10.10.7.zip",
+        "checksum": "5fdbc68b2976e3c10845c3804363345c",
+        "timestamp": "2026-09-23T12:07:03Z"
+      },
       {
         "version": "0.1.7.3",
         "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",

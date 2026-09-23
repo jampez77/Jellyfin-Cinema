@@ -2,6 +2,7 @@ import type { Item, MediaApi } from './types';
 import { el, icon, button, picture, replace } from './dom';
 import { runtime, progress, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
 import { attachRemote } from './remote';
+import { CollectionPicker } from './collection-picker';
 
 type Pane = 'overview' | 'episodes' | 'similar';
 export class DetailView {
@@ -24,6 +25,10 @@ export class DetailView {
   private launching = false;
   private favoritePending = false;
   private restoreId = '';
+  private collectionPicker?: CollectionPicker;
+  private collectionAccess: boolean | null = null;
+  private collectionSaving = false;
+  private collectionsRevision = 0;
 
   constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; openAdditional?: (item: Item) => boolean; focusId?: string }) {
     this.restoreId = options.focusId || '';
@@ -55,6 +60,10 @@ export class DetailView {
       if (this.disposed) return;
       if (this.item.Type === 'BoxSet') { this.options.openCollection(this.item); return; }
       if (!['Movie','Series','TvChannel'].includes(this.item.Type || '')) { this.options.close(); return; }
+      if (this.item.Type !== 'TvChannel' && this.api.canManageCollections) {
+        try { this.collectionAccess = await this.api.canManageCollections(); } catch { /* The picker offers a permission retry. */ }
+        if (this.disposed) return;
+      }
       this.element.setAttribute('aria-label', `${this.item.Name} details`);
       if (this.item.Type === 'Series') {
         // Main metadata remains usable while season and next-up requests load.
@@ -196,6 +205,10 @@ export class DetailView {
     favorite.setAttribute('aria-label',this.item.UserData?.IsFavorite ? 'Remove from favourites' : 'Add to favourites');
     favorite.setAttribute('aria-pressed',String(!!this.item.UserData?.IsFavorite));
     favorite.dataset.favorite = ''; favorite.dataset.focusId = 'favorite'; actions.append(favorite);
+    if (!live && this.collectionAccess !== false && this.api.canManageCollections && this.api.addToCollection && this.api.createCollection) {
+      const add = button('Add to collection', 'grid', 'tvl-add-collection', () => this.openCollectionPicker());
+      add.dataset.focusId = 'add-collection'; actions.insertBefore(add, favorite);
+    }
     body.append(actions);
     if (!live && !movie && this.item.Genres?.length) body.append(el('p','tvl-genre-line',this.item.Genres.slice(0,3).join('  ·  ')));
     hero.append(body);
@@ -261,6 +274,7 @@ export class DetailView {
     this.pane = pane;this.render();
   }
   back(): void {
+    if (this.collectionPicker) { this.closeCollectionPicker(); return; }
     if (this.pane !== 'overview') {this.pane='overview';this.render();}
     else this.options.back();
   }
@@ -362,11 +376,12 @@ export class DetailView {
   }
   private async fillCollections(container: HTMLElement, focusId=''): Promise<void> {
     const revision = this.revision;
+    const collectionsRevision = ++this.collectionsRevision;
     const anchor=document.activeElement;
     container.setAttribute('aria-busy','true');
     try {
       const collections = await this.api.getCollections(this.item.Id);
-      if (this.disposed || revision !== this.revision) return;
+      if (this.disposed || revision !== this.revision || collectionsRevision !== this.collectionsRevision) return;
       const restoreFocus = container.contains(document.activeElement);
       container.removeAttribute('aria-busy');
       if (!collections.length) { container.remove(); if (restoreFocus) this.focusFirst(); return; }
@@ -390,7 +405,7 @@ export class DetailView {
         (document.activeElement as HTMLElement)?.scrollIntoView({block:'nearest',inline:'nearest'});
       }
     } catch {
-      if (this.disposed || revision !== this.revision) return;
+      if (this.disposed || revision !== this.revision || collectionsRevision !== this.collectionsRevision) return;
       const restoreFocus = container.contains(document.activeElement);
       container.removeAttribute('aria-busy');
       const retry = button('Try again','','',()=>{
@@ -434,6 +449,41 @@ export class DetailView {
       this.announce(value?'Added to your favourites':'Removed from your favourites');
     }catch{this.announce('Could not update favourites. Please try again.');}finally{this.favoritePending=false;}
   }
+  private openCollectionPicker(): void {
+    if (this.collectionPicker || this.disposed) return;
+    if (this.collectionSaving) { this.announce('The collection is still being saved.'); return; }
+    this.removeRemote();
+    this.element.setAttribute('aria-modal', 'false');
+    this.content.setAttribute('aria-hidden', 'true');
+    this.content.style.pointerEvents = 'none';
+    const picker = new CollectionPicker(this.api, this.item, {
+      close: () => this.closeCollectionPicker(),
+      pending: value => { this.collectionSaving = value; },
+      saved: collection => {
+        if (this.disposed) return;
+        this.closeCollectionPicker();
+        this.announce(`Added to ${collection.Name}`);
+        if (this.pane !== 'overview') return;
+        let section = this.content.querySelector<HTMLElement>('.tvl-collections');
+        if (!section) {
+          section = el('section', 'tvl-collections'); section.setAttribute('aria-label', 'Collections');
+          this.content.insertBefore(section, this.content.querySelector('.tvl-movie-recommendations'));
+        }
+        void this.fillCollections(section);
+      }
+    });
+    this.collectionPicker = picker;
+    this.element.append(picker.element);
+    void picker.load();
+  }
+  private closeCollectionPicker(): void {
+    if (!this.collectionPicker) return;
+    this.collectionPicker.destroy(); this.collectionPicker = undefined;
+    this.element.setAttribute('aria-modal', 'true');
+    this.content.removeAttribute('aria-hidden'); this.content.style.pointerEvents = '';
+    this.removeRemote = attachRemote(this.element, () => this.back(), direction => this.moveBetweenSeasons(direction));
+    this.focusFirst('add-collection');
+  }
   private async play(item: Item): Promise<void> {
     if(this.launching||!playable(item))return;
     await this.launch(
@@ -466,5 +516,5 @@ export class DetailView {
       ||within.querySelector<HTMLElement>('.tvl-primary:not(:disabled), .tvl-film-card, .tvl-season')||within.querySelector<HTMLElement>('button:not(:disabled)');
     node?.focus({preventScroll:true});
   }
-  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.removeRemote();window.clearTimeout(this.launchTimer);window.clearInterval(this.liveTimer);this.element.remove();}
+  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearInterval(this.liveTimer);this.element.remove();}
 }

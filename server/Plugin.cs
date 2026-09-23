@@ -25,9 +25,9 @@ public sealed class Plugin : BasePlugin<BasePluginConfiguration>
 
     internal IServerConfigurationManager ConfigurationManager { get; }
 
-    public override string Name => "TV Item Layout";
+    public override string Name => "Jellyfin Cinema";
 
     public override Guid Id => Guid.Parse(PluginId);
 
-    public override string Description => "Cinematic Jellyfin TV browsing, live guide, in-player previews and pause artwork.";
+    public override string Description => "Cinematic Jellyfin TV browsing, personal collection rows, live guide and in-player navigation.";
 }

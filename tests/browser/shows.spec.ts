@@ -10,9 +10,16 @@ test('TV Shows opens Suggestions first by default', async ({ page }) => {
   await page.goto(baseRoute);
   const root = shows(page);
   await expect(root.locator('[data-library-tab]').first()).toHaveText('Suggestions');
+  await expect(root.locator('.tvl-library-tabs > button')).toHaveText(['Suggestions','Favourites','Genres','Collections','All shows']);
   await expect(root.getByRole('button', { name: 'Suggestions', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(root.getByRole('region', { name: 'Continue watching', exact: true })).toBeVisible();
   await expect(root.getByRole('region', { name: 'Next up', exact: true })).toBeVisible();
+  await root.getByRole('button', { name: 'Collections', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(root.getByRole('button', { name: 'All shows', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(root.getByRole('button', { name: 'All shows', exact: true })).toHaveAttribute('aria-pressed','true');
+  await expect(cards(page)).toHaveCount(5);
 });
 
 async function patchDemo(page: Page, source: string) {

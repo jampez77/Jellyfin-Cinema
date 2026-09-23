@@ -122,6 +122,32 @@ test('real Featured mounts into the unmasked native Home and retains configured 
   await page.screenshot({ path: test.info().outputPath('featured-native-home.png') });
 });
 
+test('Featured uses the cinematic Home palette without changing its theme elsewhere', async ({ page }) => {
+  await setup(page, { feed: { showPlayButton: true } }); await start(page);
+  const slide = activeSlide(page);
+  const play = slide.locator('.ec-button:not(.ec-button-secondary)');
+  const details = slide.getByRole('button', { name: 'Explore this title', exact: true });
+  await expect(slide.locator('.ec-title')).toHaveCSS('font-weight', '900');
+  await expect(slide.locator('.ec-title')).toHaveCSS('text-transform', 'uppercase');
+  await expect(slide.locator('.ec-overview')).toHaveCSS('color', 'rgb(185, 196, 189)');
+  await expect(play).toHaveCSS('background-color', 'rgb(246, 246, 243)');
+  await expect(play).toHaveCSS('color', 'rgb(16, 17, 18)');
+  await expect(play).toHaveCSS('border-radius', '7px');
+  await expect(details).toHaveCSS('background-color', 'rgba(38, 52, 44, 0.9)');
+  await details.focus();
+  await expect(details).toHaveCSS('outline-color', 'rgb(211, 231, 222)');
+  await expect(details).toHaveCSS('background-color', 'rgb(53, 69, 58)');
+  // Featured also uses these tokens outside Home (including preferences).
+  // A sibling instance must still inherit the plugin's Jellyfin theme.
+  await page.evaluate(() => {
+    const sibling = document.createElement('div'); sibling.id = 'outside-home-featured'; sibling.className = 'ec-root';
+    sibling.innerHTML = '<button class="ec-button">Outside Home</button>'; document.body.append(sibling);
+  });
+  await expect(page.locator('#outside-home-featured .ec-button')).toHaveCSS('background-color', 'rgb(0, 164, 220)');
+  await expect(page.locator('#outside-home-featured .ec-button')).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await page.screenshot({ path: test.info().outputPath('featured-cinematic-home.png') });
+});
+
 test('Featured keyboard navigation reaches our item details and Home return restores one real carousel', async ({ page }) => {
   await setup(page); await start(page); await expect(featured(page)).toBeVisible();
   await activeSlide(page).focus(); await page.keyboard.press('ArrowRight');

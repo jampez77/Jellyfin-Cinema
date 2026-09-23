@@ -218,3 +218,26 @@ body.tvl-open { overflow: hidden !important; }
   .tvl-status { max-width:90vw; width:max-content; }
 }
 @media (prefers-reduced-motion:reduce) { .tvl-root * { transition:none !important; scroll-behavior:auto !important; } }
+
+/* Collection editing stays inside its own remote/focus scope. */
+.tvl-actions-movie { flex-wrap:wrap; }
+.tvl-actions-movie > .tvl-add-collection { font-size:.75em; }
+.tvl-collection-picker { position:absolute; z-index:8; top:0; right:0; bottom:0; left:0; display:flex; align-items:center; justify-content:center; padding:4vh 5vw; background:#080c10dc; }
+.tvl-collection-picker-panel { width:42em; max-width:100%; max-height:100%; padding:1.5em; display:flex; flex-direction:column; border:1px solid #58636a; border-radius:10px; background:#192025; box-shadow:0 1em 4em #0009; }
+.tvl-collection-picker-header { display:flex; align-items:center; justify-content:space-between; }
+.tvl-collection-picker-header h2 { font-size:1.35em; }
+.tvl-collection-picker-header > button { margin-left:1em; font-size:.8em; }
+.tvl-collection-picker-title { color:#b9c4c9; margin:.5em 0 1em !important; }
+.tvl-collection-picker-body { min-height:0; overflow-y:auto; padding:.4em; margin:-.4em; }
+.tvl-collection-picker-body > .tvl-button { margin-bottom:.7em; }
+.tvl-collection-picker-input { display:block; width:100%; padding:.8em; margin:.6em 0 1em; border:1px solid #68777d; border-radius:4px; background:#10171c; color:#fff; font:inherit; }
+.tvl-collection-picker-input:focus { outline:3px solid #fff; outline-offset:2px; }
+.tvl-collection-picker-list { display:flex; flex-direction:column; }
+.tvl-collection-choice { width:100%; margin:.25em 0; text-align:left; background:#252f34; flex-shrink:0; }
+.tvl-collection-choice > span { flex:1; overflow-wrap:anywhere; }
+.tvl-collection-choice small { margin-left:1em; color:#b5c3be; font-size:.7em; }
+.tvl-collection-create-form { margin-top:.7em; }
+.tvl-collection-picker-message { margin-top:1em !important; font-size:.85em; color:#e5e6db; }
+.tvl-collection-picker-message:empty { display:none; }
+.tvl-collection-picker-empty { padding:.7em 0; color:#bdc7cb; }
+@media (max-width:550px) { .tvl-collection-picker-panel { padding:1em; } .tvl-collection-picker-header h2 { font-size:1.1em; } }

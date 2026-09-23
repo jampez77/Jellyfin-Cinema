@@ -30,6 +30,64 @@ const episode = (id: string, index: number, extra: Partial<Item> = {}): Item => 
   ParentIndexNumber: 1, IndexNumber: index, ...extra
 });
 
+test('collection writes use native endpoints and fresh collection permissions', async () => {
+  const requests: { type: string; url: string; dataType?: string }[] = [];
+  let allowed = true;
+  const api = client({
+    getUrl: (path: string, query?: Record<string, string>) => `${path}${query ? '?' + new URLSearchParams(query) : ''}`,
+    getJSON: async (url: string) => { assert.equal(url, 'Users/user-a'); return { Id:'user-a', Policy:{ EnableCollectionManagement:allowed } }; },
+    ajax: async (request: typeof requests[number]) => { requests.push(request); return { Id:'new-collection' }; }
+  });
+  assert.equal(await api.canManageCollections!(), true);
+  await api.addToCollection!('collection-a', 'movie-a');
+  assert.deepEqual(requests[0], { type:'POST', url:'Collections/collection-a/Items?ids=movie-a' });
+  assert.deepEqual(await api.createCollection!('  Sea & Sky  ', 'show-a'), { Id:'new-collection', Name:'Sea & Sky', Type:'BoxSet' });
+  assert.deepEqual(requests[1], { type:'POST', url:'Collections?name=Sea+%26+Sky&ids=show-a', dataType:'json' });
+  allowed = false;
+  await assert.rejects(api.addToCollection!('collection-a', 'movie-a'), /not allowed/i);
+  assert.equal(requests.length, 2);
+});
+
+test('collection management honours administrator policy and fails closed for invalid users', async () => {
+  for (const policy of [{ IsAdministrator:true }, { EnableCollectionManagement:true }, { IsAdministrator:false, EnableCollectionManagement:false }]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => ({ Id:'user-a', Policy:policy }) });
+    assert.equal(await api.canManageCollections!(), policy.IsAdministrator === true || policy.EnableCollectionManagement === true);
+  }
+  for (const user of [null, {}, {Id:'other',Policy:{IsAdministrator:true}}, {Id:'user-a'}]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => user });
+    await assert.rejects(api.canManageCollections!(), /permissions/i);
+  }
+});
+
+test('collection permission changes or account switches cannot dispatch stale writes', async () => {
+  let user = 'user-a'; let writes = 0;
+  const api = client({ getCurrentUserId: () => user, getUrl: (path: string) => path,
+    getJSON: async () => { user = 'user-b'; return {Id:'user-a',Policy:{IsAdministrator:true}}; },
+    ajax: async () => { writes++; }
+  });
+  await assert.rejects(api.addToCollection!('collection', 'item'), /account changed/i);
+  assert.equal(writes, 0);
+});
+
+test('collection changes invalidate cached membership and preserve actionable failures', async () => {
+  let member = false; let writes = 0; let failure: unknown;
+  const api = client({ getUrl: (path: string) => path,
+    getJSON: async () => ({Id:'user-a',Policy:{EnableCollectionManagement:true}}),
+    getItems: async (_user: string, query: Record<string, unknown>) => ({ Items: query.ParentId
+      ? member ? [{Id:'item',Name:'Item',Type:'Movie'}] : [] : [{Id:'collection',Name:'Collection',Type:'BoxSet'}] }),
+    ajax: async () => { writes++; if (failure) throw failure; member = true; return {Id:'created'}; }
+  });
+  assert.deepEqual(await api.getCollections('item'), []);
+  await api.addToCollection!('collection', 'item');
+  assert.deepEqual((await api.getCollections('item')).map(item=>item.Id), ['collection']);
+  failure = {status:403};
+  await assert.rejects(api.addToCollection!('collection','item'), /not allowed to manage collections/i);
+  failure = {status:404};
+  await assert.rejects(api.addToCollection!('collection','item'), /no longer available/i);
+  await assert.rejects(api.createCollection!('   ','item'), /collection name/i);
+  assert.equal(writes, 3);
+});
+
 test('activation requires a signed-in Jellyfin client', () => {
   global('ApiClient', undefined);
   assert.equal(createJellyfinApi(), null);
@@ -64,6 +122,15 @@ test('disc artwork uses its own tag and does not mistake a poster for disc art',
   assert.equal(api.image({Id:'item', Name:'Item', ImageTags:{Primary:'poster'}}, 'disc'), null);
   assert.deepEqual(JSON.parse(api.image({Id:'item', Name:'Item', ImageTags:{Disc:'disc'}}, 'disc')!),
     {id:'item', options:{type:'Disc',tag:'disc',maxWidth:700,quality:90}});
+});
+
+test('poster artwork prefers Primary without changing landscape thumbnail selection', () => {
+  const api = client({ getImageUrl: (_id: string, options: {type: string}) => options.type });
+  const item = {Id:'collection',Name:'Collection',ImageTags:{Primary:'poster',Thumb:'thumb'},BackdropImageTags:['backdrop']};
+  assert.equal(api.image(item,'poster'), 'Primary');
+  assert.equal(api.image(item,'thumb'), 'Thumb');
+  assert.equal(api.image({...item,ImageTags:{Thumb:'thumb'}},'poster'), 'Thumb');
+  assert.equal(api.image({...item,ImageTags:{}},'poster'), 'Backdrop');
 });
 
 test('movie pages send real scoped filters and retain the raw continuation offset', async () => {
@@ -407,6 +474,25 @@ test('collection contents preserve mixed and nested members without collapsing o
   }});
   assert.deepEqual((await api.getCollectionItems('collection')).map(item=>item.Id),['movie','nested','show','track']);
   assert.ok(queries.every(query=>query.ParentId==='collection'&&query.Recursive===false&&query.CollapseBoxSetItems===false&&!query.IncludeItemTypes&&!query.Ids));
+});
+
+test('collection contents retain the server configured display order across pages', async () => {
+  const releaseOrder = [
+    {Id:'z-first',Name:'Z first released',Type:'Movie',PremiereDate:'1980-01-01'},
+    {Id:'a-second',Name:'A second released',Type:'Movie',PremiereDate:'2000-01-01'},
+    {Id:'m-third',Name:'M last released',Type:'Movie',PremiereDate:'2020-01-01'}
+  ];
+  const requests: Record<string,unknown>[] = [];
+  const api = client({ getItems: async (_user: string, query: Record<string,unknown>) => {
+    requests.push(query);
+    // BoxSet already returns its DisplayOrder; a request sort would override it.
+    const ordered = query.SortBy === 'SortName' ? [...releaseOrder].sort((a,b)=>a.Name.localeCompare(b.Name)) : releaseOrder;
+    const start = Number(query.StartIndex);
+    return { Items:ordered.slice(start,start+2), TotalRecordCount:3 };
+  } });
+  assert.deepEqual((await api.getCollectionItems('release-ordered')).map(item=>item.Id), ['z-first','a-second','m-third']);
+  assert.deepEqual(requests.map(query=>query.StartIndex), [0,2]);
+  assert.ok(requests.every(query=>!('SortBy' in query)&&!('SortOrder' in query)));
 });
 
 test('a failed collection read does not return or cache a partial membership list', async () => {

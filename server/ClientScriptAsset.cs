@@ -15,7 +15,7 @@ public static class ClientScriptAsset
     private static byte[] ReadScript()
     {
         using Stream stream = typeof(Plugin).Assembly.GetManifestResourceStream("Jellyfin.Plugin.TvItemLayout.ClientScript.js")
-            ?? throw new InvalidOperationException("TV Item Layout's client script was not embedded. Rebuild the plugin after npm run build.");
+            ?? throw new InvalidOperationException("Jellyfin Cinema's client script was not embedded. Rebuild the plugin after npm run build.");
         using MemoryStream buffer = new();
         stream.CopyTo(buffer);
         return buffer.ToArray();

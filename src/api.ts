@@ -12,6 +12,7 @@ interface JellyfinClient extends PlaybackClient {
   getGenres(userId: string, query: Query): Promise<ItemResult>;
   getUrl(path: string, query?: Query): string;
   getJSON(url: string): Promise<unknown>;
+  ajax(options: { type: 'POST'; url: string; dataType?: 'json' }): Promise<unknown>;
   getSeasons(seriesId: string, query: Query): Promise<ItemResult>;
   getEpisodes(seriesId: string, query: Query): Promise<ItemResult>;
   getNextUpEpisodes(query: Query): Promise<ItemResult>;
@@ -86,11 +87,14 @@ async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: 
   throw new Error(`The ${label} list exceeded the browsing limit. Refresh your Jellyfin library and try again.`);
 }
 
-function imageFor(client: JellyfinClient, item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc'): string | null {
+function imageFor(client: JellyfinClient, item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc' | 'poster'): string | null {
   let id = item.Id;
   let type: string;
   let tag: string | undefined;
-  if (kind === 'disc') {
+  if (kind === 'poster' && item.ImageTags?.Primary) {
+    type = 'Primary';
+    tag = item.ImageTags.Primary;
+  } else if (kind === 'disc') {
     type = 'Disc';
     tag = item.ImageTags?.Disc;
   } else if (kind === 'logo') {
@@ -132,6 +136,7 @@ export function createJellyfinApi(): MediaApi | null {
   const serverId = client.serverId?.();
   // An adapter belongs to one open detail view; reopening creates a fresh cache.
   const collectionsByItem = new Map<string, Item[]>();
+  let collectionRevision = 0;
   const sessionCurrent = () => typeof ApiClient !== 'undefined' && ApiClient === client
     && client.getCurrentUserId() === userId && client.serverId?.() === serverId;
   function assertSession(): void {
@@ -157,6 +162,39 @@ export function createJellyfinApi(): MediaApi | null {
     Fields: 'Overview', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
     EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
   })), 'collection')).filter(item => item.Type === 'BoxSet'));
+  const canManageCollections = () => read(async () => {
+    const user = await client.getJSON(client.getUrl(`Users/${encodeURIComponent(userId)}`)) as {
+      Id?: string; Policy?: { IsAdministrator?: boolean; EnableCollectionManagement?: boolean }
+    } | null;
+    if (!user?.Id || identity(user.Id) !== identity(userId) || !user.Policy) {
+      throw new Error('Jellyfin could not check collection permissions. Please try again.');
+    }
+    return user.Policy.IsAdministrator === true || user.Policy.EnableCollectionManagement === true;
+  });
+  async function changeCollection(path: string, query: Query, json = false): Promise<unknown> {
+    if (!await canManageCollections()) throw new Error('This account is not allowed to manage collections.');
+    assertSession();
+    try {
+      // Use the web client's authenticated transport; collection writes have their
+      // own CollectionManagement policy, independent of library administration.
+      // https://github.com/jellyfin/jellyfin/blob/v12.0/Jellyfin.Api/Controllers/CollectionController.cs
+      const result = await client.ajax({ type: 'POST', url: client.getUrl(path, query), ...(json ? { dataType: 'json' as const } : {}) });
+      assertSession();
+      return result;
+    } catch (error) {
+      assertSession();
+      const status = (error as { status?: number; statusCode?: number } | null)?.status
+        ?? (error as { statusCode?: number } | null)?.statusCode;
+      if (status === 401 || status === 403) throw new Error('This account is not allowed to manage collections. Sign in again or check its permissions.');
+      if (status === 404) throw new Error('This collection or title is no longer available. Close the picker and try again.');
+      throw error instanceof Error ? error : new Error('Jellyfin could not save the collection. Check your connection and try again.');
+    } finally {
+      // Also invalidate after ambiguous network failures: the server may have
+      // committed the write. An earlier membership scan must not cache stale data.
+      collectionRevision++;
+      collectionsByItem.clear();
+    }
+  }
   const libraryPage = (type: 'Movie' | 'Series', options: LibraryQuery): Promise<ItemPage> => read(async () => {
     const label = type === 'Movie' ? 'movie' : 'TV show';
     const start = Number.isFinite(options.startIndex) ? Math.min(2_147_483_647, Math.max(0, Math.trunc(options.startIndex!))) : 0;
@@ -289,13 +327,31 @@ export function createJellyfinApi(): MediaApi | null {
       UserId: userId, Limit: 24, Fields: 'Overview,Genres', EnableUserData: true
     }), 'similar item').filter(available)),
     getCollectionList: collectionList,
+    canManageCollections,
+    addToCollection: (collectionId, itemId) => read(async () => {
+      if (!collectionId.trim() || !itemId.trim()) throw new Error('Choose a collection and title first.');
+      await changeCollection(`Collections/${encodeURIComponent(collectionId)}/Items`, { ids: itemId });
+    }),
+    createCollection: (name, itemId) => read(async () => {
+      const trimmed = name.trim();
+      if (!trimmed || !itemId.trim()) throw new Error('Enter a collection name first.');
+      const result = await changeCollection('Collections', { name: trimmed, ids: itemId }, true) as { Id?: string } | null;
+      if (typeof result?.Id !== 'string' || !result.Id.trim()) {
+        throw new Error('Jellyfin did not confirm the new collection. Close the picker and check Collections before trying again.');
+      }
+      return { Id: result.Id, Name: trimmed, Type: 'BoxSet' };
+    }),
     getCollectionItems: id => read(async () => (await pages(startIndex => read(() => client.getItems(userId, {
       ParentId: id, Recursive: false, CollapseBoxSetItems: false,
-      SortBy: 'SortName', SortOrder: 'Ascending', Fields: 'Overview,Genres',
+      // BoxSet.GetChildren honours the collection's DisplayOrder. Supplying a
+      // request sort overrides it in UserViewBuilder.SortAndPage, before paging.
+      // https://github.com/jellyfin/jellyfin/blob/v12.0/MediaBrowser.Controller/Entities/Movies/BoxSet.cs
+      Fields: 'Overview,Genres',
       EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo', EnableUserData: true,
       StartIndex: startIndex, Limit: PAGE_SIZE
     })), 'collection item')).filter(available)),
     getCollections: id => read(async () => {
+      const revision = collectionRevision;
       const itemId = identity(id);
       const cached = collectionsByItem.get(itemId);
       if (cached) return cached;
@@ -320,7 +376,7 @@ export function createJellyfinApi(): MediaApi | null {
         }
       }));
       const result = collections.filter(collection => matched.has(identity(collection.Id)));
-      collectionsByItem.set(itemId, result);
+      if (revision === collectionRevision) collectionsByItem.set(itemId, result);
       return result;
     }),
     getChannels: () => read(async () => (await pages(startIndex => client.getLiveTvChannels({

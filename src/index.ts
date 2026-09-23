@@ -6,6 +6,8 @@ import libraryStyles from './library.css';
 import nativeHostStyles from './native-host.css';
 import browseStyles from './browse.css';
 import homeStyles from './home.css';
+import homeCollectionStyles from './home-collections.css';
+import { HomeCollections } from './home-collections';
 import pauseStyles from './pause-screen.css';
 import playerStyles from './player-browser.css';
 import { NativeHostMask } from './native-host';
@@ -24,8 +26,9 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+homeStyles+pauseStyles+playerStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
+let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
 let disposed=false;
@@ -44,6 +47,7 @@ type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxset
 type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'};
 type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
+  homeCollections?.destroy();homeCollections=null;
   stopThemeVideo?.();stopThemeVideo=undefined;
   view?.destroy();view=null;activeKey='';openedHash='';
   nativeHostMask.clear();
@@ -182,15 +186,16 @@ function collectionBack(route:CollectionRoute):void{
 }
 function openRoute(route:Route,api:MediaApi,key:string):void{
   close(false);activeKey=key;openedHash=location.hash;previousFocus=document.activeElement as HTMLElement;
+  const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
   if(route.kind==='home'){
     // Keep Jellyfin's Home in place. Its controllers own user/device settings,
     // section order, hidden libraries, focus and Featured's carousel lifecycle.
     // Styling alone also works when the native page arrives after this route.
-    document.body.classList.add('tvl-home');return;
+    document.body.classList.add('tvl-home');
+    homeCollections=new HomeCollections(api,id=>navigate(id,api.serverId),focusId);return;
   }
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
-  const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
   const go=(id:string)=>navigate(id,api.serverId,route.kind==='recordings');
   const navigateRoute=(hash:string)=>{
     rememberFocus();

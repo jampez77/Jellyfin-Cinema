@@ -111,8 +111,11 @@ export class LibraryView {
 
   private renderControls(): void {
     replace(this.navigation);
-    const tabs: [LibraryTab, string][] = [['suggestions', 'Suggestions'], ['all', `All ${this.plural}`], ['favorites', 'Favourites'], ['genres', 'Genres']];
+    const collections = button('Collections', 'grid', 'tvl-library-tab tvl-library-collections', this.options.openCollections);
+    collections.dataset.focusId = 'collections';
+    const tabs: [LibraryTab, string][] = [['suggestions', 'Suggestions'], ['favorites', 'Favourites'], ['genres', 'Genres'], ['all', `All ${this.plural}`]];
     for (const [tab, label] of tabs) {
+      if (tab === 'all') this.navigation.append(collections);
       const control = button(label, '', 'tvl-library-tab', () => {
         this.change({ tab, search: '', letter: '', genreId: undefined, genreName: undefined }, `tab:${tab}`);
       });
@@ -121,9 +124,6 @@ export class LibraryView {
       control.setAttribute('aria-pressed', String(this.state.tab === tab));
       this.navigation.append(control);
     }
-    const collections = button('Collections', 'grid', 'tvl-library-tab tvl-library-collections', this.options.openCollections);
-    collections.dataset.focusId = 'collections';
-    this.navigation.append(collections);
     const form = el('form', 'tvl-library-search');
     form.setAttribute('role', 'search');
     this.input = el('input', 'tvl-library-search-input');
