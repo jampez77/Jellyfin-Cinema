@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.10.3",
+        "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.10/TvItemLayout_0.2.10.3_jellyfin-12.0.0.zip",
+        "checksum": "d2f56bd251e9d2faca715815e6f88d61",
+        "timestamp": "2026-09-23T19:36:48Z"
+      },
+      {
+        "version": "0.2.10.2",
+        "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.10/TvItemLayout_0.2.10.2_jellyfin-10.11.0.zip",
+        "checksum": "932c6912574f5974173685374df4606d",
+        "timestamp": "2026-09-23T19:36:48Z"
+      },
+      {
+        "version": "0.2.10.1",
+        "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.10/TvItemLayout_0.2.10.1_jellyfin-10.10.7.zip",
+        "checksum": "3b3607fa31f8d31ac74375a278ee0d7b",
+        "timestamp": "2026-09-23T19:36:48Z"
+      },
+      {
         "version": "0.2.9.3",
         "changelog": "Syncs custom Home rows per account across desktop and TV, with migration of existing browser rows and protection against conflicting edits. Keeps Cinema profile switching on the current webOS server after native logout. Applies Cinema route styling immediately on Back/navigation. Adds live channel up/down commands where the TV exposes them; LG remote delivery varies. Open Home once on the original desktop browser after updating to migrate rows. Requires File Transformation.",
         "targetAbi": "12.0.0",

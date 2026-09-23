@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Syncs custom Home rows per account across desktop and TV, with migration of existing browser rows and protection against conflicting edits. Keeps Cinema profile switching on the current webOS server after native logout. Applies Cinema route styling immediately on Back/navigation. Adds live channel up/down commands where the TV exposes them; LG remote delivery varies. Open Home once on the original desktop browser after updating to migrate rows. Requires File Transformation.",
+        'changelog': "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

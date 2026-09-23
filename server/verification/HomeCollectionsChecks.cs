@@ -105,6 +105,16 @@ public static class HomeCollectionsChecks
             local = true;
             assert(Value(await controller.GetHomeCollections()).Revision == cleared.Revision, "Rejected writes leave the last saved revision intact");
             assert(!Directory.GetFiles(directory, "*.tmp", SearchOption.AllDirectories).Any(), "Atomic Home writes leave no temporary files");
+            user.Id = Guid.NewGuid(); session.UserId = user.Id;
+            await HomeCollectionsHttpChecks.Run(assert, services =>
+            {
+                services.AddSingleton(authorization);
+                services.AddSingleton(sessions);
+                services.AddSingleton(users);
+                services.AddSingleton(devices);
+                services.AddSingleton(network);
+                services.AddSingleton(paths);
+            }, value => auth.IsApiKey = value, settings);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

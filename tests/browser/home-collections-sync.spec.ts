@@ -161,17 +161,45 @@ test('deleting every row saves an authoritative empty configuration that old dev
   } finally { await active.context.close(); await stale.context.close(); }
 });
 
-test('offline Home keeps cached rows with visible retry, then refreshes without navigating away', async ({ browser }) => {
+test('offline Home silently keeps cached rows and refreshes automatically without navigating away', async ({ browser }) => {
   const server = new RowServer(); server.put(); const client = await device(browser, server), page = client.page;
   try {
+    await page.clock.install();
     await page.goto('/?featured=0#/home'); await expect.poll(() => cached(page)).toEqual(original());
-    server.failGet = true; await page.reload();
-    await expect(row(page)).toBeVisible(); await expect(page.getByRole('status')).toContainText('could not sync');
+    server.failGet = true;
+    const failed = page.waitForResponse(response => response.url().endsWith('/TvItemLayout/HomeCollections') && response.status() === 503);
+    await page.reload(); await failed;
+    await expect(row(page)).toBeVisible();
+    await expect(page.getByText('Collection rows could not sync.', { exact: false })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry row sync', exact: true })).toHaveCount(0);
     const next = original(); next.rows[0].title = 'New server title'; server.put(next); server.failGet = false;
-    await page.getByRole('button', { name: 'Retry row sync', exact: true }).click();
+    await page.clock.fastForward(60_001);
     await expect(row(page)).toHaveAttribute('aria-label', 'New server title');
     await expect(page.getByRole('button', { name: 'Retry row sync', exact: true })).toHaveCount(0);
     expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(0);
+  } finally { await client.context.close(); }
+});
+
+test('a TV with no cached rows stays quiet after sync failure and loads rows when focus returns', async ({ browser }) => {
+  const server = new RowServer(); server.failGet = true;
+  const client = await device(browser, server), page = client.page;
+  try {
+    await page.clock.install();
+    const failed = page.waitForResponse(response => response.url().endsWith('/TvItemLayout/HomeCollections') && response.status() === 503);
+    await page.goto('/?featured=0#/home'); await failed;
+    // Let the rejected request settle before asserting the absence of its UI.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(page.locator('#homeTab')).toBeVisible();
+    await expect(row(page)).toHaveCount(0);
+    await expect(page.getByText('Collection rows could not sync.', { exact: false })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry row sync', exact: true })).toHaveCount(0);
+    expect(await cached(page)).toBeNull();
+    expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(0);
+    server.put(); server.failGet = false;
+    await page.clock.fastForward(5_001);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(row(page)).toBeVisible();
+    expect(await cached(page)).toEqual(original());
   } finally { await client.context.close(); }
 });
 
