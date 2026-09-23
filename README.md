@@ -6,11 +6,11 @@ Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netf
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
-**0.2.10 is available as a prerelease** ([release notes](docs/releases/v0.2.10.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It fixes first-use Home row sync and collection editing under Jellyfin’s actual JSON settings. Home retries sync quietly without displaying a warning or Retry button; the editor still reports failed saves. This release still needs installation and physical-TV testing.
+**0.2.11 is available as a prerelease** ([release notes](docs/releases/v0.2.11.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It brings custom collection rows into step with native Home loading, aligns their spacing, hides their scrollbars and uses a consistent thumbnail-only focus border with room at both ends of each row. This release still needs installation and physical-TV testing.
 
 ## The layouts
 
-- **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Configure custom collection rows from **Collections → Customize collection rows**, including their item order, optional numbered artwork and position among native Home sections. Optional tabs switch between collections within one row, with a live preview while you edit. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
+- **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Custom rows wait for the initial native sections to settle, and keep existing rows visible during a background refresh. Native and custom cards use thumbnail-only focus borders, and custom rows hide their horizontal scrollbars. Configure custom collection rows from **Collections → Customize collection rows**, including their item order, optional numbered artwork and position among native Home sections. Optional tabs switch between collections within one row, with a live preview while you edit. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
 - **Music:** albums, album artists, artists, songs, playlists, genres, suggestions and favourites, with search and A–Z/#. Playlist detail pages show ordered track rows with artwork and duration. Play the whole playlist or start at a selected entry, preserving repeated tracks and the complete queue. Album Play buttons have space for their focus outline. Jellyfin’s native music player and Now playing queue use larger album artwork, clear track details and matching queue rows while retaining their playback controls and actions.
 - **Recordings:** completed and active recordings, search and pagination, with direct details/playback. Recording folders opened from the Home library tile also use this layout and keep browsing scoped to that folder. Schedule, Series recordings, recording details and DVR dialogs receive matching styling while keeping Jellyfin’s native permissions, scheduling and editing actions.
 
@@ -67,7 +67,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.10 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.10) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.10 release notes](docs/releases/v0.2.10.md) for changes and validation status.
+The [v0.2.11 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.11) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.11 release notes](docs/releases/v0.2.11.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -83,7 +83,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.10.1` for 10.10.7, `0.2.10.2` for 10.11.x and `0.2.10.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.11.1` for 10.10.7, `0.2.11.2` for 10.11.x and `0.2.11.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

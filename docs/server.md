@@ -2,7 +2,7 @@
 
 Jellyfin Cinema, formerly TV Item Layout, is an independent server plugin that loads the bundled client into **Jellyfin Web**. The layout activates in the web client's TV and desktop display modes; mobile retains its native pages. Native clients that do not load the server's Jellyfin Web assets cannot use this plugin.
 
-The current prerelease is **0.2.10**, available through the catalogue and manual downloads below. It fixes the empty Home-settings response under Jellyfin’s JSON configuration so first-use migration and collection editing can complete. Background sync on Home now retries silently. This release still needs installation and physical-TV testing.
+The current prerelease is **0.2.11**, available through the catalogue and manual downloads below. It stages collection rows until native Home loading settles, matches native row spacing, hides horizontal scrollbars and keeps focus borders around artwork, with room at both ends of a row. Background sync continues to retry silently. This release still needs installation and physical-TV testing.
 
 The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). It has a separate name, assembly, API route, and plugin ID (`1a06b74f-7609-4af9-899d-430c9b5a52b1`), so it can be installed alongside that plugin. The inherited MIT notice is included in every archive.
 
@@ -21,19 +21,19 @@ Jellyfin Cinema retains TV Item Layout’s plugin ID, `Jellyfin.Plugin.TvItemLay
 4. Restart Jellyfin. Check Dashboard → Plugins for **Jellyfin Cinema**. The server log should contain `Jellyfin Cinema registered with File Transformation`.
 5. Reload Jellyfin Web, using **Desktop** or **TV** display mode in your user's display settings. Fully close and reopen a web-based TV app to clear its loaded client. Open a movie, series, or Live TV item.
 
-Choose the build from the [v0.2.10 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.10) that matches your Jellyfin server:
+Choose the build from the [v0.2.11 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.11) that matches your Jellyfin server:
 
 | Jellyfin server | Jellyfin Cinema version |
 | --- | --- |
-| 10.10.7 | `0.2.10.1` |
-| 10.11.x | `0.2.10.2` |
-| 12.x | `0.2.10.3` |
+| 10.10.7 | `0.2.11.1` |
+| 10.11.x | `0.2.11.2` |
+| 12.x | `0.2.11.3` |
 
 The repository lists all three targets and Jellyfin filters them by server compatibility. This is a server-testing prerelease. Physical Mac mini/TV deployment, remote controls and real-server playback have not been tested by this release work.
 
 If a newly published version is missing, Jellyfin 12’s dashboard can reuse its [cached catalogue for 15 minutes](https://github.com/jellyfin/jellyfin-web/blob/v12.0/src/apps/dashboard/features/plugins/api/usePackages.ts#L19-L25), even after a page reload. Leave and reopen **Catalogue** after that interval. To refresh immediately, remove only the **Jellyfin Cinema repository entry** from **Repositories**, then add it again using the same catalogue URL above. This refreshes the listing without uninstalling the plugin or clearing your Home row preferences.
 
-If TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace the old TV Item Layout catalogue entry with the Jellyfin Cinema URL above. Update the existing plugin to the matching 0.2.10 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV and desktop display modes, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Mobile layouts retain Jellyfin's normal pages.
+If TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace the old TV Item Layout catalogue entry with the Jellyfin Cinema URL above. Update the existing plugin to the matching 0.2.11 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV and desktop display modes, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Mobile layouts retain Jellyfin's normal pages.
 
 Theme videos use Jellyfin’s existing background player and follow its theme-video preference. If there is no playable theme video, the static backdrop remains. Collections list actual membership and open styled collection pages. The Collections library, explicit BoxSet list, and Movies → Collections tab also use the new layout. The Movies and TV Shows libraries also use the new style, including Jellyfin suggestions, favourites, genres, search and A–Z/# browsing. Native Upcoming, Networks and Episodes TV routes remain available through Jellyfin. Unrelated library lists and unsupported URL filters retain their native pages.
 
@@ -60,13 +60,13 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.10.1` for Jellyfin 10.10.7, `0.2.10.2` for 10.11.x and `0.2.10.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.11.1` for Jellyfin 10.10.7, `0.2.11.2` for 10.11.x and `0.2.11.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
 1. In Dashboard → Plugins → Repositories, add the repository from the [File Transformation installation instructions](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation#installation): `https://www.iamparadox.dev/jellyfin/plugins/manifest.json`.
 2. Install **File Transformation** from the catalogue, choosing a release compatible with your Jellyfin version.
-3. Download the matching archive from the [0.2.10 release assets](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.10), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.10.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
+3. Download the matching archive from the [0.2.11 release assets](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.11), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.11.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
 4. Start Jellyfin. Check Dashboard → Plugins for **Jellyfin Cinema** and the File Transformation registration message.
 5. Reload Jellyfin Web, using Desktop or TV display mode in your user's display settings. Open a movie, series, or Live TV item.
 
@@ -108,7 +108,7 @@ To uninstall, remove **Jellyfin Cinema** (or **TV Item Layout** on older builds)
 
 ## Home preferences and Featured
 
-Home styles Jellyfin’s existing sections in place, with titles and subtitles sharing its charcoal surface. Set the native sections and their order in your normal Jellyfin Home settings; user/device overrides, library exclusions, Next up options and saved destinations remain owned by Jellyfin.
+Home styles Jellyfin’s existing sections in place, with titles and subtitles sharing its charcoal surface. Custom collection rows wait for the initial native sections to settle before appearing in their chosen positions. A bounded fallback lets them appear if native loading stalls, and background refreshes keep existing rows visible while replacements load. Custom and native cards highlight their thumbnails; titles and rank images remain outside the border. Collection rows use matching section spacing, hidden horizontal scrollbars and focus gutters at both ends. Set the native sections and their order in your normal Jellyfin Home settings; user/device overrides, library exclusions, Next up options and saved destinations remain owned by Jellyfin.
 
 If [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) is installed, its carousel remains in the native Home container. Jellyfin Cinema matches its colours and typography to the rest of the layout. Its display settings, height and layout, personalization, trailers and input handling remain under Featured’s control. Keep Featured enabled.
 

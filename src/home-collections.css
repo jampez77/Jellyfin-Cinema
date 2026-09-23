@@ -1,7 +1,33 @@
-.tvl-home-collections{padding:1.6rem 3.5vw 3rem;color:#f5f5f7}.tvl-home-collection-row{margin:0 0 2.8rem}.tvl-home-row-title{font-size:1.6rem;font-weight:650;letter-spacing:-.025em;margin:0 0 1rem}.tvl-home-row-cards{display:flex;overflow-x:auto;align-items:flex-start;padding:.55rem .3rem 1rem;scrollbar-width:thin}.tvl-home-row-entry{flex:0 0 auto;margin-right:1.15rem}.tvl-home-row-card{display:flex;align-items:center;width:12rem;border:0;padding:0;background:transparent;color:inherit;text-align:left;cursor:pointer;border-radius:.65rem;transition:transform .16s}.tvl-home-row-card:focus,.tvl-home-collections .tvl-button:focus{outline:3px solid #fff;outline-offset:5px}.tvl-home-row-card:hover{transform:translateY(-3px)}.tvl-home-row-cover{flex:1;min-width:0}.tvl-home-row-art{height:17.5rem;background:#1c1e26;border-radius:.6rem;overflow:hidden}.tvl-home-row-art img{width:100%;height:100%;object-fit:cover}.tvl-home-row-caption{display:block;line-height:1.3;padding:.7rem .1rem 0;background:transparent;font-size:1rem;min-height:2.6em}.tvl-home-ranked{width:19rem}.tvl-home-rank{width:8rem;height:14rem;object-fit:contain;flex-shrink:0;position:relative;margin-right:-1.2rem;margin-bottom:2.8rem;filter:drop-shadow(0 3px 8px #0008)}.tvl-home-ranked .tvl-home-row-cover{position:relative;z-index:1}/* Rows can sit directly between native sections or in the end-of-page host. */
+/* Saved rows and the editor preview share card artwork and focus geometry. */
+.tvl-home-collection-row { margin:0 0 2.2em; }
+.tvl-home-row-title { font-size:1.25em;font-weight:600;letter-spacing:-.015em;margin:0 0 1rem; }
+.tvl-home-row-cards {
+  display:flex;overflow-x:auto;align-items:flex-start;
+  /* Keep the 2px outline + 3px offset inside both scroll edges. Negative
+     margins keep the first artwork aligned with its heading. */
+  padding:.5rem 6px .25rem;margin:0 -6px;
+  scroll-padding-left:6px;scroll-padding-right:6px;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+/* webOS 6 uses Chromium 79, before scrollbar-width was supported. */
+.tvl-home-row-cards::-webkit-scrollbar { display:none;width:0;height:0; }
+.tvl-home-row-entry { flex:0 0 auto;margin-right:1.15rem; }
+.tvl-home-row-entry:last-child { margin-right:0; }
+.tvl-home-row-card { display:flex;align-items:center;width:12rem;border:0;padding:0;background:transparent;color:inherit;text-align:left;cursor:pointer;border-radius:.65rem; }
+.tvl-home-row-card:focus { outline:none; }
+.tvl-home-row-card:focus .tvl-home-row-art { outline:2px solid #f2faf4;outline-offset:3px; }
+.tvl-home-collections .tvl-button:focus { outline:3px solid #fff;outline-offset:5px; }
+.tvl-home-row-cover { flex:1;min-width:0; }
+.tvl-home-row-art { height:17.5rem;background:#1c1e26;border-radius:.6rem;overflow:hidden; }
+.tvl-home-row-art img { width:100%;height:100%;object-fit:cover; }
+.tvl-home-row-caption { display:block;line-height:1.3;padding:.7rem .1rem 0;background:transparent;font-size:1rem;min-height:2.6em; }
+.tvl-home-ranked { width:19rem; }
+.tvl-home-rank { width:8rem;height:14rem;object-fit:contain;flex-shrink:0;position:relative;margin-right:-1.2rem;margin-bottom:2.8rem;filter:drop-shadow(0 3px 8px #0008); }
+.tvl-home-ranked .tvl-home-row-cover { position:relative;z-index:1; }
+/* Rows can sit directly between native sections or in the end-of-page host. */
 .tvl-home-collections { padding:0; }
 .tvl-home-collections:empty { display:none; }
-.tvl-home-collection-row { padding:1rem 3.5vw 0; color:#f5f5f2; }
+.tvl-home-collection-row { padding:0 var(--sidePadding,4.5vw); color:#f5f5f2; }
 .tvl-home-row-status { color:#b9c4bd; padding:.5rem 0; }
 .tvl-home-collection-row .tvl-button,.tvl-home-collections>.tvl-home-row-status .tvl-button { background:#24332a;color:#f5f5f2;border:1px solid #ffffff30;border-radius:6px;padding:.7rem 1rem; }
 .tvl-collection-customize { margin-left:auto; font-size:.8em!important; }
@@ -75,7 +101,7 @@
 .tvl-home-editor .tvl-home-preview-neighbour { margin:1rem 0;padding:.55rem .7rem;border:1px dashed #65776a;border-radius:5px;font-size:.7rem;line-height:1.4;color:#b9c4bd; }
 .tvl-home-preview .tvl-home-collection-row { margin:0;padding:.2rem 0; }
 .tvl-home-editor .tvl-home-preview .tvl-home-row-title { font-size:1.25rem;line-height:1.3;margin:0 0 .6rem;overflow-wrap:anywhere; }
-.tvl-home-preview .tvl-home-row-cards { min-height:14rem;padding:.3rem .1rem .6rem;scrollbar-color:#607768 #17201a; }
+.tvl-home-preview .tvl-home-row-cards { min-height:14rem; }
 .tvl-home-preview .tvl-home-row-entry { margin-right:.8rem; }
 .tvl-home-preview .tvl-home-row-card { width:8rem;cursor:default;transition:none; }
 .tvl-home-preview .tvl-home-row-card:hover { transform:none; }
