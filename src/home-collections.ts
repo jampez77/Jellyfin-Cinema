@@ -1,7 +1,8 @@
 import type { Item, MediaApi } from './types';
-import { button, el, picture, replace } from './dom';
-import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, rankImage, orderHomeItems, type HomeCollectionRow } from './home-collection-settings';
+import { button, el, replace } from './dom';
+import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, orderHomeItems, type HomeCollectionRow } from './home-collection-settings';
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
+import { homeRowCard } from './home-row-card';
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
 export class HomeCollections {
@@ -122,13 +123,8 @@ export class HomeCollections {
       if (!this.current(revision)) return section;
       for (const [index, item] of items.slice(0, 60).entries()) {
         const entry = el('div', 'tvl-home-row-entry');entry.setAttribute('role', 'listitem');
-        const card = el('button', `tvl-home-row-card${row.ranked ? ' tvl-home-ranked' : ''}`);card.type = 'button';
-        card.dataset.focusId = `home:${row.id}:${item.Id}`;card.dataset.itemId = item.Id;
-        card.setAttribute('aria-label', row.ranked ? `Rank ${index + 1}: ${item.Name}` : item.Name);
-        if (row.ranked) { const rank = el('img', 'tvl-home-rank');rank.src = rankImage(index + 1);rank.alt = '';rank.setAttribute('aria-hidden', 'true');card.append(rank); }
-        const cover = el('div', 'tvl-home-row-cover');
-        cover.append(picture(this.api.image(item, 'poster'), 'tvl-home-row-art'), el('span', 'tvl-home-row-caption', item.Name));
-        card.append(cover);card.addEventListener('click', () => { if (!this.disposed) this.navigate(item.Id); });
+        const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, () => { if (!this.disposed) this.navigate(item.Id); });
+        card.dataset.focusId = `home:${row.id}:${item.Id}`;
         entry.append(card);cards.append(entry);
       }
       if (!items.length) cards.append(el('p', 'tvl-home-row-status', 'This collection is empty.'));

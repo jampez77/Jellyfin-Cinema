@@ -6,11 +6,11 @@ Cinematic browsing for Jellyfin’s **TV layout**, inspired by Netflix and built
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
-**0.2.1 is available as a prerelease** ([release notes](docs/releases/v0.2.1.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Automated checks have passed; this release has not been deployed or tested on a live Jellyfin server or physical TV.
+**0.2.2 is available as a prerelease** ([release notes](docs/releases/v0.2.2.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It adds a live Home-style preview when editing collection rows. This release has not been deployed or tested on a live Jellyfin server or physical TV.
 
 ## The layouts
 
-- **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Configure custom collection rows from **Collections → Customize collection rows**, including their item order, optional numbered artwork and position among native Home sections. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
+- **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Configure custom collection rows from **Collections → Customize collection rows**, including their item order, optional numbered artwork and position among native Home sections. A live preview shows the row while you edit. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
 - **Music:** albums, album artists, artists, songs, playlists, genres, suggestions and favourites, with search and A–Z/#. Playlist detail pages show ordered track rows with artwork and duration. Play the whole playlist or start at a selected entry, preserving repeated tracks and the complete queue. Album Play buttons have space for their focus outline. Jellyfin’s native music player and Now playing queue share the cinematic theme while retaining their playback controls and actions.
 - **Recordings:** completed and active recordings, search and pagination, with direct details/playback. Schedule, Series recordings, recording details and DVR dialogs receive matching styling while keeping Jellyfin’s native permissions, scheduling and editing actions.
 
@@ -40,6 +40,8 @@ Open **Collections → Customize collection rows**. Choose a row from the row li
 - **Item order:** keep the collection’s order, sort members by title or year, or move them into a custom order. Collection cards can also be reordered. These changes affect this Home row only, not the server’s collection order.
 - **Home position:** move your row between existing Home sections, including Featured and each library’s Latest row. Visit Home once if its sections are not listed. A row falls back to the end when its chosen section is unavailable.
 
+The **Home preview** shows the selected row’s title, artwork and chosen item order, including ranked number images when enabled. It updates as you edit so you can review the result before saving. The position context shows where the row will appear among your Home sections.
+
 Choose **Save rows** to apply your changes. Ranked artwork uses large outlined SVG number images to the left of posters; numbers follow the row’s chosen item order, not popularity scores. Existing saved rows keep their collection order and end-of-Home position until you change them.
 
 These choices are saved in this browser’s local storage for the current server and account. They stay on this device/browser and do not sync to other clients; clearing browser storage removes them. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members in an item row; larger rows end with **View full collection**.
@@ -56,7 +58,7 @@ Open [the local preview](http://127.0.0.1:4173). The controls at the top switch 
 
 ## Install
 
-The [v0.2.1 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.1) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.1 release notes](docs/releases/v0.2.1.md) for changes and completed automated validation.
+The [v0.2.2 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.2) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.2 release notes](docs/releases/v0.2.2.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -72,7 +74,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.1.1` for 10.10.7, `0.2.1.2` for 10.11.x and `0.2.1.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.2.1` for 10.10.7, `0.2.2.2` for 10.11.x and `0.2.2.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -112,7 +114,7 @@ Its server-side feed generation and external trailer providers are not covered b
 | `src/music-player.css`, `src/native-recordings.ts`, `src/recordings.css` | Native music player, queue and DVR styling |
 | `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
 | `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, local preferences and numbered artwork |
-| `src/home-collection-editor.ts`, `src/home-row-placement.ts` | Collection row editor and placement among native Home sections |
+| `src/home-collection-editor.ts`, `src/home-row-card.ts`, `src/home-row-placement.ts` | Collection row editor, shared Home/preview cards and placement among native Home sections |
 | `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
 | `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
 | `src/native-host.ts`, `src/native-host.css` | Native page visibility and restoration |
