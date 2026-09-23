@@ -17,6 +17,22 @@ export function nativeHomeRows(host: HTMLElement): HomeAnchorNode[] {
     const base = label.toLocaleLowerCase().replace(/\s+/g, ' ');
     const occurrence = (counts.get(base) || 0) + 1; counts.set(base, occurrence);
     return { key: `native:${base}:${occurrence}`, label: occurrence > 1 ? `${label} (${occurrence})` : label, element };
+  }).filter(({ element }) => {
+    // Some Home plugins retain alternate native row variants with display:none.
+    // Assign keys first so filtering those variants does not rename saved anchors.
+    for (let parent: HTMLElement | null = element; parent && parent !== host; parent = parent.parentElement) {
+      if (getComputedStyle(parent).display === 'none') return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    // HomeScreen Sections can reorder native siblings with flex order. This also
+    // works while Home is hidden behind the row editor (all rectangles are zero).
+    const parent = a.element.parentElement;
+    if (parent && parent === b.element.parentElement && /flex|grid/.test(getComputedStyle(parent).display)) {
+      const order = Number(getComputedStyle(a.element).order) - Number(getComputedStyle(b.element).order);
+      if (order) return order;
+    }
+    return a.element.getBoundingClientRect().top - b.element.getBoundingClientRect().top;
   });
 }
 

@@ -1,6 +1,6 @@
 import type { Item, MediaApi } from './types';
 import { el, icon, button, picture, replace } from './dom';
-import { runtime, progress, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
+import { runtime, progress, playbackEnd, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
 import { attachRemote } from './remote';
 import { CollectionPicker } from './collection-picker';
 
@@ -22,6 +22,7 @@ export class DetailView {
   private removeRemote: () => void;
   private launchTimer?: number;
   private liveTimer?: number;
+  private endTimeTimer?: number;
   private launching = false;
   private favoritePending = false;
   private restoreId = '';
@@ -149,6 +150,7 @@ export class DetailView {
   }
   private render(): void {
     if (this.disposed) return;
+    window.clearTimeout(this.endTimeTimer);
     this.revision++;
     this.element.dataset.pane = this.pane;
     this.element.dataset.kind = this.item.Type;
@@ -174,7 +176,11 @@ export class DetailView {
       const times = el('div','tvl-meta');
       if (programme?.StartDate && programme.EndDate) times.append(el('span','',`${time(programme.StartDate)} – ${time(programme.EndDate)}`));
       times.append(el('span','tvl-on-air','Live now')); body.append(times);
-    } else body.append(this.meta());
+    } else {
+      const metadata = this.meta();
+      this.appendEndTime(metadata);
+      body.append(metadata);
+    }
     if (!live && !movie && this.target) body.append(el('h2','tvl-episode-name',`${episodeCode(this.target)}${episodeCode(this.target) ? '  ' : ''}${this.target.Name}`));
     const summary = live ? programme?.Overview || this.item.Overview : this.item.Overview;
     body.append(el('p','tvl-synopsis',plainText(summary) || (live ? 'Programme information is not available for this channel.' : 'No synopsis is available for this title.')));
@@ -261,6 +267,22 @@ export class DetailView {
     const bar = el('div','tvl-progress');const fill = el('span');fill.dataset.liveProgress='';fill.style.width=`${programmeProgress(item)}%`;bar.append(fill);
     const label = el('div','tvl-live-times');label.append(el('span','',time(item.StartDate)),el('span','',time(item.EndDate)));
     wrap.append(bar,label);return wrap;
+  }
+  private appendEndTime(metadata: HTMLElement): void {
+    const target = this.target;
+    if (!target || !playbackEnd(target)) return;
+    const node = el('time', 'tvl-end-time');
+    metadata.append(node);
+    const update = () => {
+      if (this.disposed || this.pane !== 'overview') return;
+      const end = playbackEnd(target);
+      if (!end) { node.remove(); return; }
+      node.dateTime = end.toISOString();
+      node.textContent = `Ends at ${time(node.dateTime)}`;
+      // Refresh when the displayed finish minute changes, including partial-minute resumes.
+      this.endTimeTimer = window.setTimeout(update, 60_000 - end.getTime() % 60_000);
+    };
+    update();
   }
   private playLabel(): string {
     if (this.item.Type === 'TvChannel') return 'Watch live';
@@ -516,5 +538,5 @@ export class DetailView {
       ||within.querySelector<HTMLElement>('.tvl-primary:not(:disabled), .tvl-film-card, .tvl-season')||within.querySelector<HTMLElement>('button:not(:disabled)');
     node?.focus({preventScroll:true});
   }
-  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearInterval(this.liveTimer);this.element.remove();}
+  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearTimeout(this.endTimeTimer);window.clearInterval(this.liveTimer);this.element.remove();}
 }

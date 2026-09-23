@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.4.3",
+        "changelog": "Fixes Up navigation among native and custom Home rows, including collection tabs. Keeps missing-artwork placeholders inside collection-editor thumbnails. Restores Ends at beside movie and episode ratings, including the episode selected in the series hero, using remaining runtime when resuming and updating while the page stays open. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.4/TvItemLayout_0.2.4.3_jellyfin-12.0.0.zip",
+        "checksum": "b6be2496e587aac96882ad2861c6f095",
+        "timestamp": "2026-09-23T15:05:41Z"
+      },
+      {
+        "version": "0.2.4.2",
+        "changelog": "Fixes Up navigation among native and custom Home rows, including collection tabs. Keeps missing-artwork placeholders inside collection-editor thumbnails. Restores Ends at beside movie and episode ratings, including the episode selected in the series hero, using remaining runtime when resuming and updating while the page stays open. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.4/TvItemLayout_0.2.4.2_jellyfin-10.11.0.zip",
+        "checksum": "11b418dd5c922dee35497c93301f1a96",
+        "timestamp": "2026-09-23T15:05:41Z"
+      },
+      {
+        "version": "0.2.4.1",
+        "changelog": "Fixes Up navigation among native and custom Home rows, including collection tabs. Keeps missing-artwork placeholders inside collection-editor thumbnails. Restores Ends at beside movie and episode ratings, including the episode selected in the series hero, using remaining runtime when resuming and updating while the page stays open. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.4/TvItemLayout_0.2.4.1_jellyfin-10.10.7.zip",
+        "checksum": "ebfba2b6e9c4f67d664633476dd2deb1",
+        "timestamp": "2026-09-23T15:05:41Z"
+      },
+      {
         "version": "0.2.3.3",
         "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",

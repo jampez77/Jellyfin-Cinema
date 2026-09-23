@@ -10,6 +10,16 @@ export function progress(item: Item): number {
   if (item.UserData?.Played) return 100;
   return Math.min(100, Math.max(0, item.RunTimeTicks ? (item.UserData?.PlaybackPositionTicks || 0) / item.RunTimeTicks * 100 : 0));
 }
+export function playbackEnd(item: Item, now = Date.now()): Date | null {
+  const duration = item.RunTimeTicks;
+  if (!['Movie', 'Episode'].includes(item.Type || '') || !playable(item)
+    || duration == null || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(now)) return null;
+  const position = item.UserData?.PlaybackPositionTicks || 0;
+  // Watched titles start over, matching the detail page's Play action.
+  const resume = item.UserData?.Played || !Number.isFinite(position) ? 0 : Math.max(0, Math.min(duration, position));
+  const end = new Date(now + (duration - resume) / 10_000);
+  return Number.isFinite(end.getTime()) ? end : null;
+}
 export function seasonName(item: Item): string {
   if (item.IndexNumber === 0) return 'Specials';
   const fallback = item.IndexNumber == null ? 'Episodes' : `Season ${item.IndexNumber}`;
