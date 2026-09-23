@@ -3,6 +3,7 @@ import { button, el, picture, replace } from './dom';
 import { attachRemote } from './remote';
 import { emptyHomeCollections, homeCollectionKey, parseHomeCollections, orderHomeItems, type HomeCollectionRow, type HomeItemSort } from './home-collection-settings';
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
+import { homeRowCard } from './home-row-card';
 
 type OrderEntry = { row: HomeCollectionRow } | { anchor: HomeAnchor };
 export function combinedHomeOrder(rows: HomeCollectionRow[], anchors: HomeAnchor[]): OrderEntry[] {
@@ -19,6 +20,7 @@ export class HomeCollectionEditor {
   readonly element = el('section', 'tvl-home-editor tvl-keyboard');
   private sidebar = el('nav', 'tvl-home-editor-sidebar');
   private workspace = el('div', 'tvl-home-editor-workspace');
+  private preview?: HTMLElement;
   private status = el('p', 'tvl-home-editor-status');
   private saveButton: HTMLButtonElement;
   private draft = emptyHomeCollections();
@@ -75,11 +77,11 @@ export class HomeCollectionEditor {
     const control = button(label, '', className, action); control.dataset.editorFocus = focus; return control;
   }
   private name(row: HomeCollectionRow): string {
-    return row.title || (row.kind === 'collections' ? 'Collections' : this.collections.find(item => item.Id === row.collectionIds[0])?.Name || 'New collection row');
+    return row.title.trim() || (row.kind === 'collections' ? 'Collections' : this.collections.find(item => item.Id === row.collectionIds[0])?.Name || 'New collection row');
   }
   private redraw(focus?: string): void {
     const restore = focus || (document.activeElement as HTMLElement)?.dataset.editorFocus;
-    replace(this.sidebar); replace(this.workspace);
+    replace(this.sidebar); replace(this.workspace); this.preview = undefined;
     for (const row of this.draft.rows) {
       const entry = this.control(this.name(row), `row:${row.id}`, () => { this.selectedId = row.id; this.search = ''; this.visibleItems = 60; this.redraw(`row:${row.id}`); }, 'tvl-home-row-choice');
       entry.setAttribute('aria-pressed', String(row.id === this.selectedId));
@@ -105,10 +107,13 @@ export class HomeCollectionEditor {
         const control = this.control(label, `tab:${tab}`, () => { this.tab = tab; this.redraw(`tab:${tab}`); }); control.setAttribute('aria-pressed', String(this.tab === tab)); tabs.append(control);
       }
       const content = el('div', 'tvl-home-editor-row'); content.setAttribute('role', 'group'); content.setAttribute('aria-label', row.kind === 'collections' ? 'Collections row' : 'Collection items row');
-      this.workspace.append(heading, tabs, content);
+      this.preview = el('aside', 'tvl-home-preview'); this.preview.setAttribute('aria-label', 'Home row preview'); this.preview.tabIndex = -1; this.preview.dataset.editorFocus = 'preview';
+      const body = el('div', 'tvl-home-editor-body'); body.append(content, this.preview);
+      this.workspace.append(heading, tabs, body);
       if (this.tab === 'content') this.renderContent(row, content);
       else if (this.tab === 'order') this.renderOrder(row, content);
       else this.renderPosition(row, content);
+      this.renderPreview(row);
     }
     if (restore) {
       const target = Array.from(this.element.querySelectorAll<HTMLElement>('[data-editor-focus]')).find(node => node.dataset.editorFocus === restore && !node.hasAttribute('disabled'))
@@ -119,9 +124,17 @@ export class HomeCollectionEditor {
   private renderContent(row: HomeCollectionRow, content: HTMLElement): void {
     const label = el('label', '', 'Row title'); const title = el('input'); title.type = 'text'; title.maxLength = 80;
     title.value = row.title; title.placeholder = row.kind === 'collections' ? 'Collections' : 'Collection name'; title.dataset.editorFocus = 'title';
-    title.addEventListener('input', () => { row.title = title.value; }); label.append(title); content.append(label);
+    title.addEventListener('input', () => {
+      row.title = title.value;
+      this.workspace.querySelector('h2')!.textContent = this.name(row);
+      this.sidebar.querySelector('.tvl-home-row-choice[aria-pressed="true"]>span')!.textContent = this.name(row);
+      this.renderPreview(row);
+    }); label.append(title); content.append(label);
     if (row.kind === 'items') {
-      const rank = this.control('Ranked artwork', 'ranked', () => { row.ranked = !row.ranked; rank.setAttribute('aria-pressed', String(row.ranked)); });
+      const rank = this.control('Ranked artwork', 'ranked', () => {
+        row.ranked = !row.ranked; rank.setAttribute('aria-pressed', String(row.ranked)); this.renderPreview(row);
+        this.sidebar.querySelector('.tvl-home-row-choice[aria-pressed="true"]>small')!.textContent = `${row.ranked ? 'Ranked' : 'Poster'} item row`;
+      });
       rank.setAttribute('aria-pressed', String(row.ranked)); content.append(rank, el('p', 'tvl-home-editor-help', 'Large number images beside the posters, following your chosen item order.'));
     }
     content.append(el('h3', '', row.kind === 'collections' ? 'Choose collections' : 'Choose one collection'));
@@ -150,7 +163,71 @@ export class HomeCollectionEditor {
     this.loading.add(id); this.errors.delete(id);
     try { const items = await this.api.getCollectionItems(id); if (!this.disposed) this.items.set(id, items); }
     catch { if (!this.disposed) this.errors.add(id); }
-    finally { this.loading.delete(id); if (!this.disposed && this.tab === 'order' && this.draft.rows.find(row => row.id === this.selectedId)?.collectionIds[0] === id) this.redraw(); }
+    finally {
+      this.loading.delete(id);
+      const row = this.draft.rows.find(row => row.id === this.selectedId);
+      if (!this.disposed && row?.kind === 'items' && row.collectionIds[0] === id) {
+        if (this.tab === 'order') this.redraw();
+        else this.renderPreview(row);
+      }
+    }
+  }
+  private renderPreview(row: HomeCollectionRow): void {
+    if (!this.preview || this.disposed || row.id !== this.selectedId) return;
+    // Only the preview changes on data arrival or typing. If its retry control
+    // disappears, keep focus on this persistent panel instead of the page body.
+    if (this.preview.contains(document.activeElement)) this.preview.focus({ preventScroll: true });
+    replace(this.preview);
+    const header = el('div', 'tvl-home-preview-header');
+    header.append(el('p', 'tvl-home-editor-eyebrow', 'HOME PREVIEW'), el('span', 'tvl-home-preview-draft', 'Unsaved draft'));
+    this.preview.append(header);
+    const sequence = combinedHomeOrder(this.draft.rows, this.anchors);
+    const at = sequence.findIndex(entry => 'row' in entry && entry.row === row);
+    const label = (entry: OrderEntry) => 'row' in entry ? this.name(entry.row) : entry.anchor.label;
+    const before = this.anchors.length ? at > 0 ? `After ${label(sequence[at - 1])}` : 'Top of Home'
+      : row.placement === 'start' ? 'Top of Home' : row.placement === 'end' ? 'After existing Home rows' : 'Home position preview';
+    this.preview.append(el('p', 'tvl-home-preview-neighbour', before));
+    const section = el('section', 'tvl-home-collection-row'); section.setAttribute('aria-label', this.name(row));
+    section.append(el('h3', 'tvl-home-row-title', this.name(row)));
+    const cards = el('div', 'tvl-home-row-cards'); cards.setAttribute('role', 'list'); cards.setAttribute('aria-label', 'Preview items'); section.append(cards);
+    const after = this.anchors.length ? at < sequence.length - 1 ? `Before ${label(sequence[at + 1])}` : 'End of Home' : 'Visit Home once to see neighbouring rows.';
+    this.preview.append(section, el('p', 'tvl-home-preview-neighbour', after));
+    const status = (message: string) => {
+      cards.classList.add('tvl-home-preview-pending');
+      const text = el('p', 'tvl-home-preview-message', message); text.setAttribute('aria-live', 'polite'); cards.append(text);
+    };
+    const chosen = row.collectionIds.map(id => this.collections.find(item => item.Id === id)).filter((item): item is Item => !!item);
+    if (!chosen.length) {
+      status(row.collectionIds.length ? 'The selected collection is unavailable. Choose another in Content.' : row.kind === 'items' ? 'Choose a collection to preview its items.' : 'Choose collections to see them here.');
+      return;
+    }
+    let items = chosen;
+    if (row.kind === 'items') {
+      const id = chosen[0].Id;
+      if (this.errors.has(id)) {
+        status('The preview could not load these collection items.');
+        cards.append(this.control('Retry preview', 'retry-preview', () => { void this.loadItems(id); this.renderPreview(row); })); return;
+      }
+      if (!this.items.has(id)) { status('Loading preview…'); void this.loadItems(id); return; }
+      items = orderHomeItems(this.items.get(id)!, row);
+    }
+    items.slice(0, 60).forEach((item, index) => {
+      const entry = el('div', 'tvl-home-row-entry'); entry.setAttribute('role', 'listitem');
+      entry.append(homeRowCard(this.api, item, row.ranked ? index + 1 : undefined)); cards.append(entry);
+    });
+    if (!items.length) { status('This collection is empty. Items added to it will appear here.'); return; }
+    const footer = el('div', 'tvl-home-preview-footer');
+    const noun = row.kind === 'items' ? 'item' : 'collection';
+    footer.append(el('p', 'tvl-home-preview-count', items.length > 60 ? `First 60 of ${items.length} items · Home also shows View full collection` : `${items.length} ${noun}${items.length === 1 ? '' : 's'}`));
+    if (items.length > 1) {
+      const actions = el('div', 'tvl-home-preview-scroll'); actions.setAttribute('role', 'group'); actions.setAttribute('aria-label', 'Scroll the preview');
+      for (const [direction, glyph] of [[-1, '←'], [1, '→']] as const) {
+        const scroll = this.control(direction < 0 ? 'Previous preview items' : 'Next preview items', `preview:${direction}`, () => { cards.scrollBy({ left: cards.clientWidth * .8 * direction, behavior: 'auto' }); });
+        scroll.setAttribute('aria-label', direction < 0 ? 'Previous preview items' : 'Next preview items'); scroll.querySelector('span')!.textContent = glyph; actions.append(scroll);
+      }
+      footer.append(actions);
+    }
+    this.preview.append(footer, el('p', 'tvl-home-preview-note', 'Updates as you edit. Save rows to apply to Home.'));
   }
   private renderOrder(row: HomeCollectionRow, content: HTMLElement): void {
     content.append(el('p', 'tvl-home-editor-help', 'This changes the order in this Home row only. Other collection views keep their existing order.'));
