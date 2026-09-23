@@ -6,7 +6,7 @@ Cinematic browsing for Jellyfin’s **TV layout**, inspired by Netflix and built
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
-This source tree is preparing **0.2.1** ([release notes](docs/releases/v0.2.1.md)). The refinements below are not yet published; installation instructions still point to **0.2.0**. The new build has not been deployed or tested on a live Jellyfin server or physical TV.
+**0.2.1 is available as a prerelease** ([release notes](docs/releases/v0.2.1.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Automated checks have passed; this release has not been deployed or tested on a live Jellyfin server or physical TV.
 
 ## The layouts
 
@@ -56,7 +56,7 @@ Open [the local preview](http://127.0.0.1:4173). The controls at the top switch 
 
 ## Install
 
-The [v0.2.0 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.0) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for initial server testing. Physical Mac mini/TV deployment and remote testing have not been performed. See the [0.2.0 release notes](docs/releases/v0.2.0.md) for changes and completed automated validation.
+The [v0.2.1 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.1) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.1 release notes](docs/releases/v0.2.1.md) for changes and completed automated validation.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -72,7 +72,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The current source builds `0.2.1.1` for 10.10.7, `0.2.1.2` for 10.11.x and `0.2.1.3` for 12.x. Published 0.2.0 uses the same `.1`/`.2`/`.3` target suffixes. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.1.1` for 10.10.7, `0.2.1.2` for 10.11.x and `0.2.1.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -109,11 +109,9 @@ Its server-side feed generation and external trailer providers are not covered b
 | `src/collection-picker.ts` | Create collections and add media from detail pages |
 | `src/api.ts`, `src/local-playback.ts` | Authenticated Jellyfin data and native playback bridge |
 | `src/browse-api.ts`, `src/browse-view.ts`, `src/browse.css` | Music and Recordings |
-| `src/music-player.css`, `src/native-recordings.ts`, `src/recordings.css` | Native music playback and DVR control styling |
 | `src/music-player.css`, `src/native-recordings.ts`, `src/recordings.css` | Native music player, queue and DVR styling |
 | `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
 | `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, local preferences and numbered artwork |
-| `src/home-collection-editor.ts`, `src/home-row-placement.ts` | Collection row editor and placement among native Home sections |
 | `src/home-collection-editor.ts`, `src/home-row-placement.ts` | Collection row editor and placement among native Home sections |
 | `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
 | `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
