@@ -22,6 +22,7 @@ export class HorizontalGuide {
   private revision = 0;
   private busy = false;
   private anchorTime = Date.now();
+  private layoutObserver?: ResizeObserver;
   private resize = () => this.setWidth();
 
   constructor(private api: MediaApi, private options: GuideOptions) {
@@ -31,9 +32,17 @@ export class HorizontalGuide {
     this.scroll.setAttribute('aria-label', 'Channels and programme schedule');
     this.element.append(this.detail, this.scroll, this.footer);
     window.addEventListener('resize', this.resize);
+    if (typeof ResizeObserver !== 'undefined') {
+      // The fixed artwork is outside layout, so changing its height cannot
+      // resize these observed boxes or feed back into the observer.
+      this.layoutObserver = new ResizeObserver(this.resize);
+      for (const node of [this.element, this.detail, this.scroll]) this.layoutObserver.observe(node);
+    }
   }
 
   async load(): Promise<void> {
+    const header = this.element.previousElementSibling;
+    if (header) this.layoutObserver?.observe(header);
     const revision = ++this.revision;
     this.busy = true;
     replace(this.detail, el('p', 'tvl-epg-message', 'Loading your channels and programme guide…'));
@@ -136,7 +145,7 @@ export class HorizontalGuide {
 
   focus(): void { if (this.valid()) this.focusSelection(); }
 
-  destroy(): void { this.disposed = true; this.revision++; window.removeEventListener('resize', this.resize); }
+  destroy(): void { this.disposed = true; this.revision++; this.layoutObserver?.disconnect(); window.removeEventListener('resize', this.resize); }
 
   private valid(revision = this.revision): boolean { return !this.disposed && revision === this.revision && this.options.isCurrent(); }
   private slots(row: GuideRow): GuideSlot[] { return guideSlots(row.programs, this.windowStart); }
@@ -276,6 +285,7 @@ export class HorizontalGuide {
     }
     copy.append(action);
     replace(this.detail, artwork, copy);
+    this.setArtworkHeight();
   }
 
   private programmeArtwork(programme: Item | undefined, channel: Item): HTMLElement {
@@ -314,10 +324,19 @@ export class HorizontalGuide {
   }
 
   private setWidth(): void {
+    if (this.disposed) return;
     const channel = this.scroll.querySelector<HTMLElement>('.tvl-epg-channel');
     const column = channel?.getBoundingClientRect().width || 190;
     const visible = Math.max(360, this.scroll.clientWidth - column);
-    this.element.style.setProperty('--tvl-epg-timeline', `${visible * 8}px`);
+    const width = `${visible * 8}px`;
+    if (this.element.style.getPropertyValue('--tvl-epg-timeline') !== width) this.element.style.setProperty('--tvl-epg-timeline', width);
+    this.setArtworkHeight();
+  }
+
+  private setArtworkHeight(): void {
+    if (this.disposed || !this.element.isConnected) return;
+    const height = `${Math.max(0, this.scroll.getBoundingClientRect().top)}px`;
+    if (this.element.style.getPropertyValue('--tvl-epg-art-height') !== height) this.element.style.setProperty('--tvl-epg-art-height', height);
   }
 
   private focusSelection(): void {

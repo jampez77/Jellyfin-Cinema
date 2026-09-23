@@ -1,12 +1,16 @@
-import type { Item, MediaApi } from './types';
+import type { Item, MediaApi, SuggestionSection } from './types';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 
 type Query = Record<string, string | number | boolean>;
 type ItemResult = { Items?: Item[]; TotalRecordCount?: number };
+type Recommendation = { RecommendationType?: string; BaselineItemName?: string; Items?: Item[] };
 interface JellyfinClient extends PlaybackClient {
   getCurrentUserId(): string;
   getItem(userId: string, id: string): Promise<Item>;
   getItems(userId: string, query: Query): Promise<ItemResult>;
+  getGenres(userId: string, query: Query): Promise<ItemResult>;
+  getUrl(path: string, query?: Query): string;
+  getJSON(url: string): Promise<unknown>;
   getSeasons(seriesId: string, query: Query): Promise<ItemResult>;
   getEpisodes(seriesId: string, query: Query): Promise<ItemResult>;
   getNextUpEpisodes(query: Query): Promise<ItemResult>;
@@ -21,6 +25,8 @@ declare const ApiClient: JellyfinClient | undefined;
 
 const PAGE_SIZE = 200;
 const MAX_PAGES = 100;
+const MOVIE_PAGE_SIZE = 60;
+const MAX_MOVIE_PAGE_SIZE = 100;
 
 function available(item: Item): boolean {
   return !!item?.Id && item.LocationType !== 'Virtual' && !item.IsMissing
@@ -37,6 +43,22 @@ function itemsFrom(result: ItemResult, label: string): Item[] {
 function identity(id: string): string {
   return /^[\da-f]{32}$|^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id)
     ? id.replace(/-/g, '').toLowerCase() : id;
+}
+
+function movieItems(result: ItemResult, label: string): Item[] {
+  return itemsFrom(result, label).filter(item => item.Type === 'Movie' && available(item));
+}
+
+function recommendationTitle(category: Recommendation): string {
+  const name = typeof category.BaselineItemName === 'string' ? category.BaselineItemName.trim() : '';
+  if (!name) return 'Recommended for you';
+  switch (category.RecommendationType) {
+    case 'SimilarToRecentlyPlayed': return `Because you watched ${name}`;
+    case 'SimilarToLikedItem': return `Because you like ${name}`;
+    case 'HasDirectorFromRecentlyPlayed': case 'HasLikedDirector': return `Directed by ${name}`;
+    case 'HasActorFromRecentlyPlayed': case 'HasLikedActor': return `Starring ${name}`;
+    default: return 'Recommended for you';
+  }
 }
 
 async function pages(fetch: (startIndex: number) => Promise<ItemResult>, label: string,
@@ -103,6 +125,7 @@ export function createJellyfinApi(): MediaApi | null {
   if (typeof ApiClient === 'undefined' || !ApiClient?.getCurrentUserId?.()) return null;
   const client = ApiClient;
   const userId = client.getCurrentUserId();
+  const serverId = client.serverId?.();
   // An adapter belongs to one open detail view; reopening creates a fresh cache.
   const collectionsByItem = new Map<string, Item[]>();
   function assertSession(): void {
@@ -129,10 +152,75 @@ export function createJellyfinApi(): MediaApi | null {
     EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
   })), 'collection')).filter(item => item.Type === 'BoxSet'));
   return {
+    serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     getItem: id => read(async () => {
       const item = await client.getItem(userId, id);
       if (!item?.Id || identity(item.Id) !== identity(id)) throw new Error('Jellyfin did not return the requested media.');
       return item;
+    }),
+    getMovies: options => read(async () => {
+      const start = Number.isFinite(options.startIndex) ? Math.min(2_147_483_647, Math.max(0, Math.trunc(options.startIndex!))) : 0;
+      const limit = Number.isFinite(options.limit) ? Math.min(MAX_MOVIE_PAGE_SIZE, Math.max(1, Math.trunc(options.limit!))) : MOVIE_PAGE_SIZE;
+      const letter = options.letter?.trim().toUpperCase();
+      if (letter && !/^[A-Z#]$/.test(letter)) throw new Error('Choose a letter from A to Z, or #.');
+      const search = options.search?.trim();
+      const result = await client.getItems(userId, {
+        IncludeItemTypes: 'Movie', Recursive: true, IsMissing: false, CollapseBoxSetItems: false,
+        SortBy: 'SortName,ProductionYear', SortOrder: 'Ascending',
+        ...(options.parentId ? { ParentId: options.parentId } : {}),
+        ...(search ? { SearchTerm: search } : {}),
+        ...(letter === '#' ? { NameLessThan: 'A' } : letter ? { NameStartsWith: letter } : {}),
+        ...(options.genreId ? { GenreIds: options.genreId } : {}),
+        ...(options.favorite ? { IsFavorite: true } : {}),
+        Fields: 'Overview,Genres', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
+        EnableUserData: true, EnableTotalRecordCount: true, StartIndex: start, Limit: limit
+      });
+      const items = movieItems(result, 'movie');
+      const count = result.Items!.length;
+      const total = result.TotalRecordCount;
+      if (!Number.isSafeInteger(total) || total! < 0 || count > limit
+        || (count > 0 && total! < start + count) || (count === 0 && start < total!)) {
+        throw new Error('Jellyfin returned an incomplete movie page. Try again.');
+      }
+      return { items, total: total!, nextStartIndex: start + count };
+    }),
+    getMovieGenres: parentId => read(async () => (await pages(startIndex => read(() => client.getGenres(userId, {
+      IncludeItemTypes: 'Movie', Recursive: true, SortBy: 'SortName', SortOrder: 'Ascending',
+      ...(parentId ? { ParentId: parentId } : {}),
+      EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableTotalRecordCount: true,
+      StartIndex: startIndex, Limit: PAGE_SIZE
+    })), 'movie genre')).filter(item => item.Type === 'Genre')),
+    getMovieSuggestions: parentId => read(async () => {
+      const scope: Query = parentId ? { ParentId: parentId } : {};
+      const artwork: Query = { Fields: 'Overview,Genres', EnableImages: true,
+        EnableImageTypes: 'Primary,Thumb,Backdrop,Logo', EnableUserData: true };
+      // Match Jellyfin's native movie suggestions: user history, latest additions,
+      // and server recommendation categories. Do not invent substitute rankings.
+      // https://github.com/jellyfin/jellyfin-web/blob/v12.0/src/apps/legacy/controllers/movies/moviesrecommended.js
+      const [resume, latest, recommendations] = await Promise.all([
+        read(() => client.getItems(userId, { ...scope, ...artwork, IncludeItemTypes: 'Movie',
+          Recursive: true, IsMissing: false, CollapseBoxSetItems: false, Filters: 'IsResumable',
+          SortBy: 'DatePlayed', SortOrder: 'Descending', Limit: 12, EnableTotalRecordCount: false })),
+        read(() => client.getJSON(client.getUrl(`Users/${encodeURIComponent(userId)}/Items/Latest`, {
+          ...scope, ...artwork, IncludeItemTypes: 'Movie', Limit: 18, EnableTotalRecordCount: false
+        }))),
+        read(() => client.getJSON(client.getUrl('Movies/Recommendations', {
+          ...scope, ...artwork, UserId: userId, CategoryLimit: 6, ItemLimit: 8
+        })))
+      ]);
+      if (!Array.isArray(latest) || !Array.isArray(recommendations)) {
+        throw new Error('Jellyfin returned invalid movie suggestions. Try again.');
+      }
+      const sections: SuggestionSection[] = [
+        { title: 'Continue watching', items: movieItems(resume, 'resumable movie').slice(0, 12) },
+        { title: 'Recently added', items: movieItems({ Items: latest }, 'latest movie').slice(0, 18) }
+      ];
+      for (const value of recommendations.slice(0, 6)) {
+        if (!value || typeof value !== 'object') throw new Error('Jellyfin returned invalid movie recommendations. Try again.');
+        const category = value as Recommendation;
+        sections.push({ title: recommendationTitle(category), items: movieItems(category, 'recommended movie').slice(0, 8) });
+      }
+      return sections.filter(section => section.items.length > 0);
     }),
     getSeasons: seriesId => read(async () => itemsFrom(await client.getSeasons(seriesId, {
       UserId: userId, IsMissing: false, EnableImages: false, EnableUserData: true

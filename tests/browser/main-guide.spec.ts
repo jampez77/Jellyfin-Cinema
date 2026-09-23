@@ -169,12 +169,13 @@ test('leaving the main guide discards a pending channel response', async ({ page
   await page.goto(guideRoute);
   await expect(guide(page).getByText('Loading your channels and programme guide…', { exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Preview media type' }).getByRole('link', { name: 'Movies', exact: true }).click();
-  const movie = page.getByRole('dialog', { name: 'After the Tide details', exact: true });
-  await expect(movie.getByRole('button', { name: 'Resume', exact: true })).toBeFocused();
+  const movie = page.getByRole('dialog', { name: 'Movies', exact: true });
+  const firstMovie = movie.locator('[data-movie-item]').first();
+  await expect(firstMovie).toBeFocused();
   await page.evaluate(() => new Promise<void>(resolve => {
     document.addEventListener('main-guide-settled', () => resolve(), { once: true });
     document.dispatchEvent(new Event('release-main-guide'));
   }));
   await expect(guide(page)).toHaveCount(0);
-  await expect(movie.getByRole('button', { name: 'Resume', exact: true })).toBeFocused();
+  await expect(firstMovie).toBeFocused();
 });

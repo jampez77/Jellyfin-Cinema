@@ -11,7 +11,7 @@ const seasons: Item[] = [];
 const episodes = new Map<string, Item[]>();
 const channels: Item[] = [];
 const schedules = new Map<string, Item[]>();
-const favorites = new Set<string>();
+const favorites = new Set<string>(['movie-blue']);
 
 function register(item: Item, photo: string): Item {
   library.set(item.Id, item);
@@ -119,6 +119,9 @@ register({ Id:'library-collections', Type:'CollectionFolder', CollectionType:'bo
 register({ Id:'library-movies', Type:'CollectionFolder', CollectionType:'movies', Name:'Movies' }, 'ocean');
 register({ Id:'collection-coast', Type:'BoxSet', Name:'Coastal Stories', Overview:'Journeys shaped by the sea. Discover stories of homecoming, chance encounters and life along the coast.', ChildCount:2 }, 'ocean');
 register({ Id:'collection-wilderness', Type:'BoxSet', Name:'Into the Wilderness', Overview:'Step beyond the familiar. Mountain mysteries and open-country adventures from your library.', ChildCount:3 }, 'mountains');
+
+const movieGenres = [...new Set(movieIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
+const movieSortName = (item:Item) => item.Name.replace(/^(the|an|a)\s+/i,'').toLocaleLowerCase();
 
 // Anchor each schedule to the current half hour, so the fixture always has a live show.
 const now = Date.now();
@@ -235,6 +238,23 @@ const api: MediaApi = {
   getCollections: (id) => respond(() => list([...collectionMembers].filter(([,members]) => members.includes(id)).map(([collectionId]) => library.get(collectionId)!)), id),
   getCollectionList: () => respond(() => list([...collectionMembers.keys()].map(id=>library.get(id)!))),
   getCollectionItems: (id) => respond(() => list((collectionMembers.get(id) || []).map(member=>library.get(member)!)),id),
+  getMovies: (query) => respond(() => {
+    const genre=movieGenres.find(item=>item.Id===query.genreId)?.Name;
+    const items=list(movieIds.map(id=>library.get(id)!)).filter(item=>
+      (!query.search || item.Name.toLocaleLowerCase().includes(query.search.trim().toLocaleLowerCase()))
+      && (!query.favorite || favorites.has(item.Id))
+      && (!query.genreId || !!genre&&item.Genres?.includes(genre))
+      && (!query.letter || (query.letter==='#'?movieSortName(item).charAt(0)<'a':movieSortName(item).startsWith(query.letter.toLocaleLowerCase())))
+    ).sort((a,b)=>movieSortName(a).localeCompare(movieSortName(b)));
+    const start=query.startIndex||0;const page=items.slice(start,start+(query.limit||60));
+    return {items:page,total:items.length,nextStartIndex:start+page.length};
+  },query.search),
+  getMovieGenres: () => respond(()=>list(movieGenres)),
+  getMovieSuggestions: () => respond(()=>scenario==='empty'?[]:[
+    {title:'Continue watching',items:[copy(library.get('movie-tide')!)]},
+    {title:'Recently added',items:movieIds.slice().reverse().map(id=>copy(library.get(id)!))},
+    {title:'Because you like A Kind of Blue',items:['movie-tide','movie-silence'].map(id=>copy(library.get(id)!))}
+  ]),
   getChannels: () => respond(() => list(channels)),
   getPrograms: (channelId) => respond(() => list(schedules.get(channelId) || []), channelId),
   setFavorite: (id, favorite) => respond(() => { if (favorite) favorites.add(id); else favorites.delete(id); }, id),
@@ -254,6 +274,8 @@ function syncRoute() {
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const current = library.get(params.get('id') || 'series-north');
   const guide = location.hash.startsWith('#/livetv');
+  const movies = location.hash.startsWith('#/movies');
+  nativePage.id=movies?'moviesPage':'';
   const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
   const collectionList = /^#\/(list|boxsets)\?/.test(location.hash) && (params.get('parentId')==='library-collections'||location.hash.startsWith('#/boxsets')||params.get('type')==='BoxSet');
   nativePage.classList.toggle('mainAnimatedPage',collectionList);
@@ -275,9 +297,9 @@ function syncRoute() {
     const content=el('div','demo-collection-content');content.append(el('h1','','Collections'));
     const items=el('div','itemsContainer');items.dataset.parentid=params.get('parentId')||'';content.append(items);replace(nativePage,content);
   } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
-  const type = collection||collectionList?'collections':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
+  const type = collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
-    if (link.dataset.demoType === type && (guide || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
+    if (link.dataset.demoType === type && (guide || movies || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();

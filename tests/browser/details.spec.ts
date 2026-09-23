@@ -409,9 +409,10 @@ test('navigating away during loading discards the old item response', async ({ p
   await open(page, 'series-north', 'slow');
   await expect(detail(page).getByText('Loading your library…', { exact: true })).toBeVisible();
   await page.getByRole('navigation', { name: 'Preview media type' }).getByRole('link', { name: 'Movies', exact: true }).click();
-  await expect(detail(page).getByRole('heading', { name: 'After the Tide', exact: true })).toBeVisible();
-  await expect(detail(page).getByRole('button', { name: /The Shape of Silence/ })).toBeVisible();
-  await expect(page).toHaveURL(/id=movie-tide$/);
+  await expect(detail(page).getByRole('heading', { name: 'Movies', exact: true })).toBeVisible();
+  await expect(detail(page).locator('[data-movie-item]')).toHaveCount(5);
+  await expect(detail(page).getByRole('button', { name: 'The Shape of Silence', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/movies\?topParentId=library-movies$/);
   await expect(detail(page)).toHaveCount(1);
   await expect(detail(page).getByRole('heading', { name: 'North of Nowhere', exact: true })).toHaveCount(0);
 });

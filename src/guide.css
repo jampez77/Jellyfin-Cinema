@@ -1,12 +1,12 @@
 /* Shared broadcast-time columns, designed for a landscape TV viewport. */
 .tvl-epg { --tvl-epg-column: 190px; --tvl-epg-timeline: 7200px; display: flex; flex-direction: column; height: calc(100% - 70px); min-height: 0; padding: .5vw 4.5vw 1.5vw; }
 .tvl-epg-detail { display: flex; flex-direction: column; justify-content: center; flex-shrink: 0; min-height: 220px; height: 30vh; max-height: 400px; padding: 10px 0 24px; margin-bottom: 16px; }
-.tvl-epg-detail-art { position: fixed; z-index: -1; inset: 0; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
+.tvl-epg-detail-art { position: fixed; z-index: -1; top: 0; right: 0; left: 0; height: var(--tvl-epg-art-height, 0px); overflow: hidden; pointer-events: none; }
 .tvl-epg-detail-art img { position: absolute; top: 0; right: 0; width: 78%; height: 100%; object-fit: cover; object-position: 70% top; }
 .tvl-epg-detail-art::after { content: ''; position: absolute; inset: 0; top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(90deg, #101112 18%, #101112f2 34%, #10111299 52%, #10111214 76%), linear-gradient(0deg, #101112 8%, #101112eb 35%, #10111240 68%, transparent); }
-.tvl-epg-channel-art img { width: 44%; height: 45vh; top: 3vh; right: 3%; padding: 3vw; object-fit: contain; object-position: center; }
+.tvl-epg-channel-art img { width: 44%; height: 100%; top: 0; right: 3%; padding: 3vw; object-fit: contain; object-position: center; }
 .tvl-epg-channel-art::after { background: linear-gradient(90deg, #101112 30%, #101112a3 48%, #10111200 75%), linear-gradient(0deg, #101112 40%, transparent 75%); }
-.tvl-epg-art-placeholder { display: none; position: absolute; top: 3vh; right: 0; height: 45vh; width: 44%; align-items: center; justify-content: center; color: #6e8c7955; font-size: 6em; }
+.tvl-epg-art-placeholder { display: none; position: absolute; top: 0; right: 0; height: 100%; width: 44%; align-items: center; justify-content: center; color: #6e8c7955; font-size: 6em; }
 .tvl-no-art .tvl-epg-art-placeholder { display: flex; }
 .tvl-epg-detail-copy { width: 64%; min-width: 0; }
 .tvl-epg-detail-meta { display: flex; flex-wrap: wrap; align-items: center; font-size: .7em; color: #c0cfc5; margin-bottom: 6px; }

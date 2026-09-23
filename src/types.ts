@@ -17,8 +17,19 @@ export type Item = {
   UserData?: { PlaybackPositionTicks?: number; Played?: boolean; IsFavorite?: boolean; PlayedPercentage?: number };
 };
 
+export type MovieQuery = {
+  parentId?: string; search?: string; letter?: string; genreId?: string;
+  favorite?: boolean; startIndex?: number; limit?: number;
+};
+export type ItemPage = { items: Item[]; total: number; nextStartIndex: number };
+export type SuggestionSection = { title: string; items: Item[] };
+
 export interface MediaApi {
+  serverId?: string;
   getItem(id: string): Promise<Item>;
+  getMovies(query: MovieQuery): Promise<ItemPage>;
+  getMovieGenres(parentId?: string): Promise<Item[]>;
+  getMovieSuggestions(parentId?: string): Promise<SuggestionSection[]>;
   getSeasons(seriesId: string): Promise<Item[]>;
   getEpisodes(seriesId: string, seasonId: string): Promise<Item[]>;
   getNextEpisode(seriesId: string): Promise<Item | null>;

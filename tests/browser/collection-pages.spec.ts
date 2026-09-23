@@ -156,7 +156,7 @@ test('leaving a collection while its members load discards the late results', as
   await expect(page.locator('.itemDetailPage')).not.toHaveAttribute('aria-hidden', 'true');
 });
 
-test('native viewshow opens a generic collections page and Movies tabchange returns to the native first tab on Back', async ({ page }) => {
+test('native viewshow opens collection and movie libraries, with Collections returning to the styled movie page', async ({ page }) => {
   await page.clock.install();
   await page.goto('/#/home');
   await page.clock.runFor(100);
@@ -172,35 +172,22 @@ test('native viewshow opens a generic collections page and Movies tabchange retu
   await expect(collections(page).getByRole('button', { name: 'Coastal Stories', exact: true })).toBeFocused();
   await expect(page.locator('#nativeCollections')).toHaveAttribute('aria-hidden', 'true');
   await page.evaluate(() => {
-    const host = document.createElement('main'); host.id = 'moviesPage'; host.setAttribute('aria-hidden', 'false');
-    const movies = document.createElement('div'); movies.id = 'moviesTab'; movies.className = 'pageTabContent is-active';
-    const sets = document.createElement('div'); sets.id = 'collectionsTab'; sets.className = 'pageTabContent';
-    const tabs = document.createElement('div') as HTMLElement & { selectedIndex: (index: number) => void };
-    tabs.className = 'tabs-viewmenubar';
-    const firstTab = document.createElement('button'); firstTab.type = 'button'; firstTab.className = 'emby-tab-button';
-    firstTab.dataset.index = '0'; firstTab.textContent = 'Native movies'; tabs.append(firstTab);
-    tabs.selectedIndex = index => {
-      tabs.dataset.selectedIndex = String(index);
-      movies.classList.toggle('is-active', index === 0); sets.classList.toggle('is-active', index === 3);
-      tabs.dispatchEvent(new Event('tabchange', { bubbles: true }));
-    };
-    host.append(tabs, movies, sets); document.body.append(host);
+    const host = document.querySelector<HTMLElement>('.demo-native-page')!;
+    host.id = 'moviesPage'; host.setAttribute('aria-hidden', 'false');
     history.pushState(null, '', '#/movies?topParentId=library-movies');
     host.dispatchEvent(new CustomEvent('viewshow', { detail: { params: { topParentId: 'library-movies' } } }));
   });
+  const moviePage = page.getByRole('dialog', { name: 'Movies', exact: true });
+  await expect(moviePage.locator('[data-movie-item]')).toHaveCount(5);
   await expect(collections(page)).toHaveCount(0);
   await expect(page.locator('#nativeCollections')).toHaveAttribute('aria-hidden', 'false');
-  await page.evaluate(() => {
-    const tabs = document.querySelector('.tabs-viewmenubar') as HTMLElement & { selectedIndex: (index: number) => void };
-    tabs.selectedIndex(3);
-  });
+  await expect(page.locator('#moviesPage')).toHaveAttribute('aria-hidden', 'true');
+  await moviePage.getByRole('button', { name: 'Collections', exact: true }).click();
   await expect(collections(page).getByRole('button', { name: 'Coastal Stories', exact: true })).toBeFocused();
   await expect(page.locator('#moviesPage')).toHaveAttribute('aria-hidden', 'true');
   await collections(page).getByRole('button', { name: 'Back', exact: true }).click();
   await expect(collections(page)).toHaveCount(0);
-  await expect(page.locator('.tabs-viewmenubar')).toHaveAttribute('data-selected-index', '0');
-  await expect(page.locator('#moviesTab')).toHaveClass(/is-active/);
-  await expect(page.locator('#moviesPage')).toHaveAttribute('aria-hidden', 'false');
-  await expect(page.getByRole('button', { name: 'Native movies', exact: true })).toBeFocused();
+  await expect(moviePage.getByRole('button', { name: 'Collections', exact: true })).toBeFocused();
+  await expect(page.locator('#moviesPage')).toHaveAttribute('aria-hidden', 'true');
   await expect(page).toHaveURL(/#\/movies\?topParentId=library-movies$/);
 });

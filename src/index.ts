@@ -2,28 +2,32 @@ import styles from './style.css';
 import guideStyles from './guide.css';
 import themeVideoStyles from './theme-video.css';
 import collectionStyles from './collection.css';
+import movieStyles from './movies.css';
 import { observeThemeVideo } from './theme-video';
 import { createJellyfinApi } from './api';
 import { DetailView } from './view';
 import { GuideView } from './guide-view';
 import { CollectionView } from './collection-view';
+import { MoviesView, type MovieTab, type MovieBrowseState } from './movies-view';
 import type { MediaApi, Item } from './types';
 
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles;document.head.append(sheet);
-let view:DetailView|GuideView|CollectionView|null=null;
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+movieStyles;document.head.append(sheet);
+let view:DetailView|GuideView|CollectionView|MoviesView|null=null;
 let activeKey='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
 let hiddenHost:HTMLElement|null=null;let previousAria:string|null=null;
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
-const movieLibraries=new WeakMap<HTMLElement,string>();
+const movieStates=new Map<string,MovieBrowseState>();
+const movieCollectionOrigins=new Map<string,string>();
+const detailOrigins=new Set<string>();
 let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|CollectionRoute;
+type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:MovieTab}|CollectionRoute;
 function close(restore=true):void{
   stopThemeVideo?.();stopThemeVideo=undefined;
   view?.destroy();view=null;activeKey='';
@@ -50,9 +54,11 @@ function currentRoute():Route|null{
   }
   if(/^movies\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
-    const page=document.querySelector<HTMLElement>('#moviesPage:not(.hide)');
-    const active=page&&movieLibraries.get(page)===(params.get('topParentId')||'')?page.querySelector('.pageTabContent.is-active'):null;
-    if(active?active.id==='collectionsTab':params.get('tab')==='3')return {kind:'collections',scope:'movies',parentId:params.get('topParentId')||undefined};
+    const parentId=params.get('topParentId')||undefined;
+    const tab=params.get('tab')||'0';
+    if(tab==='3')return {kind:'collections',scope:'movies',parentId};
+    const tabs:Record<string,MovieTab>={'0':'movies','1':'suggestions','2':'favorites','4':'genres'};
+    if(tabs[tab])return {kind:'movies',parentId,tab:tabs[tab]};
   }
   if(!/^details\/?$/i.test(path))return null;
   const id=params.get('id');
@@ -67,7 +73,7 @@ function back():void{
   else location.hash='/home';
 }
 function hideNativeHost(route:Route):void{
-  const selector=route.kind==='guide'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.scope==='movies'?'#moviesPage':route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
+  const selector=route.kind==='guide'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='movies'||route.scope==='movies'?'#moviesPage':route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
   const host=Array.from(document.querySelectorAll<HTMLElement>(selector)).find(node=>!node.classList.contains('hide')&&!node.hidden
     && (route.kind!=='collections'||route.scope!=='list'||!route.parentId||Array.from(node.querySelectorAll<HTMLElement>('.itemsContainer')).some(items=>items.dataset.parentid===route.parentId)));
   if(!host||host===hiddenHost)return;
@@ -82,7 +88,7 @@ function refresh():void{
   if(dismissed===location.hash)return;
   const api=window.TvItemLayoutDemo?.api||createJellyfinApi();
   if(!api){close(false);return;}
-  const key=route.kind==='guide'?'guide':route.kind==='detail'?`detail:${route.id}`:`collections:${route.scope}:${route.parentId||''}`;
+  const key=route.kind==='guide'?'guide':route.kind==='detail'?`detail:${route.id}`:route.kind==='movies'?`movies:${location.hash}`:`collections:${route.scope}:${route.parentId||''}`;
   if(activeKey===key&&view){hideNativeHost(route);return;}
   if(route.kind==='collections'&&route.verifyParent){
     if(pendingHash===location.hash)return;
@@ -102,17 +108,20 @@ function rememberFocus(id=(document.activeElement as HTMLElement)?.dataset.focus
   if(id)returnFocus.set(location.hash,id);
   if(returnFocus.size>100)returnFocus.delete(returnFocus.keys().next().value!);
 }
-function navigate(next:string):void{
+function navigate(next:string,activeServerId?:string):void{
   rememberFocus();
   const params=new URLSearchParams({id:next});
-  const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId');
+  const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||activeServerId;
   if(serverId)params.set('serverId',serverId);
+  detailOrigins.add(`#/details?${params}`);
+  if(detailOrigins.size>100)detailOrigins.delete(detailOrigins.values().next().value!);
   location.hash=`/details?${params}`;
 }
 function collectionBack(route:CollectionRoute):void{
   if(route.scope==='movies'){
-    const tabs=document.querySelector<HTMLElement>('.tabs-viewmenubar') as (HTMLElement & {selectedIndex?:(index:number)=>void})|null;
-    if(tabs?.selectedIndex){close(false);tabs.selectedIndex(0);tabs.querySelector<HTMLElement>('.emby-tab-button[data-index="0"]')?.focus({preventScroll:true});schedule();return;}
+    if(movieCollectionOrigins.has(location.hash)){back();return;}
+    const params=new URLSearchParams(location.hash.split('?')[1]||'');params.set('tab','0');
+    history.replaceState(null,'',`#/movies?${params}`);schedule();return;
   }
   back();
 }
@@ -121,18 +130,32 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
+  const go=(id:string)=>navigate(id,api.serverId);
   if(route.kind==='guide')view=new GuideView(api,{back});
-  else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate,focusId});
+  else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
+  else if(route.kind==='movies'){
+    const hash=location.hash;
+    view=new MoviesView(api,{parentId:route.parentId,initialTab:route.tab,back,navigate:go,focusId,state:movieStates.get(hash),onState:state=>{
+      movieStates.set(hash,state);
+      if(movieStates.size>100)movieStates.delete(movieStates.keys().next().value!);
+    },openCollections:()=>{
+      rememberFocus('collections');
+      const params=new URLSearchParams(hash.split('?')[1]||'');params.set('tab','3');
+      const target=`#/movies?${params}`;movieCollectionOrigins.set(target,hash);
+      if(movieCollectionOrigins.size>100)movieCollectionOrigins.delete(movieCollectionOrigins.keys().next().value!);
+      location.hash=target;
+    }});
+  }
   else {
     const openCollection=(item:Item)=>{
       stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
-      view=new CollectionView(api,{item,back,navigate,focusId});
+      view=new CollectionView(api,{item,back,navigate:go,focusId});
       document.body.append(view.element);void view.load();
     };
-    view=new DetailView(api,{id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo)dismiss();else back();},focusId,navigate,openCollection,openGuide:()=>{
+    view=new DetailView(api,{id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo&&!detailOrigins.has(location.hash))dismiss();else back();},focusId,navigate:go,openCollection,openGuide:()=>{
       rememberFocus('guide');
       const params=new URLSearchParams({collectionType:'livetv'});
-      const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId');
+      const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;
       if(serverId)params.set('serverId',serverId);
       location.hash=`/livetv?${params}`;
     }});
@@ -146,7 +169,6 @@ const schedule=()=>{window.clearTimeout(timer);timer=window.setTimeout(refresh,3
 const hide=(event:Event)=>{if(event.target===hiddenHost)close(false);};
 const show=(event:Event)=>{
   const target=event.target as HTMLElement;
-  if(target.id==='moviesPage')movieLibraries.set(target,(event as CustomEvent).detail?.params?.topParentId||'');
   if(target.matches?.(nativePages))schedule();
 };
 window.addEventListener('hashchange',schedule);window.addEventListener('popstate',schedule);

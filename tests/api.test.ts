@@ -37,6 +37,145 @@ test('activation requires a signed-in Jellyfin client', () => {
   assert.equal(createJellyfinApi(), null);
 });
 
+test('adapter exposes the active Jellyfin server identity for native detail navigation', () => {
+  assert.equal(client().serverId, 'server-a');
+  assert.equal(client({ serverId: () => 'server-b' }).serverId, 'server-b');
+  for (const serverId of [undefined, () => '', () => '   ', () => null]) {
+    assert.equal(client({ serverId }).serverId, undefined);
+  }
+});
+
+test('movie pages send real scoped filters and retain the raw continuation offset', async () => {
+  let requestedUser = '';
+  let query: Record<string, unknown> = {};
+  const api = client({ getItems: async (user: string, options: Record<string, unknown>) => {
+    requestedUser = user; query = options;
+    return { Items: [
+      { Id: 'movie', Name: 'Movie', Type: 'Movie' },
+      { Id: 'missing', Name: 'Missing', Type: 'Movie', IsMissing: true },
+      { Id: 'blocked', Name: 'Blocked', Type: 'Movie', PlayAccess: 'None' },
+      { Id: 'show', Name: 'Show', Type: 'Series' }
+    ], TotalRecordCount: 25 };
+  } });
+  const page = await api.getMovies({ parentId: 'films', search: '  Moon  ', letter: 'm', genreId: 'genre', favorite: true, startIndex: 10, limit: 20 });
+  assert.deepEqual(page, { items: [{ Id: 'movie', Name: 'Movie', Type: 'Movie' }], total: 25, nextStartIndex: 14 });
+  assert.equal(requestedUser, 'user-a');
+  assert.equal(query.ParentId, 'films');
+  assert.equal(query.SearchTerm, 'Moon');
+  assert.equal(query.NameStartsWith, 'M');
+  assert.equal(query.GenreIds, 'genre');
+  assert.equal(query.IsFavorite, true);
+  assert.equal(query.IncludeItemTypes, 'Movie');
+  assert.equal(query.IsMissing, false);
+  assert.equal(query.CollapseBoxSetItems, false);
+  assert.equal(query.Recursive, true);
+  assert.equal(query.StartIndex, 10);
+  assert.equal(query.Limit, 20);
+  assert.equal(query.EnableTotalRecordCount, true);
+});
+
+test('movie pagination bounds requests, maps # to the server alphabet filter, and clears inactive filters', async () => {
+  const queries: Record<string, unknown>[] = [];
+  const api = client({ getItems: async (_user: string, query: Record<string, unknown>) => {
+    queries.push(query);
+    return { Items: [], TotalRecordCount: 0 };
+  } });
+  assert.deepEqual(await api.getMovies({ startIndex: -8, limit: 10000, letter: '#', favorite: false, search: ' ' }), { items: [], total: 0, nextStartIndex: 0 });
+  assert.equal(queries[0].StartIndex, 0);
+  assert.equal(queries[0].Limit, 100);
+  assert.equal(queries[0].NameLessThan, 'A');
+  for (const key of ['ParentId', 'IsFavorite', 'SearchTerm', 'NameStartsWith', 'GenreIds']) assert.ok(!(key in queries[0]));
+  await api.getMovies({ startIndex: NaN, limit: Infinity });
+  assert.equal(queries[1].Limit, 60);
+  assert.equal(queries[1].StartIndex, 0);
+  assert.ok(!('NameLessThan' in queries[1]));
+  await assert.rejects(api.getMovies({ letter: 'Any letter' }), /choose a letter/i);
+  assert.equal(queries.length, 2);
+});
+
+test('movie pages reject malformed or stalled totals rather than inventing a page count', async () => {
+  for (const result of [
+    { Items: [], TotalRecordCount: -1 },
+    { Items: [], TotalRecordCount: NaN },
+    { Items: [], TotalRecordCount: 1.5 },
+    { Items: [] },
+    { Items: [], TotalRecordCount: 10 },
+    { Items: [{ Id: 'movie', Name: 'Movie', Type: 'Movie' }], TotalRecordCount: 0 }
+  ]) {
+    const api = client({ getItems: async () => result });
+    await assert.rejects(api.getMovies({}), /incomplete movie page/i);
+  }
+  const beyondEnd = client({ getItems: async () => ({ Items: [], TotalRecordCount: 3 }) });
+  assert.deepEqual(await beyondEnd.getMovies({ startIndex: 60 }), { items: [], total: 3, nextStartIndex: 60 });
+});
+
+test('movie genres paginate within the selected library', async () => {
+  const requests: { user: string; query: Record<string, unknown> }[] = [];
+  const api = client({ getGenres: async (user: string, query: Record<string, unknown>) => {
+    requests.push({ user, query });
+    return query.StartIndex === 0
+      ? { Items: [{ Id: 'drama', Name: 'Drama', Type: 'Genre' }], TotalRecordCount: 2 }
+      : { Items: [{ Id: 'mystery', Name: 'Mystery', Type: 'Genre' }], TotalRecordCount: 2 };
+  } });
+  assert.deepEqual((await api.getMovieGenres('film-library')).map(item => item.Name), ['Drama', 'Mystery']);
+  assert.deepEqual(requests.map(({ query }) => query.StartIndex), [0, 1]);
+  assert.ok(requests.every(({ user, query }) => user === 'user-a' && query.ParentId === 'film-library' && query.IncludeItemTypes === 'Movie'));
+});
+
+test('movie suggestions preserve native recommendation categories, recent items and user progress', async () => {
+  const urls = new Map<string, Record<string, unknown>>();
+  const movies = (id: string) => [{ Id: id, Name: id, Type: 'Movie' }];
+  let resumeQuery: Record<string, unknown> = {};
+  const api = client({
+    getItems: async (user: string, query: Record<string, unknown>) => {
+      assert.equal(user, 'user-a'); resumeQuery = query;
+      return { Items: [{ ...movies('resume')[0], UserData: { PlaybackPositionTicks: 600 } }] };
+    },
+    getUrl: (path: string, query: Record<string, unknown>) => { urls.set(path, query); return path; },
+    getJSON: async (path: string) => path.endsWith('/Latest') ? movies('latest') : [
+      { RecommendationType: 'SimilarToRecentlyPlayed', BaselineItemName: 'The Shore', Items: movies('watched') },
+      { RecommendationType: 'SimilarToLikedItem', BaselineItemName: 'The Trail', Items: movies('liked') },
+      { RecommendationType: 'HasLikedDirector', BaselineItemName: 'Ada Voss', Items: movies('director') },
+      { RecommendationType: 'HasActorFromRecentlyPlayed', BaselineItemName: 'Romy Bell', Items: movies('actor') },
+      { RecommendationType: 'FutureCategory', BaselineItemName: 'Unknown reason', Items: movies('other') },
+      { RecommendationType: 'SimilarToLikedItem', BaselineItemName: 'Empty', Items: [] }
+    ]
+  });
+  const sections = await api.getMovieSuggestions('library');
+  assert.deepEqual(sections.map(section => section.title), [
+    'Continue watching', 'Recently added', 'Because you watched The Shore', 'Because you like The Trail',
+    'Directed by Ada Voss', 'Starring Romy Bell', 'Recommended for you'
+  ]);
+  assert.equal(sections[0].items[0].UserData?.PlaybackPositionTicks, 600);
+  assert.equal(resumeQuery.ParentId, 'library');
+  assert.equal(resumeQuery.Filters, 'IsResumable');
+  assert.equal(resumeQuery.CollapseBoxSetItems, false);
+  assert.ok(urls.has('Users/user-a/Items/Latest'));
+  assert.equal(urls.get('Movies/Recommendations')?.UserId, 'user-a');
+  assert.ok([...urls.values()].every(query => query.ParentId === 'library'));
+});
+
+test('suggestions preserve honest empty results and surface malformed or failed native reads', async () => {
+  const base = {
+    getItems: async () => ({ Items: [] }), getUrl: (path: string) => path,
+    getJSON: async () => []
+  };
+  assert.deepEqual(await client(base).getMovieSuggestions(), []);
+  const malformed = client({ ...base, getJSON: async (path: string) => path.endsWith('/Latest') ? [] : [{ Items: null }] });
+  await assert.rejects(malformed.getMovieSuggestions(), /invalid recommended movie list/i);
+  const failed = client({ ...base, getJSON: async () => { throw { status: 503 }; } });
+  await assert.rejects(failed.getMovieSuggestions(), /could not load/i);
+});
+
+test('movie catalogue requests cannot return data after an account change', async () => {
+  let user = 'user-a';
+  const api = client({
+    getCurrentUserId: () => user,
+    getItems: async () => { user = 'user-b'; return { Items: [], TotalRecordCount: 0 }; }
+  });
+  await assert.rejects(api.getMovies({ parentId: 'library' }), /account changed/i);
+});
+
 test('episodes retain every available page while excluding missing and blocked entries', async () => {
   const requests: { series: string; query: Record<string, unknown> }[] = [];
   const api = client({ getEpisodes: async (series: string, query: Record<string, unknown>) => {

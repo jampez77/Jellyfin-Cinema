@@ -7,10 +7,15 @@ const remoteCodes: Record<number, string> = {13:'select',37:'left',38:'up',39:'r
 export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane?: (direction:string)=>boolean): () => void {
   let lastFocus: HTMLElement | null = null;
   const held = new Set<string>();
-  const controls = () => Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"], a[href]'))
+  const controls = () => Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"], a[href]'))
     .filter(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
   const foreignDialog = () => Array.from(document.querySelectorAll<HTMLElement>('.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"]'))
     .some(node => node !== root && !root.contains(node) && !node.closest('.hide, [hidden]') && !!node.getClientRects().length);
+  const editing = () => {
+    const active = document.activeElement;
+    return active instanceof HTMLElement && root.contains(active)
+      && active.matches('input, textarea, select, [contenteditable="true"]') ? active : null;
+  };
   const focus = (node?: HTMLElement) => { if (!node) return; node.focus({preventScroll:true}); node.scrollIntoView({block:'nearest',inline:'nearest'}); lastFocus = node; };
   function move(direction: string) {
     if (moveWithinPane?.(direction)) return;
@@ -40,8 +45,48 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     }
     else move(command);
   }
+  function editCommand(active: HTMLElement, command: string): boolean {
+    if (command === 'select' && active instanceof HTMLInputElement && active.form) {
+      // Jellyfin's native select command just clicks the input. Submit its form
+      // explicitly for remotes that emit commands instead of keyboard events.
+      const submit = active.form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"]');
+      if (submit) submit.click();
+      else if (active.form.requestSubmit) active.form.requestSubmit();
+      else active.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      return true;
+    }
+    if (command !== 'left' && command !== 'right') return false;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+      const start = active.selectionStart, end = active.selectionEnd;
+      if (start !== null && end !== null) {
+        let position = command === 'left' ? start : end;
+        if (start === end) {
+          // Advance by a whole code point rather than splitting an emoji pair.
+          if (command === 'left' && position > 0) {
+            position--;
+            if (position > 0 && /[\uDC00-\uDFFF]/.test(active.value[position]) && /[\uD800-\uDBFF]/.test(active.value[position - 1])) position--;
+          } else if (command === 'right' && position < active.value.length) {
+            position += (active.value.codePointAt(position) || 0) > 0xffff ? 2 : 1;
+          }
+        }
+        active.setSelectionRange(position, position);
+      }
+    }
+    // Never let a native command move focus away while editing horizontally.
+    return true;
+  }
+  const nativeEditingKey = (event: KeyboardEvent) => editing()
+    && ['left', 'right', 'select'].includes(keyCommands[event.key] || remoteCodes[event.keyCode]);
   const keydown = (event: KeyboardEvent) => {
     if (foreignDialog() || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.isComposing) { if (editing()) event.stopImmediatePropagation(); return; }
+    // Text fields retain caret keys, Backspace and native form submission.
+    // Up/Down, Tab and Escape still let a TV remote leave the field.
+    if (editing() && (event.key === 'Backspace' || event.keyCode === 8 || nativeEditingKey(event))) {
+      // Preserve browser editing/default form submission, but keep Jellyfin's
+      // TV Backspace shortcut from converting deletion into navigation.
+      event.stopImmediatePropagation(); return;
+    }
     const command = keyCommands[event.key] || remoteCodes[event.keyCode];
     if (!command && event.key !== 'Tab') return;
     event.preventDefault(); event.stopImmediatePropagation();
@@ -57,6 +102,10 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     held.add(command); act(command);
   };
   const keyup = (event: KeyboardEvent) => {
+    if (event.isComposing) { if (editing()) event.stopImmediatePropagation(); return; }
+    if (editing() && (event.key === 'Backspace' || event.keyCode === 8 || nativeEditingKey(event))) {
+      event.stopImmediatePropagation(); return;
+    }
     const command = keyCommands[event.key] || remoteCodes[event.keyCode];
     held.delete(command);
     if (command && !foreignDialog()) { event.preventDefault(); event.stopImmediatePropagation(); }
@@ -66,7 +115,9 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     const value = (event as CustomEvent).detail?.command?.toLowerCase();
     const translated = value === 'enter' || value === 'ok' ? 'select' : value;
     if (!['select','back','left','right','up','down'].includes(translated)) return;
-    event.preventDefault(); event.stopImmediatePropagation(); act(translated);
+    event.preventDefault(); event.stopImmediatePropagation();
+    const input = editing();
+    if (!input || !editCommand(input, translated)) act(translated);
   };
   const onFocus = (event: FocusEvent) => {
     if (foreignDialog()) return;
