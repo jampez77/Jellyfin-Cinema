@@ -7,7 +7,8 @@ from pathlib import Path
 from zipfile import ZipFile
 
 root = Path(__file__).resolve().parent.parent
-repository = 'jampez77/Jellyfin-TV-Item-Layout'
+repository = 'jampez77/Jellyfin-Cinema'
+release_url_prefix = f'https://github.com/{repository}/releases/download/'
 release = json.loads((root / 'package.json').read_text())['version']
 plugin_id = '1a06b74f-7609-4af9-899d-430c9b5a52b1'
 client_hash = hashlib.sha256((root / 'dist/jellyfin-tv-layout.js').read_bytes()).hexdigest()
@@ -28,7 +29,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
         'version': version,
         'changelog': "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         'targetAbi': target,
-        'sourceUrl': f'https://github.com/{repository}/releases/download/v{release}/{archive.name}',
+        'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
         'checksum': hashlib.md5(data).hexdigest(),
         'timestamp': timestamp,
@@ -39,7 +40,12 @@ if manifest_path.exists():
     previous = next((item for item in json.loads(manifest_path.read_text()) if item['guid'] == plugin_id), None)
     if previous:
         current = {item['version'] for item in versions}
-        versions.extend(item for item in previous['versions'] if item['version'] not in current)
+        # A moved catalogue must not depend on downloads in the former repository.
+        versions.extend(
+            item for item in previous['versions']
+            if item['version'] not in current
+            and item.get('sourceUrl', '').startswith(release_url_prefix)
+        )
 versions.sort(key=lambda item: tuple(map(int, item['version'].split('.'))), reverse=True)
 manifest = [{
     'guid': plugin_id,

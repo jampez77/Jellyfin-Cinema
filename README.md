@@ -48,15 +48,15 @@ Open [the local preview](http://127.0.0.1:4173). The controls at the top switch 
 
 ## Install
 
-This source tree is preparing **v0.2.0**; its new packages have not been published yet. The latest published build is the [v0.1.7 test release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.7), named **TV Item Layout**, for Jellyfin 10.10.7, 10.11.x and 12.x. See the [0.2.0 release notes](docs/releases/v0.2.0.md) for the changes being prepared.
+The [v0.2.0 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.0) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for initial server testing. Physical Mac mini/TV deployment and remote testing have not been performed. See the [0.2.0 release notes](docs/releases/v0.2.0.md) for changes and completed automated validation.
 
 In **Dashboard → Plugins → Repositories**, add:
 
 ```text
-https://raw.githubusercontent.com/jampez77/Jellyfin-TV-Item-Layout/main/manifest.json
+https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/manifest.json
 ```
 
-Install the compatible catalogue build, along with a compatible **File Transformation** plugin, then restart Jellyfin. Published 0.1.7 builds display **TV Item Layout**; 0.2.0 uses **Jellyfin Cinema**. Existing installs use the same plugin ID, assembly and catalogue URL, so the rename follows the normal update path when 0.2.0 is published. Enable **TV** display mode in your Jellyfin Web user settings. See the [installation guide](docs/server.md) for the File Transformation repository, manual installation, and troubleshooting. No web files are silently modified.
+Install **Jellyfin Cinema** and a compatible **File Transformation** plugin, then restart Jellyfin and enable **TV** display mode in your Jellyfin Web user settings. Existing TV Item Layout users should replace their old catalogue repository entry with the URL above, then update normally; no uninstall is needed. The plugin GUID, DLL, API routes and archive filenames remain stable. The new catalogue starts at 0.2.0; historical releases are not included in this catalogue. See the [installation guide](docs/server.md) for migration, manual installation and troubleshooting. No web files are silently modified.
 
 To build the packages locally:
 
@@ -64,7 +64,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-For the prepared 0.2.0 release, the final plugin version component identifies the server target: `0.2.0.1` for 10.10.7, `0.2.0.2` for 10.11.x and `0.2.0.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+For 0.2.0, the final plugin version component identifies the server target: `0.2.0.1` for 10.10.7, `0.2.0.2` for 10.11.x and `0.2.0.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

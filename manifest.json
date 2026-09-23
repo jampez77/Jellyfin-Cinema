@@ -6,223 +6,31 @@
     "description": "A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Ranked Home artwork numbers items in collection order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-TV-Item-Layout/main/assets/catalogue/jellyfin-cinema.png",
+    "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
         "version": "0.2.0.3",
         "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.2.0/TvItemLayout_0.2.0.3_jellyfin-12.0.0.zip",
-        "checksum": "3f2075a20016c239f1914646f714ca79",
-        "timestamp": "2026-09-23T12:07:03Z"
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.0/TvItemLayout_0.2.0.3_jellyfin-12.0.0.zip",
+        "checksum": "532842f62b57764bf285188bb9525e2d",
+        "timestamp": "2026-09-23T12:16:26Z"
       },
       {
         "version": "0.2.0.2",
         "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.2.0/TvItemLayout_0.2.0.2_jellyfin-10.11.0.zip",
-        "checksum": "8218c9a0739ec7eeca1071d956c7705e",
-        "timestamp": "2026-09-23T12:07:03Z"
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.0/TvItemLayout_0.2.0.2_jellyfin-10.11.0.zip",
+        "checksum": "de545ece6dfaea472e07eda2542317af",
+        "timestamp": "2026-09-23T12:16:26Z"
       },
       {
         "version": "0.2.0.1",
         "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.2.0/TvItemLayout_0.2.0.1_jellyfin-10.10.7.zip",
-        "checksum": "5fdbc68b2976e3c10845c3804363345c",
-        "timestamp": "2026-09-23T12:07:03Z"
-      },
-      {
-        "version": "0.1.7.3",
-        "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.7/TvItemLayout_0.1.7.3_jellyfin-12.0.0.zip",
-        "checksum": "2858442d45aeb974c2898cbefb526cad",
-        "timestamp": "2026-09-23T11:19:11Z"
-      },
-      {
-        "version": "0.1.7.2",
-        "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.7/TvItemLayout_0.1.7.2_jellyfin-10.11.0.zip",
-        "checksum": "6c4972962b32ece7bc917a29f41252b1",
-        "timestamp": "2026-09-23T11:19:11Z"
-      },
-      {
-        "version": "0.1.7.1",
-        "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.7/TvItemLayout_0.1.7.1_jellyfin-10.10.7.zip",
-        "checksum": "b6133d4dd25dd51b3fdfdfe63f852ead",
-        "timestamp": "2026-09-23T11:19:11Z"
-      },
-      {
-        "version": "0.1.6.3",
-        "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.6/TvItemLayout_0.1.6.3_jellyfin-12.0.0.zip",
-        "checksum": "996a1b35ff71cd178661e721e2dfffb1",
-        "timestamp": "2026-09-23T10:53:57Z"
-      },
-      {
-        "version": "0.1.6.2",
-        "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.6/TvItemLayout_0.1.6.2_jellyfin-10.11.0.zip",
-        "checksum": "768727739299dec4d5473a6a6a02076d",
-        "timestamp": "2026-09-23T10:53:57Z"
-      },
-      {
-        "version": "0.1.6.1",
-        "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.6/TvItemLayout_0.1.6.1_jellyfin-10.10.7.zip",
-        "checksum": "346444843328849bc3bb1583de100514",
-        "timestamp": "2026-09-23T10:53:57Z"
-      },
-      {
-        "version": "0.1.5.3",
-        "changelog": "Adds TV Shows library browsing with native Continue watching, Next up and Recently added suggestions, genres, search, A-Z/# and favourites. Hides old native page controls beneath theme videos while preserving playback. Guide artwork retains its proportions and stays clipped above the schedule. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.5/TvItemLayout_0.1.5.3_jellyfin-12.0.0.zip",
-        "checksum": "88ffb3c67298fe57be2486d5b22eb743",
-        "timestamp": "2026-09-23T09:52:21Z"
-      },
-      {
-        "version": "0.1.5.2",
-        "changelog": "Adds TV Shows library browsing with native Continue watching, Next up and Recently added suggestions, genres, search, A-Z/# and favourites. Hides old native page controls beneath theme videos while preserving playback. Guide artwork retains its proportions and stays clipped above the schedule. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.5/TvItemLayout_0.1.5.2_jellyfin-10.11.0.zip",
-        "checksum": "ecd3a6ffe18e580ab870422a25f25a79",
-        "timestamp": "2026-09-23T09:52:21Z"
-      },
-      {
-        "version": "0.1.5.1",
-        "changelog": "Adds TV Shows library browsing with native Continue watching, Next up and Recently added suggestions, genres, search, A-Z/# and favourites. Hides old native page controls beneath theme videos while preserving playback. Guide artwork retains its proportions and stays clipped above the schedule. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.5/TvItemLayout_0.1.5.1_jellyfin-10.10.7.zip",
-        "checksum": "7eef3ea36dad515c10f155f5c57c2698",
-        "timestamp": "2026-09-23T09:52:21Z"
-      },
-      {
-        "version": "0.1.4.3",
-        "changelog": "Adds the Movies library with native Jellyfin suggestions, genres, search, A-Z/# browsing, favourites and paginated results. Returning from a film restores browsing filters and focus. Guide artwork now ends at the top of the schedule. Preserves the active server when opening details so native theme videos can start. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.4/TvItemLayout_0.1.4.3_jellyfin-12.0.0.zip",
-        "checksum": "a5398febaf6f05b61a3ba014d1b88533",
-        "timestamp": "2026-09-23T09:20:28Z"
-      },
-      {
-        "version": "0.1.4.2",
-        "changelog": "Adds the Movies library with native Jellyfin suggestions, genres, search, A-Z/# browsing, favourites and paginated results. Returning from a film restores browsing filters and focus. Guide artwork now ends at the top of the schedule. Preserves the active server when opening details so native theme videos can start. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.4/TvItemLayout_0.1.4.2_jellyfin-10.11.0.zip",
-        "checksum": "3dd2df8d5cfae19cc98a8da91e717f2a",
-        "timestamp": "2026-09-23T09:20:28Z"
-      },
-      {
-        "version": "0.1.4.1",
-        "changelog": "Adds the Movies library with native Jellyfin suggestions, genres, search, A-Z/# browsing, favourites and paginated results. Returning from a film restores browsing filters and focus. Guide artwork now ends at the top of the schedule. Preserves the active server when opening details so native theme videos can start. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.4/TvItemLayout_0.1.4.1_jellyfin-10.10.7.zip",
-        "checksum": "f99ad6df1391b6c8a63515e1839af828",
-        "timestamp": "2026-09-23T09:20:28Z"
-      },
-      {
-        "version": "0.1.3.3",
-        "changelog": "Adds cinematic collection lists and collection pages with remote navigation and Back focus restoration. Guide artwork now blends into the full-page background; removes guide navigation hints, heading, date and Jump to now. Removes Explore the series. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.3/TvItemLayout_0.1.3.3_jellyfin-12.0.0.zip",
-        "checksum": "445844720642530a57a7cf7d3661b0bb",
-        "timestamp": "2026-09-23T08:52:09Z"
-      },
-      {
-        "version": "0.1.3.2",
-        "changelog": "Adds cinematic collection lists and collection pages with remote navigation and Back focus restoration. Guide artwork now blends into the full-page background; removes guide navigation hints, heading, date and Jump to now. Removes Explore the series. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.3/TvItemLayout_0.1.3.2_jellyfin-10.11.0.zip",
-        "checksum": "fb63348fc7c37ea0541482448336ebd4",
-        "timestamp": "2026-09-23T08:52:09Z"
-      },
-      {
-        "version": "0.1.3.1",
-        "changelog": "Adds cinematic collection lists and collection pages with remote navigation and Back focus restoration. Guide artwork now blends into the full-page background; removes guide navigation hints, heading, date and Jump to now. Removes Explore the series. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.3/TvItemLayout_0.1.3.1_jellyfin-10.10.7.zip",
-        "checksum": "b48c39c8dfb38019c0d927c8d75ca736",
-        "timestamp": "2026-09-23T08:52:09Z"
-      },
-      {
-        "version": "0.1.2.3",
-        "changelog": "Reveals native theme videos on movie and series pages. The guide now has a right-aligned artwork hero with channel-logo fallback. Series pages scroll to More like this, and movies and series link to their collections. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.2/TvItemLayout_0.1.2.3_jellyfin-12.0.0.zip",
-        "checksum": "2270e469e39cfb38c17d941b55011fed",
-        "timestamp": "2026-09-23T08:29:59Z"
-      },
-      {
-        "version": "0.1.2.2",
-        "changelog": "Reveals native theme videos on movie and series pages. The guide now has a right-aligned artwork hero with channel-logo fallback. Series pages scroll to More like this, and movies and series link to their collections. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.2/TvItemLayout_0.1.2.2_jellyfin-10.11.0.zip",
-        "checksum": "f77f2cf7b0e65f9c280f581bc2abaa97",
-        "timestamp": "2026-09-23T08:29:59Z"
-      },
-      {
-        "version": "0.1.2.1",
-        "changelog": "Reveals native theme videos on movie and series pages. The guide now has a right-aligned artwork hero with channel-logo fallback. Series pages scroll to More like this, and movies and series link to their collections. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.2/TvItemLayout_0.1.2.1_jellyfin-10.10.7.zip",
-        "checksum": "879acaee6eaf35a93c49bcad6fcdef9c",
-        "timestamp": "2026-09-23T08:29:59Z"
-      },
-      {
-        "version": "0.1.1.3",
-        "changelog": "The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.1/TvItemLayout_0.1.1.3_jellyfin-12.0.0.zip",
-        "checksum": "fd9f6d640b86f337e9f3f419465eb6d3",
-        "timestamp": "2026-09-23T08:04:43Z"
-      },
-      {
-        "version": "0.1.1.2",
-        "changelog": "The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.1/TvItemLayout_0.1.1.2_jellyfin-10.11.0.zip",
-        "checksum": "4b7c5289e4fbafffec819142b4d3db70",
-        "timestamp": "2026-09-23T08:04:43Z"
-      },
-      {
-        "version": "0.1.1.1",
-        "changelog": "The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.1/TvItemLayout_0.1.1.1_jellyfin-10.10.7.zip",
-        "checksum": "4912bf217acc67093efc53019764cbe5",
-        "timestamp": "2026-09-23T08:04:43Z"
-      },
-      {
-        "version": "0.1.0.3",
-        "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.0/TvItemLayout_0.1.0.3_jellyfin-12.0.0.zip",
-        "checksum": "b7b78e564ebc546318504b4a132e34a5",
-        "timestamp": "2026-09-23T07:38:24Z"
-      },
-      {
-        "version": "0.1.0.2",
-        "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.0/TvItemLayout_0.1.0.2_jellyfin-10.11.0.zip",
-        "checksum": "0b8f40b44df4a21d819215e8dfafea6b",
-        "timestamp": "2026-09-23T07:38:24Z"
-      },
-      {
-        "version": "0.1.0.1",
-        "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",
-        "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.0/TvItemLayout_0.1.0.1_jellyfin-10.10.7.zip",
-        "checksum": "bf6e86581b7fb4120e0831758f74ec3c",
-        "timestamp": "2026-09-23T07:38:24Z"
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.0/TvItemLayout_0.2.0.1_jellyfin-10.10.7.zip",
+        "checksum": "81411dec02a6d41c3fe383e3a3e06324",
+        "timestamp": "2026-09-23T12:16:26Z"
       }
     ]
   }
