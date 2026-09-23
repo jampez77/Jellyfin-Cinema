@@ -23,8 +23,13 @@ export class HomeCollections {
     window.addEventListener('keydown', this.onKey, true);
     window.addEventListener('command', this.onCommand, true);
     window.addEventListener('pointerdown', this.onPointer, true);
-    this.observer = new MutationObserver(() => this.attach());
-    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    this.observer = new MutationObserver(records => {
+      // Native row order can change without replacing a node. Ignore scroller
+      // transform updates so animated TV focus does not keep reattaching rows.
+      if (records.some(record => record.attributeName !== 'style'
+        || (record.target as Element).matches('.verticalSection, .ec-root, .homeSectionsContainer, #homeTab'))) this.attach();
+    });
+    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
     this.attach(); void this.render();
   }
 
@@ -42,6 +47,10 @@ export class HomeCollections {
       const point = anchor?.element || this.root;
       const target = nextAt.get(point) || anchor?.element;
       const parent = target?.parentElement || this.root;
+      // DOM adjacency alone is insufficient in a CSS-ordered native Home.
+      // Share the anchor's order so insertBefore is also visually before it.
+      const order = anchor ? getComputedStyle(anchor.element).order : '';
+      if (element.style.order !== order) element.style.order = order;
       if (target) {
         if (element.parentElement !== parent || element.nextElementSibling !== target) parent.insertBefore(element, target);
       } else if (element.parentElement !== parent || element !== parent.lastElementChild) parent.append(element);
@@ -60,7 +69,11 @@ export class HomeCollections {
     const controls = (group: HTMLElement) => Array.from(group.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex="0"]'))
       .filter(node => !node.closest('.hide,[hidden]') && node.getClientRects().length > 0);
     const groups = Array.from(host.querySelectorAll<HTMLElement>('.focuscontainer-x, .ec-root'))
-      .filter(group => !group.querySelector('.focuscontainer-x') && controls(group).length > 0);
+      .filter(group => !group.querySelector('.focuscontainer-x') && controls(group).length > 0)
+      // Native navigation uses screen geometry. Follow that same row order at
+      // custom/native boundaries even when another plugin reorders native DOM.
+      .map(group => ({ group, top: group.getBoundingClientRect().top }))
+      .sort((a, b) => a.top - b.top).map(({ group }) => group);
     const groupIndex = groups.findIndex(group => controls(group).includes(active));
     if (groupIndex < 0) return false;
     const current = controls(groups[groupIndex]), index = current.indexOf(active);

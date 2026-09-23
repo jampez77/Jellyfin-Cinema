@@ -4,6 +4,32 @@ const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize colle
 const preview = (page: Page) => editor(page).getByRole('complementary', { name: 'Home row preview', exact: true });
 const cards = (page: Page) => preview(page).locator('.tvl-home-row-card');
 
+test('missing collection and item thumbnails stay contained and do not cover editor controls', async ({ page }) => {
+  await page.goto('/?featured=0#/list?parentId=library-collections');
+  await expect(page.getByRole('button', { name: 'Customize collection rows', exact: true })).toBeVisible();
+  await page.evaluate(() => { window.TvItemLayoutDemo!.api.image = () => null; });
+  await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click();
+  await editor(page).getByRole('button', { name: 'Add collection items row', exact: true }).click();
+  const contained = (selector: string) => editor(page).locator(selector).evaluateAll(nodes => nodes.every(node => {
+    const fallback = getComputedStyle(node, '::before'), bounds = node.getBoundingClientRect();
+    return parseFloat(fallback.width) <= bounds.width + 1 && parseFloat(fallback.height) <= bounds.height + 1;
+  }));
+  await expect(editor(page).locator('.tvl-home-choice-art.tvl-no-art')).toHaveCount(2);
+  expect(await contained('.tvl-home-choice-art')).toBe(true);
+  await editor(page).getByLabel('Row title', { exact: true }).fill('Visible editor');
+  await editor(page).getByRole('button', { name: 'Coastal Stories', exact: true }).click();
+  await editor(page).getByRole('button', { name: 'Item order', exact: true }).click();
+  await expect(editor(page).locator('.tvl-home-order-art.tvl-no-art')).toHaveCount(2);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await contained('.tvl-home-order-art')).toBe(true);
+    await editor(page).getByRole('button', { name: 'Title A–Z', exact: true }).click();
+    await expect(editor(page).getByRole('button', { name: 'Title A–Z', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  }
+  await editor(page).getByRole('button', { name: 'Save rows', exact: true }).click();
+  await expect(editor(page)).toHaveCount(0);
+});
+
 async function openEditor(page: Page, visitHome = true) {
   await page.goto(visitHome ? '/?featured=0#/home' : '/?featured=0#/list?parentId=library-collections');
   if (visitHome) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { episodeCode, isLive, playable, programmeProgress, progress, runtime, seasonName, time } from '../src/utils';
+import { episodeCode, isLive, playable, playbackEnd, programmeProgress, progress, runtime, seasonName, time } from '../src/utils';
 import type { Item } from '../src/types';
 
 const item = (extra: Partial<Item> = {}): Item => ({ Id: 'item', Name: '', ...extra });
@@ -19,6 +19,33 @@ test('watch progress is bounded and watched items remain complete', () => {
   assert.equal(progress(item({ RunTimeTicks: 100, UserData: { PlaybackPositionTicks: -5 } })), 0);
   assert.equal(progress(item({ RunTimeTicks: 100, UserData: { PlaybackPositionTicks: 150 } })), 100);
   assert.equal(progress(item({ UserData: { Played: true } })), 100);
+});
+
+test('finish estimates use the current time and the duration that Play or Resume will play', () => {
+  const now = Date.parse('2026-09-23T23:30:00Z');
+  const movie = item({ Type: 'Movie', RunTimeTicks: 90 * 600_000_000 });
+  assert.equal(playbackEnd(movie, now)?.toISOString(), '2026-09-24T01:00:00.000Z');
+  const episode = { ...movie, Type: 'Episode', UserData: { PlaybackPositionTicks: 30.5 * 600_000_000 } };
+  assert.equal(playbackEnd(episode, now)?.toISOString(), '2026-09-24T00:29:30.000Z');
+  assert.equal(playbackEnd({ ...episode, UserData: { ...episode.UserData, Played: true } }, now)?.toISOString(), '2026-09-24T01:00:00.000Z');
+  assert.equal(playbackEnd(movie, now + 60_000)?.getTime(), playbackEnd(movie, now)!.getTime() + 60_000);
+});
+
+test('finish estimates omit unavailable durations and clamp malformed resume positions', () => {
+  const now = Date.parse('2026-09-23T12:00:00Z');
+  const movie = item({ Type: 'Movie', RunTimeTicks: 60 * 600_000_000 });
+  for (const RunTimeTicks of [undefined, 0, -1, NaN, Infinity, Number.MAX_VALUE]) {
+    assert.equal(playbackEnd({ ...movie, RunTimeTicks }, now), null);
+  }
+  for (const Type of ['Series', 'MusicAlbum', 'Audio', 'TvChannel']) {
+    assert.equal(playbackEnd({ ...movie, Type }, now), null);
+  }
+  assert.equal(playbackEnd({ ...movie, PlayAccess: 'None' }, now), null);
+  assert.equal(playbackEnd(movie, NaN), null);
+  for (const PlaybackPositionTicks of [-1, NaN, Infinity]) {
+    assert.equal(playbackEnd({ ...movie, UserData: { PlaybackPositionTicks } }, now)?.getTime(), now + 3_600_000);
+  }
+  assert.equal(playbackEnd({ ...movie, UserData: { PlaybackPositionTicks: 90 * 600_000_000 } }, now)?.getTime(), now);
 });
 
 test('specials and descriptive season names stay distinct from generic labels', () => {
