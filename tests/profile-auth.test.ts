@@ -1,20 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { openProfileLogin, profileSession, profileSwitchPending, ProfileLoginRequired, switchPublicProfile, type ProfileSwitchPhase } from '../src/profile-auth';
+import { openProfileLogin, profileSession, profileSwitchPending, ProfileLoginRequired, publicProfiles, switchPublicProfile, type ProfileSwitchPhase } from '../src/profile-auth';
 
 const originalWindow = globalThis.window, originalDocument = globalThis.document;
 test.afterEach(() => { globalThis.window = originalWindow; globalThis.document = originalDocument; });
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (error: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function setup() {
-  const state = { user: 'family', server: 'server', logout: 0, auth: [] as unknown[], adopted: 0, handoff: 0, routes: [] as string[], phases: [] as ProfileSwitchPhase[] };
+  const state = { user: 'family', server: 'server', logout: 0, auth: [] as unknown[], adopted: 0, handoff: 0, routes: [] as string[], phases: [] as ProfileSwitchPhase[],
+    eligible: ['family', 'child'], eligibilityRequests: [] as string[] };
   const host = Object.assign(new EventTarget(), { location: { hash: '#/home' }, setInterval, clearInterval });
   const route = (hash: string) => { host.location.hash = hash; host.dispatchEvent(new Event('hashchange')); };
   const result = { User: { Id: 'child' }, ServerId: 'server', AccessToken: 'dummy-test-session' };
   const client = {
     getCurrentUserId: () => state.user, serverId: () => state.server,
-    getPublicUsers: async () => [{ Id: 'family', Name: 'Family', HasPassword: false }, { Id: 'child', Name: 'Child', HasPassword: false }, { Id: 'adult', Name: 'Adult', HasPassword: true }],
+    // Jellyfin 12 returns both flags as true even for passwordless accounts.
+    getPublicUsers: async () => [{ Id: 'family', Name: 'Family', HasPassword: true, HasConfiguredPassword: true }, { Id: 'child', Name: 'Child', HasPassword: true, HasConfiguredPassword: true }, { Id: 'adult', Name: 'Adult', HasPassword: true, HasConfiguredPassword: true }],
     getUrl: (path: string) => 'http://example.invalid/' + path,
+    getJSON: async (url: string): Promise<unknown> => { state.eligibilityRequests.push(url); return { ProfileIds: [...state.eligible] }; },
     ajax: async (request: unknown) => { state.auth.push(request); return result; },
     onAuthenticated: async (_client: unknown, response: typeof result) => { state.adopted++; state.user = response.User.Id; }
   };
@@ -29,20 +32,66 @@ function setup() {
   return { state, client, dashboard, route, session, controller, start, finishLogout, result };
 }
 
-test('passwordless profile uses native cleanup, exact auth request and native session adoption before Home', async () => {
+test('server eligibility overrides Jellyfin 12 password flags and uses native cleanup and session adoption before Home', async () => {
   const { state, start } = setup(); await start();
   assert.equal(state.logout, 1); assert.equal(state.adopted, 1); assert.equal(state.handoff, 1); assert.deepEqual(state.routes, ['home']);
   assert.deepEqual(state.phases, ['checking', 'signing-out', 'signing-in', 'opening']);
   assert.deepEqual(state.auth, [{ type: 'POST', url: 'http://example.invalid/Users/authenticatebyname', data: JSON.stringify({ Username: 'Child', Pw: '' }), dataType: 'json', contentType: 'application/json' }]);
+  assert.deepEqual(state.eligibilityRequests, ['http://example.invalid/TvItemLayout/ProfileSwitchEligibility']);
   assert.equal(profileSwitchPending(), false);
 });
 
-test('protected, missing and unknown-password profiles require native login before any logout or auth', async () => {
+test('only the intersection of native public profiles and server eligibility permits switching', async () => {
   const { client, state, start } = setup();
+  state.eligible.push('missing');
   await assert.rejects(start('adult'), ProfileLoginRequired); await assert.rejects(start('missing'), ProfileLoginRequired);
-  client.getPublicUsers = async () => [{ Id: 'child', Name: 'Child', HasPassword: undefined as unknown as boolean }];
+  state.eligible = [];
+  client.getPublicUsers = async () => [{ Id: 'child', Name: 'Child', HasPassword: false, HasConfiguredPassword: false }];
   await assert.rejects(start(), ProfileLoginRequired);
   assert.equal(state.logout, 0); assert.deepEqual(state.auth, []);
+});
+
+test('public profiles normalize server eligibility IDs and ignore IDs absent from the public list', async () => {
+  const { client, state, session } = setup();
+  client.getPublicUsers = async () => [{ Id: '12345678-1234-1234-1234-123456789abc', Name: 'Child', HasPassword: true, HasConfiguredPassword: true }];
+  state.eligible = ['12345678123412341234123456789ABC', 'hidden'];
+  assert.deepEqual(await publicProfiles(session), [{ Id: '12345678-1234-1234-1234-123456789abc', Name: 'Child', CanSwitchDirectly: true }]);
+  assert.equal(state.logout, 0); assert.deepEqual(state.auth, []);
+});
+
+test('eligibility revoked after displaying the chooser prevents logout and authentication', async () => {
+  const { state, session, start } = setup();
+  assert.equal((await publicProfiles(session)).find(profile => profile.Id === 'child')?.CanSwitchDirectly, true);
+  state.eligible = [];
+  await assert.rejects(start(), ProfileLoginRequired);
+  assert.equal(state.eligibilityRequests.length, 2); assert.equal(state.logout, 0); assert.deepEqual(state.auth, []);
+});
+
+test('missing, unavailable or malformed eligibility fails closed while public profiles still display', async () => {
+  const { client, state, session, start } = setup();
+  const responses = [undefined, null, [], {}, { ProfileIds: 'child' }, { ProfileIds: ['child', 4] }, { ProfileIds: ['child', ''] }, { ProfileIds: ['child', '  '] }];
+  for (const response of responses) {
+    client.getJSON = async () => response;
+    const profiles = await publicProfiles(session);
+    assert.equal(profiles.length, 3); assert.ok(profiles.every(profile => !profile.CanSwitchDirectly));
+    await assert.rejects(start(), ProfileLoginRequired);
+  }
+  client.getJSON = async () => { throw new Error('404 or unavailable'); };
+  assert.ok((await publicProfiles(session)).every(profile => !profile.CanSwitchDirectly));
+  await assert.rejects(start(), ProfileLoginRequired);
+  delete (client as { getJSON?: unknown }).getJSON;
+  assert.ok((await publicProfiles(session)).every(profile => !profile.CanSwitchDirectly));
+  await assert.rejects(start(), ProfileLoginRequired);
+  assert.equal(state.logout, 0); assert.deepEqual(state.auth, []); assert.equal(profileSwitchPending(), false);
+});
+
+for (const change of ['user', 'server', 'route', 'abort'] as const) test(`stale ${change} during eligibility never signs out`, async () => {
+  const { client, state, route, controller, start } = setup();
+  const pending = deferred<unknown>(); client.getJSON = () => pending.promise;
+  const work = start(); await tick();
+  if (change === 'user') state.user = 'other'; else if (change === 'server') state.server = 'other'; else if (change === 'route') route('#/search'); else controller.abort();
+  pending.resolve({ ProfileIds: ['child'] }); await assert.rejects(work, { name: 'AbortError' });
+  assert.equal(state.logout, 0); assert.equal(state.adopted, 0); assert.deepEqual(state.auth, []);
 });
 
 for (const change of ['user', 'route', 'abort'] as const) test(`stale ${change} during discovery never signs out`, async () => {
@@ -78,9 +127,10 @@ test('native-login fallback shares the pending logout lock', async () => {
 });
 
 test('server-rejected authentication leaves the signed-out native login usable', async () => {
-  const { client, state, start } = setup(); client.ajax = async () => { throw new Error('401'); };
+  const { client, state, start } = setup(); let attempts = 0; client.ajax = async () => { attempts++; throw new Error('401'); };
   await assert.rejects(start(), /401/); assert.equal(state.user, ''); assert.equal(window.location.hash, '#/login');
   assert.equal(state.adopted, 0); assert.deepEqual(state.routes, []); assert.equal(profileSwitchPending(), false);
+  assert.equal(attempts, 1);
 });
 
 for (const change of ['user', 'server', 'route', 'abort'] as const) test(`late authentication after ${change} cannot adopt credentials`, async () => {

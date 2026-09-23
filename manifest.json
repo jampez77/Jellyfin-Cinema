@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.7.3",
+        "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.7/TvItemLayout_0.2.7.3_jellyfin-12.0.0.zip",
+        "checksum": "d862295d3e4a8b5d55ef47257aeaa672",
+        "timestamp": "2026-09-23T16:49:31Z"
+      },
+      {
+        "version": "0.2.7.2",
+        "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.7/TvItemLayout_0.2.7.2_jellyfin-10.11.0.zip",
+        "checksum": "bdfc0fcf960a4f26316a1c10f3d9b3a3",
+        "timestamp": "2026-09-23T16:49:31Z"
+      },
+      {
+        "version": "0.2.7.1",
+        "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.7/TvItemLayout_0.2.7.1_jellyfin-10.10.7.zip",
+        "checksum": "05046f9ba7a9d82f138d44c7f9cdfeff",
+        "timestamp": "2026-09-23T16:49:31Z"
+      },
+      {
         "version": "0.2.6.3",
         "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",

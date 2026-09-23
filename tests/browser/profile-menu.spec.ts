@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+const elegantSource = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
+const elegantCss = existsSync(elegantSource) ? readFileSync(elegantSource, 'utf8') : '';
 const avatar = (page: Page) => page.locator('.skinHeader .headerUserButton');
-const menu = (page: Page) => page.getByRole('dialog', { name: 'Profile options', exact: true });
+const menu = (page: Page) => page.getByRole('dialog', { name: 'Who’s watching?', exact: true });
 
 async function setup(page: Page, desktop = false) {
   if (desktop) await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => document.body.classList.replace('layout-tv', 'layout-desktop')));
@@ -32,14 +35,17 @@ async function remote(page: Page, command: string) {
   await page.evaluate(command => document.activeElement!.dispatchEvent(new CustomEvent('command', { bubbles: true, cancelable: true, detail: { command } })), command);
 }
 
-test('TV avatar opens explicit profile actions, preserves current artwork and restores focus on Back', async ({ page }) => {
+test('TV avatar opens the full-screen chooser, preserves native artwork and restores focus on Back', async ({ page }) => {
   await setup(page);
   await avatar(page).locator('div').click();
-  await expect(menu(page)).toBeVisible(); await expect(menu(page)).toContainText('Family');
-  await expect(menu(page).getByRole('button', { name: 'Switch profile', exact: true })).toBeFocused();
+  await expect(menu(page)).toBeVisible(); await expect(menu(page)).toContainText('Who’s watching?');
+  await expect(menu(page).getByRole('button', { name: 'Back', exact: true })).toBeFocused();
+  const bounds = await page.locator('.tvl-profile-overlay').boundingBox();
+  expect(bounds).toEqual({ x: 0, y: 0, width: 1440, height: 900 });
   await page.screenshot({ path: '/tmp/jellyfin-cinema-profile-menu.png' });
   expect(await page.evaluate(() => (window as any).__profileState)).toEqual({ nativeClicks: 0, logout: 0, routes: [] });
-  await remote(page, 'down'); await expect(menu(page).getByRole('button', { name: 'Settings', exact: true })).toBeFocused();
+  await remote(page, 'left'); await expect(menu(page).getByRole('button', { name: 'Use login screen', exact: true })).toBeFocused();
+  await remote(page, 'left'); await expect(menu(page).getByRole('button', { name: 'Settings', exact: true })).toBeFocused();
   await remote(page, 'back'); await expect(menu(page)).toHaveCount(0); await expect(avatar(page)).toBeFocused();
   expect(await avatar(page).evaluate(node => node === (window as any).__profileAvatar && node.outerHTML === (window as any).__profileAvatarHtml)).toBe(true);
   await avatar(page).click(); await menu(page).getByRole('button', { name: 'Settings', exact: true }).click();
@@ -47,10 +53,11 @@ test('TV avatar opens explicit profile actions, preserves current artwork and re
   expect(await page.evaluate(() => (window as any).__profileState)).toEqual({ nativeClicks: 0, logout: 0, routes: ['mypreferencesmenu'] });
 });
 
-test('remote Select opens the menu and Switch profile invokes the native sign-in flow exactly once', async ({ page }) => {
+test('remote Select opens the chooser and explicit Use login screen invokes native sign-in exactly once', async ({ page }) => {
   await setup(page); await avatar(page).focus(); await remote(page, 'select');
   await expect(menu(page)).toBeVisible();
   expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(0);
+  await menu(page).getByRole('button', { name: 'Use login screen', exact: true }).focus();
   await remote(page, 'select'); await expect(page).toHaveURL(/#\/login$/);
   await expect(menu(page)).toHaveCount(0); await expect(page.locator('body')).not.toHaveClass(/tvl-profile-open/);
   expect(await page.evaluate(() => (window as any).__profileState)).toEqual({ nativeClicks: 0, logout: 1, routes: [] });
@@ -60,7 +67,9 @@ test('holding Enter while opening does not immediately sign out; a fresh press s
   await setup(page); await avatar(page).focus();
   await page.keyboard.down('Enter'); await page.keyboard.down('Enter');
   await expect(menu(page)).toBeVisible(); expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(0);
-  await page.keyboard.up('Enter'); await page.keyboard.press('Enter');
+  await page.keyboard.up('Enter');
+  await menu(page).getByRole('button', { name: 'Use login screen', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/login$/); expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(1);
 });
 
@@ -123,7 +132,7 @@ test('administrators get Dashboard in the profile menu and its policy is checked
   await expect(dashboard).toHaveCount(0);
   await expect(menu(page).getByRole('status')).toHaveText('Dashboard access is no longer available.');
   expect(await page.evaluate(() => (window as any).__profileState.routes)).toEqual([]);
-  await menu(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await menu(page).getByRole('button', { name: 'Back', exact: true }).click();
   await page.evaluate(() => { (window as any).__adminAllowed = true; });
   await avatar(page).click(); await dashboard.click();
   await expect(page).toHaveURL(/#\/dashboard$/);
@@ -141,7 +150,7 @@ test('ordinary users and stale account policy responses cannot expose Dashboard 
   });
   await avatar(page).click();
   await expect(menu(page).getByRole('button', { name: 'Dashboard', exact: true })).toHaveCount(0);
-  await menu(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await menu(page).getByRole('button', { name: 'Back', exact: true }).click();
   await page.evaluate(() => {
     (window as any).ApiClient.getUser = async () => {
       document.body.dataset.adminPolicyPending = 'true';
@@ -155,15 +164,24 @@ test('ordinary users and stale account policy responses cannot expose Dashboard 
   await expect(menu(page).getByRole('button', { name: 'Dashboard', exact: true })).toHaveCount(0);
 });
 
-async function setupSwitch(page: Page, options: { deferLogout?: boolean; rejectAuth?: boolean; deferAuth?: boolean } = {}) {
+async function setupSwitch(page: Page, options: { deferLogout?: boolean; rejectAuth?: boolean; deferAuth?: boolean; deferProfiles?: boolean; brokenImage?: boolean } = {}) {
   await setup(page);
   await page.evaluate(options => {
     const host = window as any, state = host.__profileState;
-    Object.assign(state, { user: 'family', auth: 0, adopted: 0, handoff: 0, publicReads: 0 });
-    const profiles = [{ Id: 'family', Name: 'Family', HasPassword: false }, { Id: 'child', Name: 'Kids', HasPassword: false }, { Id: 'adult', Name: 'Parents', HasPassword: true }];
+    Object.assign(state, { user: 'family', auth: 0, adopted: 0, handoff: 0, publicReads: 0, eligibilityReads: 0, eligible: ['family', 'child'], admin: false });
+    // Jellyfin 12 public DTO flags do not describe direct-switch eligibility.
+    const profiles = [{ Id: 'family', Name: 'Family', HasPassword: true, PrimaryImageTag: 'family-art' }, { Id: 'child', Name: 'Kids', HasPassword: true }, { Id: 'adult', Name: 'Parents', HasPassword: true }];
+    state.profiles = profiles;
     host.ApiClient = {
-      getCurrentUserId: () => state.user, serverId: () => 'demo', getUser: async (id: string) => ({ Id: id, Policy: { IsAdministrator: false } }),
-      getPublicUsers: async () => { state.publicReads++; return profiles; }, getUrl: (path: string) => '/native/' + path,
+      getCurrentUserId: () => state.user, serverId: () => 'demo', getUser: async (id: string) => ({ Id: id, Policy: { IsAdministrator: state.admin } }),
+      getPublicUsers: async () => {
+        state.publicReads++;
+        if (options.deferProfiles) await new Promise<void>(resolve => { host.__finishProfiles = resolve; });
+        return profiles;
+      },
+      getUrl: (path: string) => '/native/' + path,
+      getUserImageUrl: () => options.brokenImage ? '/missing-profile-art.jpg' : '/demo/assets/forest.jpg',
+      getJSON: async (url: string) => { state.eligibilityReads++; state.eligibilityUrl = url; return { ProfileIds: state.eligible }; },
       ajax: async (request: { data: string }) => {
         state.auth++; state.payload = JSON.parse(request.data);
         if (options.deferAuth) await new Promise<void>(resolve => { host.__finishAuth = resolve; });
@@ -177,37 +195,40 @@ async function setupSwitch(page: Page, options: { deferLogout?: boolean; rejectA
     host.Dashboard.onServerChanged = () => { state.handoff++; };
   }, options);
 }
-const chooser = (page: Page) => page.getByRole('dialog', { name: 'Choose profile', exact: true });
+const chooser = (page: Page) => page.getByRole('dialog', { name: 'Who’s watching?', exact: true });
 const switching = (page: Page) => page.getByRole('dialog', { name: 'Switching profile', exact: true });
-async function choose(page: Page) { await avatar(page).click(); await menu(page).getByRole('button', { name: 'Switch profile', exact: true }).click(); await expect(chooser(page)).toBeVisible(); }
+async function choose(page: Page) { await avatar(page).click(); await expect(chooser(page)).toBeVisible(); }
 
-test('public profile tiles distinguish protected accounts and held Enter does not trigger a second action', async ({ page }) => {
-  await setupSwitch(page); await avatar(page).click();
-  await menu(page).getByRole('button', { name: 'Switch profile', exact: true }).focus();
+test('TV avatar opens profile tiles directly; endpoint eligibility overrides native DTO flags and held Enter cannot switch', async ({ page }) => {
+  await setupSwitch(page); await avatar(page).focus();
   await page.keyboard.down('Enter');
   await expect(chooser(page)).toBeVisible();
-  await expect(chooser(page)).toContainText('Profiles without a password open directly. Password-protected profiles use Jellyfin’s login screen.');
-  await expect(chooser(page).getByRole('button', { name: 'Family, current profile', exact: true })).toBeDisabled();
-  await expect(chooser(page).getByRole('button', { name: 'Parents, password required', exact: true })).toBeVisible();
-  await expect(chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true })).toBeFocused();
+  await expect(chooser(page).getByRole('button', { name: 'Family, current profile', exact: true })).toBeFocused();
+  await expect(chooser(page).getByRole('button', { name: 'Family, current profile', exact: true })).toHaveAttribute('aria-current', 'true');
+  await expect(chooser(page).getByRole('button', { name: 'Parents, sign in', exact: true })).toBeVisible();
+  await expect(chooser(page)).not.toContainText('Password required');
+  await expect(chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true })).toBeVisible();
   await page.screenshot({ path: '/tmp/jellyfin-cinema-profile-chooser.png' });
   await page.keyboard.down('Enter');
   expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(0);
-  await page.keyboard.up('Enter'); await page.keyboard.press('Enter');
+  await page.keyboard.up('Enter'); await remote(page, 'right');
+  await expect(chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/home$/); await expect(switching(page)).toHaveCount(0);
   expect(await page.evaluate(() => {
     const s = (window as any).__profileState; return { logout: s.logout, auth: s.auth, adopted: s.adopted, handoff: s.handoff, publicReads: s.publicReads, payload: s.payload, user: s.user, routes: s.routes };
   })).toEqual({ logout: 1, auth: 1, adopted: 1, handoff: 1, publicReads: 2, payload: { Username: 'Kids', Pw: '' }, user: 'child', routes: ['home'] });
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.eligibilityReads, s.eligibilityUrl]; })).toEqual([2, '/native/TvItemLayout/ProfileSwitchEligibility']);
 });
 
-test('protected profile keeps native login and stale protected cards never sign out a changed account', async ({ page }) => {
+test('ineligible profile keeps native login and stale cards never sign out a changed account', async ({ page }) => {
   await setupSwitch(page); await choose(page);
   await page.evaluate(() => { (window as any).__profileState.user = 'other'; });
-  await chooser(page).getByRole('button', { name: 'Parents, password required', exact: true }).click();
+  await chooser(page).getByRole('button', { name: 'Parents, sign in', exact: true }).click();
   await expect(chooser(page)).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(0);
   await page.evaluate(() => { (window as any).__profileState.user = 'family'; });
-  await choose(page); await chooser(page).getByRole('button', { name: 'Parents, password required', exact: true }).click();
+  await choose(page); await chooser(page).getByRole('button', { name: 'Parents, sign in', exact: true }).click();
   await expect(page).toHaveURL(/#\/login$/);
   expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.logout, s.auth, s.adopted]; })).toEqual([1, 0, 0]);
 });
@@ -242,4 +263,110 @@ test('Cancel during pending authentication cannot persist a late response', asyn
   await page.evaluate(async () => { (window as any).__finishAuth(); await new Promise(resolve => setTimeout(resolve, 0)); });
   expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.user, s.auth, s.adopted, s.handoff]; })).toEqual(['', 1, 0, 0]);
   await expect(page).toHaveURL(/#\/login$/);
+});
+
+
+test('current profile returns without signing out; arrows and Tab stay inside the full-screen chooser', async ({ page }) => {
+  await setupSwitch(page); await choose(page);
+  const current = chooser(page).getByRole('button', { name: 'Family, current profile', exact: true });
+  await expect(current).toBeFocused();
+  await avatar(page).evaluate(node => (node as HTMLElement).focus());
+  await expect(current).toBeFocused();
+  await remote(page, 'right');
+  await expect(chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true })).toBeFocused();
+  await remote(page, 'right');
+  await expect(chooser(page).getByRole('button', { name: 'Parents, sign in', exact: true })).toBeFocused();
+  await remote(page, 'down');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.tvl-profile-actions'))).toBe(true);
+  await chooser(page).getByRole('button', { name: 'Back', exact: true }).focus();
+  await page.keyboard.press('Tab'); await expect(current).toBeFocused();
+  await page.keyboard.press('Shift+Tab'); await expect(chooser(page).getByRole('button', { name: 'Back', exact: true })).toBeFocused();
+  await current.focus(); await remote(page, 'select');
+  await expect(chooser(page)).toHaveCount(0); await expect(avatar(page)).toBeFocused();
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.logout, s.auth]; })).toEqual([0, 0]);
+});
+
+test('late public profiles cannot reopen a closed chooser or steal focus', async ({ page }) => {
+  await setupSwitch(page, { deferProfiles: true }); await choose(page);
+  await expect(chooser(page).getByRole('status')).toHaveText('Loading profiles…');
+  await expect.poll(() => page.evaluate(() => typeof (window as any).__finishProfiles)).toBe('function');
+  await remote(page, 'back'); await expect(avatar(page)).toBeFocused();
+  await page.evaluate(() => (window as any).__finishProfiles());
+  await expect(chooser(page)).toHaveCount(0); await expect(avatar(page)).toBeFocused();
+  expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(0);
+});
+
+test('artwork falls back to initials and wrapped profile rows stay visible at TV and phone widths', async ({ page }) => {
+  await setupSwitch(page, { brokenImage: true });
+  await page.evaluate(() => {
+    (window as any).__profileState.profiles.push(
+      { Id: 'guest-one', Name: 'Movie Night', HasPassword: true },
+      { Id: 'guest-two', Name: 'Alex', HasPassword: true },
+      { Id: 'guest-three', Name: 'Sam', HasPassword: true });
+  });
+  await choose(page);
+  await expect(chooser(page).locator('.tvl-profile-avatar')).toHaveCount(0);
+  await expect(chooser(page).getByRole('button', { name: 'Family, current profile', exact: true }).locator('.tvl-profile-initials')).toHaveText('F');
+  await expect(chooser(page).getByRole('button', { name: 'Movie Night, sign in', exact: true }).locator('.tvl-profile-initials')).toHaveText('MN');
+  for (const width of [1920, 800, 390]) {
+    await page.setViewportSize({ width, height: 1080 });
+    expect(await page.locator('.tvl-profile-overlay').evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    const cards = await chooser(page).locator('.tvl-profile-card').evaluateAll(nodes => nodes.map(node => {
+      const box = node.getBoundingClientRect(); return { x: box.x, y: box.y, right: box.right, width: box.width };
+    }));
+    expect(cards).toHaveLength(6);
+    expect(cards.every(box => box.x >= 0 && box.right <= width && box.width > 100)).toBe(true);
+    if (width === 390) expect(new Set(cards.map(box => Math.round(box.y))).size).toBeGreaterThan(1);
+  }
+  await page.screenshot({ path: '/tmp/jellyfin-cinema-profile-chooser-mobile.png' });
+});
+
+test('a revoked direct-switch eligibility is checked before logout and offers explicit native login', async ({ page }) => {
+  await setupSwitch(page); await choose(page);
+  await expect(chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true })).toBeVisible();
+  await page.evaluate(() => { (window as any).__profileState.eligible = ['family']; });
+  await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
+  await expect(switching(page).getByRole('button', { name: 'Continue to login', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.logout, s.auth, s.user]; })).toEqual([0, 0, 'family']);
+});
+
+test('empty or failed profile lists keep usable Back, Settings and native-login actions', async ({ page }) => {
+  await setupSwitch(page);
+  await page.evaluate(() => { (window as any).__profileState.profiles.length = 0; });
+  await choose(page);
+  await expect(chooser(page).getByRole('status')).toHaveText('No public profiles are available. Use the login screen for a hidden account.');
+  await expect(chooser(page).getByRole('button', { name: 'Use login screen', exact: true })).toBeFocused();
+  await expect(chooser(page).getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+  await remote(page, 'back'); await expect(avatar(page)).toBeFocused();
+  await page.evaluate(() => { (window as any).ApiClient.getPublicUsers = async () => { throw new Error('offline'); }; });
+  await choose(page);
+  await expect(chooser(page).getByRole('status')).toHaveText('Could not load profiles. Use the login screen or go back and try again.');
+  await expect(chooser(page).getByRole('button', { name: 'Back', exact: true })).toBeFocused();
+  await chooser(page).getByRole('button', { name: 'Use login screen', exact: true }).click();
+  await expect(page).toHaveURL(/#\/login$/);
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.logout, s.auth]; })).toEqual([1, 0]);
+});
+
+test('profile tiles keep Cinema artwork and strong focus over actual ElegantFin CSS', async ({ page }) => {
+  test.skip(!elegantCss, 'Set TVL_ELEGANTFIN_CSS to the published ElegantFin CSS to exercise its real cascade.');
+  await page.route('https://**/*', route => route.abort());
+  await setupSwitch(page); await choose(page);
+  await page.evaluate(css => {
+    document.documentElement.dir = 'ltr';
+    const style = document.createElement('style'); style.textContent = css; document.head.append(style);
+  }, elegantCss);
+  const current = chooser(page).getByRole('button', { name: 'Family, current profile', exact: true });
+  await expect(current).toBeFocused();
+  await expect(current.locator('.tvl-profile-avatar')).toBeVisible();
+  await expect.poll(() => current.locator('.tvl-profile-avatar').evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(current.locator('.tvl-profile-artwork')).toHaveCSS('border-radius', '14px');
+  await expect(current.locator('.tvl-profile-artwork')).toHaveCSS('border-top-color', 'rgb(211, 231, 222)');
+  expect(await current.locator('.tvl-profile-artwork').evaluate(node => getComputedStyle(node).boxShadow)).toContain('7px');
+  await remote(page, 'right'); await expect(chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true })).toBeFocused();
+  await remote(page, 'down');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.tvl-profile-actions'))).toBe(true);
+  await remote(page, 'up');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.tvl-profile-grid'))).toBe(true);
+  await current.focus();
+  await page.screenshot({ path: '/tmp/jellyfin-cinema-profile-chooser-elegantfin.png' });
 });

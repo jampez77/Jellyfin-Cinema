@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">10.11.0</JellyfinVersion>
+    <TargetFramework Condition="'$(JellyfinVersion)' == '10.10.7'">net8.0</TargetFramework>
+    <TargetFramework Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('10.11.'))">net9.0</TargetFramework>
+    <TargetFramework Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('12.'))">net10.0</TargetFramework>
+    <DefineConstants Condition="'$(JellyfinVersion)' == '10.10.7'">$(DefineConstants);JELLYFIN_1010</DefineConstants>
+    <DefineConstants Condition="$([System.String]::Copy('$(JellyfinVersion)').StartsWith('12.'))">$(DefineConstants);JELLYFIN_12</DefineConstants>
+    <LangVersion>12</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
