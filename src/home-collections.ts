@@ -5,11 +5,21 @@ import { createHomeCollectionStore, type HomeCollectionStore } from './home-coll
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
+import { HomeReadiness } from './home-readiness';
+
+type RenderedRow = { row: HomeCollectionRow; element: HTMLElement; reconcileSource: () => Promise<void> };
+type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement };
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
 export class HomeCollections {
   private root = el('div', 'tvl-home-collections');
-  private sections: { row: HomeCollectionRow; element: HTMLElement }[] = [];
+  private sections: RenderedRow[] = [];
+  private staged?: StagedRows;
+  private preparing?: StagedRows;
+  private selectedSources = new Map<string, string>();
+  private sourceRevision = 0;
+  private displayedRevision = 0;
+  private readiness = new HomeReadiness(() => this.attach());
   private settings = emptyHomeCollections();
   private key: string;
   private store: HomeCollectionStore;
@@ -61,8 +71,32 @@ export class HomeCollections {
   private attach(): void {
     if (this.disposed) return;
     const host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab');
-    if (!host) return;
+    if (!host || !this.readiness.update(host)) return;
     if (this.root.parentElement !== host) host.append(this.root);
+    let staged = this.staged;
+    if (staged?.sections && staged.sourceRevision !== this.sourceRevision) {
+      void this.prepare(staged); staged = undefined;
+    }
+    let focusId: string | undefined;
+    let focusRow: string | undefined;
+    let movedFocus: HTMLElement | undefined;
+    if (staged && staged.revision === this.revision) {
+      this.staged = undefined;
+      if (staged.sections) {
+        const active = document.activeElement as HTMLElement | null;
+        focusId = this.owns(active) ? active?.dataset.focusId : staged.inputRevision === this.inputRevision ? this.restoreFocus : undefined;
+        if (this.owns(active)) focusRow = active?.closest<HTMLElement>('[data-home-row]')?.dataset.homeRow;
+        this.restoreFocus = undefined;
+        this.sections.forEach(section => section.element.remove());
+        this.sections = staged.sections; this.displayedRevision = staged.revision;
+        const ids = new Set(this.sections.map(section => section.row.id));
+        for (const id of this.selectedSources.keys()) if (!ids.has(id)) this.selectedSources.delete(id);
+      }
+      // An error keeps the mounted rows, including focused end-position rows.
+      // Only replace status children; clearing root would detach those rows.
+      for (const child of Array.from(this.root.children)) if (!this.sections.some(section => section.element === child)) child.remove();
+      if (staged.error) this.root.append(staged.error);
+    }
     const anchors = nativeHomeRows(host);
     rememberHomeRows(this.key, anchors);
     // Process backwards so rows that share an insertion point keep their order.
@@ -77,10 +111,39 @@ export class HomeCollections {
       const order = anchor ? getComputedStyle(anchor.element).order : '';
       if (element.style.order !== order) element.style.order = order;
       if (target) {
-        if (element.parentElement !== parent || element.nextElementSibling !== target) parent.insertBefore(element, target);
-      } else if (element.parentElement !== parent || element !== parent.lastElementChild) parent.append(element);
+        if (element.parentElement !== parent || element.nextElementSibling !== target) {
+          if (element.contains(document.activeElement)) movedFocus = document.activeElement as HTMLElement;
+          parent.insertBefore(element, target);
+        }
+      } else if (element.parentElement !== parent || element !== parent.lastElementChild) {
+        if (element.contains(document.activeElement)) movedFocus = document.activeElement as HTMLElement;
+        parent.append(element);
+      }
       nextAt.set(point, element);
     }
+    if (focusId || focusRow) {
+      const target = this.sections.flatMap(section => Array.from(section.element.querySelectorAll<HTMLElement>('[data-focus-id]'))).find(node => node.dataset.focusId === focusId);
+      const retainedRow = this.sections.find(section => section.row.id === focusRow)?.element;
+      this.focus(target || retainedRow?.querySelector<HTMLElement>('[aria-selected="true"]') || retainedRow?.querySelector<HTMLElement>('button') || undefined);
+    }
+    else if (movedFocus?.isConnected) this.focus(movedFocus);
+  }
+
+  private async prepare(staged: StagedRows): Promise<void> {
+    if (this.preparing === staged) return;
+    this.preparing = staged;
+    try {
+      // The old rows stay usable while members for a newly selected source load.
+      // Reconcile again if the user changes tabs during that asynchronous work.
+      while (!this.disposed && this.staged === staged && staged.revision === this.revision) {
+        const sourceRevision = this.sourceRevision;
+        await Promise.all(staged.sections!.map(section => section.reconcileSource()));
+        if (this.disposed || this.staged !== staged || staged.revision !== this.revision) return;
+        if (sourceRevision === this.sourceRevision) {
+          staged.sourceRevision = sourceRevision; this.attach(); return;
+        }
+      }
+    } finally { if (this.preparing === staged) this.preparing = undefined; }
   }
 
   private focus(node?: HTMLElement): void {
@@ -130,54 +193,54 @@ export class HomeCollections {
     }
   };
   private onPointer = (): void => { this.inputRevision++; };
-  private current(revision: number): boolean { return !this.disposed && revision === this.revision; }
+  private current(revision: number): boolean { return !this.disposed && (revision === this.revision || revision === this.displayedRevision); }
   private async render(): Promise<void> {
     const revision = ++this.revision;
     const inputRevision = this.inputRevision;
-    this.sections.forEach(section => section.element.remove()); this.sections = [];
-    if (!this.settings.rows.length) { replace(this.root); return; }
-    replace(this.root, el('p', 'tvl-home-row-status', 'Loading your collection rows…'));
+    this.staged = undefined;
+    if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: [] }; this.attach(); return; }
     try {
       const available = new Map((await this.api.getCollectionList()).map(item => [item.Id, item]));
-      if (!this.current(revision)) return;
-      const rendered = await Promise.all(this.settings.rows.map(async row => ({ row, element: await this.section(row, available, revision) })));
-      if (!this.current(revision)) return;
-      replace(this.root); this.sections = rendered; this.attach();
-      if (this.restoreFocus && inputRevision === this.inputRevision) {
-        const target = this.sections.flatMap(section => Array.from(section.element.querySelectorAll<HTMLElement>('[data-focus-id]'))).find(node => node.dataset.focusId === this.restoreFocus);
-        this.restoreFocus = undefined; this.focus(target);
-      }
+      if (this.disposed || revision !== this.revision) return;
+      const rendered = await Promise.all(this.settings.rows.map(row => this.section(row, available, revision)));
+      if (this.disposed || revision !== this.revision) return;
+      this.staged = { revision, inputRevision, sections: rendered }; this.attach();
     } catch {
-      if (!this.current(revision)) return;
+      if (this.disposed || revision !== this.revision) return;
       const error = el('div', 'tvl-home-row-status'); error.setAttribute('role', 'status');
       error.append(el('p', '', 'Your collection rows could not be loaded.'), button('Retry collection rows', '', '', () => { void this.render(); }));
-      replace(this.root, error);
+      this.staged = { revision, inputRevision, error }; this.attach();
     }
   }
 
-  private async section(row: HomeCollectionRow, available: Map<string, Item>, revision: number): Promise<HTMLElement> {
+  private async section(row: HomeCollectionRow, available: Map<string, Item>, revision: number): Promise<RenderedRow> {
     const chosen = row.collectionIds.map(id => available.get(id)).filter((item): item is Item => !!item);
     const title = row.title || (row.kind === 'collections' ? 'Collections' : chosen[0]?.Name || 'Collection');
-    const section = el('section', 'tvl-home-collection-row');section.dataset.homeRow = row.id;
+    const section = el('section', 'verticalSection tvl-home-collection-row');section.dataset.homeRow = row.id;
     section.setAttribute('aria-label', title);section.append(el('h2', 'tvl-home-row-title', title));
     const cards = el('div', 'tvl-home-row-cards focuscontainer-x');cards.setAttribute('role', 'list');
     const tabs = homeCollectionTabs(row);
     const tabbed = row.kind === 'items' && !!row.tabs?.length;
     const prefix = `tvl-home-${encodeURIComponent(row.id)}`;
     const focusPrefix = (tabId: string) => `home-tab:${encodeURIComponent(row.id)}:${encodeURIComponent(tabId)}:`;
-    let selected = tabs.find(tab => this.restoreFocus?.startsWith(focusPrefix(tab.id))) || tabs[0];
+    const tabFocusId = (tabId: string) => `home-source:${encodeURIComponent(row.id)}:${encodeURIComponent(tabId)}`;
+    let selected = tabs.find(tab => tab.id === this.selectedSources.get(row.id))
+      || tabs.find(tab => this.restoreFocus?.startsWith(focusPrefix(tab.id)) || this.restoreFocus === tabFocusId(tab.id)) || tabs[0];
+    this.selectedSources.set(row.id, selected.id);
     let sourceRevision = 0;
     let strip: HTMLElement | undefined;
     const panel = el('div');
     if (tabbed) {
       strip = homeRowTabs(tabs.map(tab => ({ id: tab.id, label: homeTabLabel(tab, available.get(tab.collectionId)) })), selected.id, id => {
-        const tab = tabs.find(tab => tab.id === id); if (!tab || this.disposed) return;
+        const tab = tabs.find(tab => tab.id === id); if (!tab || !this.current(revision)) return;
+        this.selectedSources.set(row.id, id); this.sourceRevision++;
         selected = tab;
         strip!.querySelectorAll<HTMLElement>('[data-source-tab]').forEach(control => {
           const active = control.dataset.sourceTab === id; control.setAttribute('aria-selected', String(active)); control.tabIndex = active ? 0 : -1;
         });
         void renderItems();
       }, prefix);
+      strip.querySelectorAll<HTMLElement>('[data-source-tab]').forEach(control => { control.dataset.focusId = tabFocusId(control.dataset.sourceTab!); });
       section.append(strip);
       panel.id = `${prefix}-items`; panel.setAttribute('role', 'tabpanel');
     }
@@ -228,11 +291,20 @@ export class HomeCollections {
       }
     };
     await renderItems();
-    return section;
+    return { row, element: section, reconcileSource: async () => {
+      const source = tabs.find(tab => tab.id === this.selectedSources.get(row.id)) || tabs[0];
+      if (source.id === selected.id) return;
+      selected = source;
+      strip?.querySelectorAll<HTMLElement>('[data-source-tab]').forEach(control => {
+        const active = control.dataset.sourceTab === source.id; control.setAttribute('aria-selected', String(active)); control.tabIndex = active ? 0 : -1;
+      });
+      await renderItems();
+    } };
   }
 
   destroy(): void {
     this.disposed = true; this.revision++; this.observer.disconnect();
+    this.staged = undefined; this.readiness.destroy();
     this.store.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);

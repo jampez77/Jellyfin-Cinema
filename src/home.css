@@ -25,8 +25,18 @@ body.tvl-home { background:#101112; color:#f5f5f2; }
 .tvl-home #homeTab .cardFooter,
 .tvl-home #homeTab .cardBox > .cardText,
 .tvl-home #homeTab .cardFooter > .cardText { background:transparent; }
+/* Focus follows the thumbnail, including native cards with an outer footer.
+   Keep captions outside the ring just like the custom collection cards. */
+.tvl-home #homeTab .card { contain:layout style; }
+.tvl-home #homeTab .card:focus,
 .tvl-home #homeTab .card:focus .cardBox,
-.tvl-home #homeTab .cardBox:focus-within { background:transparent; outline:2px solid #f2faf4; outline-offset:3px; }
+.tvl-home #homeTab .cardBox:focus-within { background:transparent; outline:none !important; }
+.tvl-home #homeTab .card:focus .cardBox,
+.tvl-home #homeTab .cardBox:focus-within,
+.tvl-home #homeTab .card:focus .cardScalable,
+.tvl-home #homeTab .cardBox:focus-within .cardScalable { border-color:transparent !important; }
+.tvl-home #homeTab .card:focus .cardScalable,
+.tvl-home #homeTab .cardBox:focus-within .cardScalable { outline:2px solid #f2faf4; outline-offset:3px; }
 .tvl-home #homeTab .homeLibraryButton { background:#22302a; border:2px solid #ffffff20; border-radius:7px; color:#f5f5f2; box-shadow:none; }
 .tvl-home #homeTab .homeLibraryButton:hover { background:#29382f; }
 .tvl-home #homeTab .homeLibraryButton:focus { outline:2px solid #f2faf4; outline-offset:3px; background:#2c3731; }

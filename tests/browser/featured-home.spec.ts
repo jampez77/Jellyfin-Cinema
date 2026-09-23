@@ -270,7 +270,7 @@ test('custom rows settle around real Featured while preserving its nodes, geomet
     const carousel = home.querySelector('.ec-root.ec-ready');
     const before = home.querySelector('[data-home-row="before-featured"]');
     const after = home.querySelector('[data-home-row="after-featured"]');
-    const native = home.querySelector('[data-home-section="smalllibrarytiles"] .verticalSection');
+    const native = home.querySelector('[data-home-section="smalllibrarytiles"] .verticalSection:not(.tvl-home-collection-row)');
     if (!carousel || !before || !after || !native) return null;
     return {
       first: before.previousElementSibling?.getAttribute('data-home-row'),
@@ -284,7 +284,7 @@ test('custom rows settle around real Featured while preserving its nodes, geomet
   await page.evaluate(() => {
     const win = window as any;
     win.__interleavedCarousel = document.querySelector('#homeTab .ec-root.ec-ready');
-    win.__interleavedNativeRows = [...document.querySelectorAll('#homeTab .verticalSection')];
+    win.__interleavedNativeRows = [...document.querySelectorAll('#homeTab .verticalSection:not(.tvl-home-collection-row)')];
     win.__featuredNativeActions = [];
     const showItem = win.Emby.Page.showItem;
     // Observe the real plugin's Play bridge without starting a real player.

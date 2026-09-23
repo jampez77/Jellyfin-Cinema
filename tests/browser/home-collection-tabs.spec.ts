@@ -45,7 +45,7 @@ test('remote navigation moves between source switch, cards and native rows witho
   await remote(page,'right');await expect(homeRow(page).locator('.tvl-home-row-card').nth(1)).toBeFocused();
   await remote(page,'up');await expect(shows).toBeFocused();
   await page.keyboard.press('ArrowDown');await expect(homeRow(page).locator('.tvl-home-row-card').first()).toBeFocused();
-  await page.keyboard.press('ArrowDown');await expect(page.locator('#homeTab .verticalSection').first().getByRole('button').first()).toBeFocused();
+  await page.keyboard.press('ArrowDown');await expect(page.locator('#homeTab .verticalSection:not(.tvl-home-collection-row)').first().getByRole('button').first()).toBeFocused();
   await page.keyboard.press('ArrowUp');await expect(homeRow(page).locator('.tvl-home-row-card').first()).toBeFocused();
 });
 

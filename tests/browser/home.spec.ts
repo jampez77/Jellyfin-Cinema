@@ -51,7 +51,8 @@ test('Home titles and subtitles share the charcoal page in both native footer la
   }));
   await expect.poll(titleSurfaces).toEqual(['rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)']);
   await row.locator('.card').nth(1).focus();
-  await expect(row.locator('.cardBox').nth(1)).toHaveCSS('outline-style','solid');
+  await expect(row.locator('.cardBox').nth(1)).toHaveCSS('outline-style','none');
+  await expect(row.locator('.cardScalable').nth(1)).toHaveCSS('outline-style','solid');
   await expect.poll(titleSurfaces).toEqual(['rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)']);
   await expect(row.locator('.innerCardFooter')).toHaveCSS('background-color','rgba(0, 0, 0, 0.7)');
   await expect(row.locator('.cardText-secondary').first()).toHaveCSS('color','rgb(185, 196, 189)');

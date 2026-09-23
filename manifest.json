@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.11.3",
+        "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.11/TvItemLayout_0.2.11.3_jellyfin-12.0.0.zip",
+        "checksum": "9c45ec9d6795fc972fc4d10538b5ff24",
+        "timestamp": "2026-09-23T20:21:55Z"
+      },
+      {
+        "version": "0.2.11.2",
+        "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.11/TvItemLayout_0.2.11.2_jellyfin-10.11.0.zip",
+        "checksum": "bc30f622f9e277a29c434b0c112cece2",
+        "timestamp": "2026-09-23T20:21:55Z"
+      },
+      {
+        "version": "0.2.11.1",
+        "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.11/TvItemLayout_0.2.11.1_jellyfin-10.10.7.zip",
+        "checksum": "d19856867e56e883bef01a199958edf7",
+        "timestamp": "2026-09-23T20:21:55Z"
+      },
+      {
         "version": "0.2.10.3",
         "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
         "targetAbi": "12.0.0",
