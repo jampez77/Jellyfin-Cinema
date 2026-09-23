@@ -115,8 +115,10 @@ const collectionMembers = new Map<string, string[]>([
   ['collection-coast', ['movie-tide', 'movie-blue']],
   ['collection-wilderness', ['series-north', 'movie-higher', 'movie-wild']],
 ]);
-register({ Id:'collection-coast', Type:'BoxSet', Name:'Coastal Stories', ChildCount:2 }, 'ocean');
-register({ Id:'collection-wilderness', Type:'BoxSet', Name:'Into the Wilderness', ChildCount:3 }, 'mountains');
+register({ Id:'library-collections', Type:'CollectionFolder', CollectionType:'boxsets', Name:'Collections' }, 'mountains');
+register({ Id:'library-movies', Type:'CollectionFolder', CollectionType:'movies', Name:'Movies' }, 'ocean');
+register({ Id:'collection-coast', Type:'BoxSet', Name:'Coastal Stories', Overview:'Journeys shaped by the sea. Discover stories of homecoming, chance encounters and life along the coast.', ChildCount:2 }, 'ocean');
+register({ Id:'collection-wilderness', Type:'BoxSet', Name:'Into the Wilderness', Overview:'Step beyond the familiar. Mountain mysteries and open-country adventures from your library.', ChildCount:3 }, 'mountains');
 
 // Anchor each schedule to the current half hour, so the fixture always has a live show.
 const now = Date.now();
@@ -231,6 +233,8 @@ const api: MediaApi = {
   getNextEpisode: (seriesId) => respond(() => scenario === 'empty' || seriesId !== 'series-north' ? null : copy(library.get('episode-north-1-2')!), seriesId),
   getSimilar: (id) => respond(() => list(movieIds.filter((movieId) => movieId !== id).map((movieId) => library.get(movieId)!)), id),
   getCollections: (id) => respond(() => list([...collectionMembers].filter(([,members]) => members.includes(id)).map(([collectionId]) => library.get(collectionId)!)), id),
+  getCollectionList: () => respond(() => list([...collectionMembers.keys()].map(id=>library.get(id)!))),
+  getCollectionItems: (id) => respond(() => list((collectionMembers.get(id) || []).map(member=>library.get(member)!)),id),
   getChannels: () => respond(() => list(channels)),
   getPrograms: (channelId) => respond(() => list(schedules.get(channelId) || []), channelId),
   setFavorite: (id, favorite) => respond(() => { if (favorite) favorites.add(id); else favorites.delete(id); }, id),
@@ -251,6 +255,9 @@ function syncRoute() {
   const current = library.get(params.get('id') || 'series-north');
   const guide = location.hash.startsWith('#/livetv');
   const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
+  const collectionList = /^#\/(list|boxsets)\?/.test(location.hash) && (params.get('parentId')==='library-collections'||location.hash.startsWith('#/boxsets')||params.get('type')==='BoxSet');
+  nativePage.classList.toggle('mainAnimatedPage',collectionList);
+  nativePage.classList.toggle('libraryPage',collectionList);
   nativePage.classList.toggle('demo-collection-page',collection);
   if (collection) {
     const content = el('div','demo-collection-content');
@@ -264,10 +271,13 @@ function syncRoute() {
       grid.append(link);
     }
     content.append(grid);replace(nativePage,content);
+  } else if (collectionList) {
+    const content=el('div','demo-collection-content');content.append(el('h1','','Collections'));
+    const items=el('div','itemsContainer');items.dataset.parentid=params.get('parentId')||'';content.append(items);replace(nativePage,content);
   } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
-  const type = guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
+  const type = collection||collectionList?'collections':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
-    if (link.dataset.demoType === type && (guide || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
+    if (link.dataset.demoType === type && (guide || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();

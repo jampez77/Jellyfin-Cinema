@@ -180,7 +180,7 @@ test('Live TV guide switches channels and plays only through its explicit live a
   await expect(root).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/#\/livetv\?collectionType=livetv$/);
-  await expect(root.getByRole('heading', { name: 'Live TV', exact: true })).toBeVisible();
+  await expect(root.getByRole('main', { name: 'Live TV programme guide', exact: true })).toBeVisible();
 });
 
 test('item loading failures offer retry and Back', async ({ page }) => {
@@ -375,15 +375,12 @@ test('the guide refreshes its shared time window when a TV resumes on the next d
   await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
   await expect(root.locator('[data-program]')).toHaveCount(16);
   await expect(page.locator('html')).toHaveAttribute('data-guide-requests', '4');
-  const initialDate = await root.locator('.tvl-epg-date').textContent();
+  const initialTime = await root.locator('.tvl-epg-time').first().textContent();
   // Sleep/resume fires the elapsed periodic timer once, as it does on a real TV.
   await page.clock.fastForward(25 * 3_600_000);
   await expect(page.locator('html')).toHaveAttribute('data-guide-requests', '8');
   await expect(root.locator('[data-program]')).toHaveCount(16);
-  await expect(root.locator('.tvl-epg-date')).not.toHaveText(initialDate!);
-  const today = await page.evaluate(() => new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' }));
-  await expect(root.locator('.tvl-epg-date')).toHaveText(today);
-  await root.getByRole('button', { name: 'Jump to now', exact: true }).click();
+  await expect(root.locator('.tvl-epg-time').first()).not.toHaveText(initialTime!);
   const current = root.locator('[data-program="channel-field-program-1"]');
   await expect(current).toBeFocused();
   await expect(current).toHaveClass(/tvl-epg-program-live/);

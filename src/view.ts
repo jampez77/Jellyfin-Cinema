@@ -25,7 +25,7 @@ export class DetailView {
   private favoritePending = false;
   private restoreId = '';
 
-  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; focusId?: string }) {
+  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; focusId?: string }) {
     this.restoreId = options.focusId || '';
     this.element.id = 'tv-layout';
     this.element.setAttribute('role', 'dialog');
@@ -52,6 +52,7 @@ export class DetailView {
         this.item = await this.api.getItem(requested.ChannelId);
       }
       if (this.disposed) return;
+      if (this.item.Type === 'BoxSet') { this.options.openCollection(this.item); return; }
       if (!['Movie','Series','TvChannel'].includes(this.item.Type || '')) { this.options.close(); return; }
       this.element.setAttribute('aria-label', `${this.item.Name} details`);
       if (this.item.Type === 'Series') {
@@ -204,19 +205,22 @@ export class DetailView {
       footer.append(el('span','tvl-footer-kind',live ? 'YOUR LIVE CHANNELS' : 'DISCOVER MORE'), el('span','tvl-remote-hint','↑ ↓ Navigate    OK Select    Back Return'));
       this.content.append(hero, footer);
     }
+    let collections:HTMLElement|undefined;
+    let more:HTMLElement|undefined;
     if (!live) {
-      const collections = el('section','tvl-collections');
+      collections = el('section','tvl-collections');
       collections.setAttribute('aria-label','Collections');
       // An empty placeholder avoids advertising membership before the server replies.
       this.content.append(collections);
-      void this.fillCollections(collections);
-      const more = el('section','tvl-movie-recommendations');
+      more = el('section','tvl-movie-recommendations');
       more.setAttribute('aria-label','More like this');
       more.append(el('h2','tvl-section-title','More like this'));
       this.content.append(more);
-      void this.fillRecommendations(more, false);
     }
-    this.focusFirst(this.restoreId); this.restoreId = '';
+    this.focusFirst(this.restoreId);
+    if(collections)void this.fillCollections(collections,this.restoreId);
+    if(more)void this.fillRecommendations(more,false);
+    this.restoreId = '';
   }
   private filmDetails(): HTMLElement {
     const details = el('section','tvl-film-details');
@@ -284,7 +288,7 @@ export class DetailView {
   private async renderEpisodes(): Promise<void> {
     const layout = el('main','tvl-browser');
     const sidebar = el('aside','tvl-sidebar');
-    sidebar.append(el('div','tvl-eyebrow','EXPLORE THE SERIES'), this.title(true), this.meta());
+    sidebar.append(this.title(true), this.meta());
     const seasons = el('nav','tvl-seasons'); seasons.setAttribute('aria-label','Seasons');
     for (const season of this.seasons) {
       const node = button(seasonName(season), '', 'tvl-season', () => { this.selectedSeason=season; void this.updateEpisodes(); });
@@ -355,8 +359,9 @@ export class DetailView {
     const main=el('main','tvl-similar');main.append(el('div','tvl-eyebrow',`BECAUSE YOU WATCH ${this.item.Name}`),el('h1','tvl-section-title','More like this'));
     this.content.append(main);await this.fillRecommendations(main,true);
   }
-  private async fillCollections(container: HTMLElement): Promise<void> {
+  private async fillCollections(container: HTMLElement, focusId=''): Promise<void> {
     const revision = this.revision;
+    const anchor=document.activeElement;
     container.setAttribute('aria-busy','true');
     try {
       const collections = await this.api.getCollections(this.item.Id);
@@ -379,6 +384,10 @@ export class DetailView {
       }
       replace(container,el('h2','tvl-section-title','Collections'),grid);
       if (restoreFocus) this.focusFirst('',grid);
+      else if(focusId.startsWith('collection-')&&document.activeElement===anchor){
+        this.focusFirst(focusId,grid);
+        (document.activeElement as HTMLElement)?.scrollIntoView({block:'nearest',inline:'nearest'});
+      }
     } catch {
       if (this.disposed || revision !== this.revision) return;
       const restoreFocus = container.contains(document.activeElement);

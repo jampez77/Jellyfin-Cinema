@@ -122,6 +122,12 @@ export function createJellyfinApi(): MediaApi | null {
       throw error instanceof Error ? error : new Error('Jellyfin could not load this media. Check your connection and try again.');
     }
   }
+  const collectionList = (parentId?: string) => read(async () => (await pages(startIndex => read(() => client.getItems(userId, {
+    IncludeItemTypes: 'BoxSet', Recursive: true, SortBy: 'SortName', SortOrder: 'Ascending',
+    ...(parentId ? {ParentId: parentId} : {}),
+    Fields: 'Overview', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo',
+    EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
+  })), 'collection')).filter(item => item.Type === 'BoxSet'));
   return {
     getItem: id => read(async () => {
       const item = await client.getItem(userId, id);
@@ -145,6 +151,13 @@ export function createJellyfinApi(): MediaApi | null {
     getSimilar: id => read(async () => itemsFrom(await client.getSimilarItems(id, {
       UserId: userId, Limit: 24, Fields: 'Overview,Genres', EnableUserData: true
     }), 'similar item').filter(available)),
+    getCollectionList: collectionList,
+    getCollectionItems: id => read(async () => (await pages(startIndex => read(() => client.getItems(userId, {
+      ParentId: id, Recursive: false, CollapseBoxSetItems: false,
+      SortBy: 'SortName', SortOrder: 'Ascending', Fields: 'Overview,Genres',
+      EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop,Logo', EnableUserData: true,
+      StartIndex: startIndex, Limit: PAGE_SIZE
+    })), 'collection item')).filter(available)),
     getCollections: id => read(async () => {
       const itemId = identity(id);
       const cached = collectionsByItem.get(itemId);
@@ -155,11 +168,7 @@ export function createJellyfinApi(): MediaApi | null {
       // Do not combine ParentId with Ids: Folder.GetItems bypasses the folder
       // when Ids is present, incorrectly making every collection appear to match.
       // https://github.com/jellyfin/jellyfin/blob/v12.0/MediaBrowser.Controller/Entities/Folder.cs
-      const collections = (await pages(startIndex => read(() => client.getItems(userId, {
-        IncludeItemTypes: 'BoxSet', Recursive: true, SortBy: 'SortName', SortOrder: 'Ascending',
-        Fields: 'Overview', EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop',
-        EnableUserData: true, StartIndex: startIndex, Limit: PAGE_SIZE
-      })), 'collection')).filter(item => item.Type === 'BoxSet');
+      const collections = await collectionList();
       const matched = new Set<string>();
       let next = 0;
       await Promise.all(Array.from({ length: Math.min(4, collections.length) }, async () => {

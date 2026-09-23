@@ -6,7 +6,7 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 
 - **TV Shows:** North of Nowhere has three seasons and six episodes per season. The first episode is watched; the second is partially watched. Down from the last episode advances to the next season; Up from the first returns to the previous season’s last episode.
 - **Movies:** After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
-- **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and the banner shows the highlighted programme’s artwork and details, including future programmes. The schedule is calculated when the page loads.
+- **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and the full-page background shows the highlighted programme’s artwork behind its details, including future programmes. The schedule is calculated when the page loads.
 
 The Live TV preview opens the main guide at `/#/livetv?collectionType=livetv`. Channel details remain available at `/#/details?id=channel-field`; their **Channels & guide** button links to the main guide.
 
@@ -28,8 +28,9 @@ Add a query before the hash and reload:
 - `/?scenario=slow#/details?id=series-north`: longer, varied response times. Switch items or seasons quickly to check that older requests cannot replace the active view.
 
 Remove the query and reload to restore ordinary behaviour. All titles, descriptions, cast names and ratings are fictional demonstration data. Photograph sources are recorded in [assets/CREDITS.md](assets/CREDITS.md).
+
 ## Collections and theme videos
 
-The preview includes **Coastal Stories** for After the Tide and **Into the Wilderness** for North of Nowhere. Collection cards open a simulated native collection page with links to its members. Series overviews now scroll down to recommendations as well as collections.
+The preview includes **Coastal Stories** for After the Tide and **Into the Wilderness** for North of Nowhere. Collection cards open the styled collection page with links to its members. The Collections preview control opens the library list at `/#/list?parentId=library-collections`. Back restores the selected card. Series overviews now scroll down to recommendations as well as collections.
 
 Native theme-video integration is covered by browser tests using a local canvas video stream. The preview does not download or autoplay a sample theme video; installed Jellyfin clients use their existing theme player and preferences.

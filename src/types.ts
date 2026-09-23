@@ -1,5 +1,6 @@
 export type Item = {
   Id: string; Name: string; Type?: string; Overview?: string; OriginalTitle?: string;
+  CollectionType?: string;
   ProductionYear?: number; OfficialRating?: string; CommunityRating?: number;
   RunTimeTicks?: number; Genres?: string[]; Tags?: string[]; Taglines?: string[];
   LocalTrailerCount?: number; RemoteTrailers?: { Url?: string; Name?: string }[];
@@ -23,6 +24,8 @@ export interface MediaApi {
   getNextEpisode(seriesId: string): Promise<Item | null>;
   getSimilar(id: string): Promise<Item[]>;
   getCollections(itemId: string): Promise<Item[]>;
+  getCollectionList(parentId?: string): Promise<Item[]>;
+  getCollectionItems(collectionId: string): Promise<Item[]>;
   getChannels(): Promise<Item[]>;
   getPrograms(channelId: string): Promise<Item[]>;
   setFavorite(id: string, favorite: boolean): Promise<void>;

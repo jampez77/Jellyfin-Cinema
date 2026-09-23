@@ -112,6 +112,31 @@ test('collection scans stop after a match and normalize Jellyfin UUID formats', 
   assert.equal(membershipRequests, 1);
 });
 
+test('collection browser retains every page and applies the native library scope', async () => {
+  const queries:Record<string,unknown>[]=[];
+  const api=client({getItems:async(user:string,query:Record<string,unknown>)=>{
+    assert.equal(user,'user-a');queries.push(query);
+    return query.StartIndex===0
+      ? {Items:[{Id:'coast',Name:'Coast',Type:'BoxSet'}],TotalRecordCount:2}
+      : {Items:[{Id:'mountains',Name:'Mountains',Type:'BoxSet'}],TotalRecordCount:2};
+  }});
+  assert.deepEqual((await api.getCollectionList('movie-library')).map(item=>item.Id),['coast','mountains']);
+  assert.deepEqual(queries.map(query=>query.StartIndex),[0,1]);
+  assert.ok(queries.every(query=>query.ParentId==='movie-library'&&query.IncludeItemTypes==='BoxSet'&&query.Recursive===true));
+});
+
+test('collection contents preserve mixed and nested members without collapsing or flattening them', async () => {
+  const queries:Record<string,unknown>[]=[];
+  const api=client({getItems:async(_user:string,query:Record<string,unknown>)=>{
+    queries.push(query);
+    return query.StartIndex===0
+      ? {Items:[{Id:'movie',Name:'Movie',Type:'Movie'},{Id:'nested',Name:'Nested',Type:'BoxSet'}],TotalRecordCount:5}
+      : {Items:[{Id:'show',Name:'Show',Type:'Series'},{Id:'track',Name:'Track',Type:'Audio'},{Id:'missing',Name:'Missing',IsMissing:true}],TotalRecordCount:5};
+  }});
+  assert.deepEqual((await api.getCollectionItems('collection')).map(item=>item.Id),['movie','nested','show','track']);
+  assert.ok(queries.every(query=>query.ParentId==='collection'&&query.Recursive===false&&query.CollapseBoxSetItems===false&&!query.IncludeItemTypes&&!query.Ids));
+});
+
 test('a failed collection read does not return or cache a partial membership list', async () => {
   let fail = true;
   let lists = 0;

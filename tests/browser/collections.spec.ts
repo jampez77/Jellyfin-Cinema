@@ -20,17 +20,19 @@ test('series overview scrolls through collections and recommendations with a rem
 });
 
 for (const [id, collection] of [['movie-tide','Coastal Stories'],['series-north','Into the Wilderness']]) {
-  test(`${id} opens its collection through Jellyfin's native collection route`, async ({ page }) => {
+  test(`${id} opens its styled collection and restores entry focus on Back`, async ({ page }) => {
     await page.goto(`/#/details?id=${id}&serverId=test-server`);
     await page.getByRole('button', { name:`Open collection: ${collection}` }).click();
     await expect(page).toHaveURL(/#\/details\?id=collection-.*&serverId=test-server$/);
-    await expect(page.locator('#tv-layout')).toHaveCount(0);
-    await expect(page.locator('.itemDetailPage')).not.toHaveAttribute('aria-hidden','true');
-    await expect(page.getByRole('heading', { name:collection, exact:true })).toBeVisible();
-    await expect(page.locator('.demo-collection-grid a')).toHaveCount(id === 'movie-tide' ? 2 : 3);
-    await page.goBack();
+    const root=page.getByRole('dialog',{name:`${collection} collection`,exact:true});
+    await expect(root).toBeVisible();
+    await expect(page.locator('.itemDetailPage')).toHaveAttribute('aria-hidden','true');
+    await expect(root.getByRole('heading', { name:collection, exact:true })).toBeVisible();
+    await expect(root.locator('[data-collection-item]')).toHaveCount(id === 'movie-tide' ? 2 : 3);
+    await page.keyboard.press('Escape');
     await expect(page).toHaveURL(new RegExp(`id=${id}&serverId=test-server$`));
     await expect(page.locator('#tv-layout')).toHaveAttribute('data-pane','overview');
+    await expect(page.getByRole('button',{name:`Open collection: ${collection}`})).toBeFocused();
   });
 }
 

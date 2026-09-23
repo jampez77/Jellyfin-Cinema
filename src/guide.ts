@@ -11,7 +11,6 @@ const WORKERS = 4;
 
 export class HorizontalGuide {
   readonly element = el('main', 'tvl-epg');
-  private heading = el('div', 'tvl-epg-heading');
   private detail = el('section', 'tvl-epg-detail');
   private scroll = el('div', 'tvl-epg-scroll');
   private footer = el('div', 'tvl-epg-footer');
@@ -30,10 +29,8 @@ export class HorizontalGuide {
     this.element.setAttribute('aria-label', 'Live TV programme guide');
     this.detail.setAttribute('aria-label', 'Selected programme');
     this.scroll.setAttribute('aria-label', 'Channels and programme schedule');
-    this.heading.append(el('div', 'tvl-epg-heading-copy'));
-    this.element.append(this.heading, this.detail, this.scroll, this.footer);
+    this.element.append(this.detail, this.scroll, this.footer);
     window.addEventListener('resize', this.resize);
-    this.renderHeading();
   }
 
   async load(): Promise<void> {
@@ -163,22 +160,6 @@ export class HorizontalGuide {
     }));
   }
 
-  private renderHeading(): void {
-    const copy = el('div', 'tvl-epg-heading-copy');
-    copy.append(el('h1', '', 'Live TV'), el('span', 'tvl-epg-date', new Date().toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'short'})));
-    const now = button('Jump to now', 'live', 'tvl-epg-now-button', () => { void this.jumpToNow(); });
-    replace(this.heading, copy, now);
-  }
-
-  private async jumpToNow(): Promise<void> {
-      // Background TV apps can suspend their timers for hours.
-      if(Date.now() - this.windowStart >= 30 * GUIDE_MINUTE) await this.refresh();
-      if(!this.valid())return;
-      this.anchorTime = Date.now(); this.scroll.scrollLeft = 0;
-      const row = this.rows.find(row => row.channel.Id === this.selection.channelId) || this.rows[0];
-      if (row) this.focusRow(row, this.anchorTime);
-  }
-
   private rebaseWindow(): void {
     const start=Math.floor(Date.now() / (30 * GUIDE_MINUTE)) * 30 * GUIDE_MINUTE;
     if(start===this.windowStart)return;
@@ -186,8 +167,6 @@ export class HorizontalGuide {
     const offset=(start-this.windowStart)/GUIDE_DURATION*width;
     this.windowStart=start;
     this.scroll.scrollLeft=Math.max(0,this.scroll.scrollLeft-offset);
-    const date=this.heading.querySelector<HTMLElement>('.tvl-epg-date');
-    if(date)date.textContent=new Date().toLocaleDateString([], {weekday:'long',day:'numeric',month:'short'});
   }
 
   private render(): void {
@@ -253,7 +232,7 @@ export class HorizontalGuide {
       const slot = this.slots(selected).find(slot => slot.item.Id === this.selection.programId);
       this.select(selected, slot);
     }
-    replace(this.footer, el('span', 'tvl-epg-hint', '← → Browse programmes     ↑ ↓ Change channel     OK Programme details'));
+    replace(this.footer);
     if (this.rows.length < this.channels.length) {
       const more = button(this.busy ? 'Loading channels…' : `More channels (${this.rows.length} of ${this.channels.length})`, '', 'tvl-epg-more', () => { void this.moreChannels(); });
       more.disabled = this.busy; this.footer.append(more);
