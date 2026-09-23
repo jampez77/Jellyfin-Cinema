@@ -2,12 +2,36 @@
   {
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "Jellyfin Cinema",
-    "overview": "Cinematic TV browsing, personal collection rows and in-player navigation.",
-    "description": "A cinematic style for Jellyfin Web in TV display mode, with configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "overview": "Cinematic TV and desktop browsing, personal collection rows and in-player navigation.",
+    "description": "A cinematic style for Jellyfin Web in TV and desktop display modes, with configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
+      {
+        "version": "0.2.8.3",
+        "changelog": "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who\u2019s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin\u2019s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.8/TvItemLayout_0.2.8.3_jellyfin-12.0.0.zip",
+        "checksum": "afcd430d6f8199d5d141b68d1a03c987",
+        "timestamp": "2026-09-23T17:40:04Z"
+      },
+      {
+        "version": "0.2.8.2",
+        "changelog": "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who\u2019s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin\u2019s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.8/TvItemLayout_0.2.8.2_jellyfin-10.11.0.zip",
+        "checksum": "bc1fc949c85301d7cbba5a1188624287",
+        "timestamp": "2026-09-23T17:40:04Z"
+      },
+      {
+        "version": "0.2.8.1",
+        "changelog": "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who\u2019s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin\u2019s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.8/TvItemLayout_0.2.8.1_jellyfin-10.10.7.zip",
+        "checksum": "7c369a1389b2796fc576b23162717405",
+        "timestamp": "2026-09-23T17:40:04Z"
+      },
       {
         "version": "0.2.7.3",
         "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",

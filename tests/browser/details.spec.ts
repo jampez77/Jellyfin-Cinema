@@ -417,20 +417,23 @@ test('navigating away during loading discards the old item response', async ({ p
   await expect(detail(page).getByRole('heading', { name: 'North of Nowhere', exact: true })).toHaveCount(0);
 });
 
-test('desktop layout does not activate; TV class changes activate and cleanly deactivate', async ({ page }) => {
+test('mobile and unknown layouts remain native; desktop activates and mobile overrides it cleanly', async ({ page }) => {
   await page.route('http://127.0.0.1:4173/', async (request) => {
     const response = await request.fetch();
-    await request.fulfill({ response, body: (await response.text()).replace('class="layout-tv"', 'class="layout-desktop"') });
+    await request.fulfill({ response, body: (await response.text()).replace('class="layout-tv"', 'class="layout-mobile"') });
   });
   await page.goto(route('movie-tide'));
   await expect.poll(() => page.evaluate(() => !!window.TvItemLayout)).toBe(true);
   await page.evaluate(() => window.TvItemLayout!.refresh());
   await expect(detail(page)).toHaveCount(0);
   await expect(page.locator('.itemDetailPage')).not.toHaveAttribute('aria-hidden', 'true');
-  await page.evaluate(() => document.documentElement.classList.add('layout-tv'));
+  await page.evaluate(() => document.body.classList.remove('layout-mobile'));
+  await expect(detail(page)).toHaveCount(0);
+  await page.evaluate(() => document.documentElement.classList.add('layout-desktop'));
   await expect(detail(page).getByRole('heading', { name: 'After the Tide', exact: true })).toBeVisible();
   await expect(page.locator('.itemDetailPage')).toHaveAttribute('aria-hidden', 'true');
-  await page.evaluate(() => document.documentElement.classList.remove('layout-tv'));
+  await expect(page.locator('.layout-tv')).toHaveCount(0);
+  await page.evaluate(() => document.body.classList.add('layout-mobile'));
   await expect(detail(page)).toHaveCount(0);
   await expect(page.locator('.itemDetailPage')).not.toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('body')).not.toHaveClass(/tvl-open/);
@@ -440,7 +443,7 @@ test('desktop layout does not activate; TV class changes activate and cleanly de
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     setTimeout(() => { observer.disconnect(); resolve(changes); }, 200);
   }));
-  expect(redundantClassChanges, 'desktop mode must not keep rescheduling itself by mutating its body class').toBe(0);
+  expect(redundantClassChanges, 'native mobile mode must not keep rescheduling itself by mutating its body class').toBe(0);
 });
 
 test('detail rendering remains functional without post-Chromium-79 replaceChildren', async ({ page }) => {

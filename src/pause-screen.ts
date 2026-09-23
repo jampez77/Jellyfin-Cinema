@@ -1,4 +1,5 @@
 import type { Item, MediaApi } from './types';
+import { isCinemaLayout } from './layout';
 import type { ActivePlayback } from './player-context';
 import { el, replace } from './dom';
 import { episodeCode, plainText, runtime, time } from './utils';
@@ -36,8 +37,7 @@ export function startPauseScreen(options: Options): () => void {
   let frame: number | undefined;
 
   function paused(snapshot: ActivePlayback | null): snapshot is ActivePlayback {
-    const tv = document.documentElement.classList.contains('layout-tv') || document.body.classList.contains('layout-tv');
-    return !!snapshot && tv && snapshot.video.isConnected && snapshot.osd.isConnected
+    return !!snapshot && isCinemaLayout() && snapshot.video.isConnected && snapshot.osd.isConnected
       && visible(snapshot.osd) && snapshot.video.paused && !snapshot.video.ended && !snapshot.video.error
       && snapshot.video.readyState >= 2 && snapshot.video.videoWidth > 0 && snapshot.video.videoHeight > 0;
   }

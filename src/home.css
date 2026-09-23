@@ -1,5 +1,5 @@
 /* Native Home and Featured own their DOM, data, ordering and input. This
-   skin changes their appearance only while the TV Home route is active. */
+   skin changes their appearance only while the Cinema Home route is active. */
 body.tvl-home { background:#101112; color:#f5f5f2; }
 .tvl-home #indexPage { background:#101112; color:#f5f5f2; }
 .tvl-home .skinHeader { background:linear-gradient(180deg,#101112ed,#10111299 72%,transparent); }

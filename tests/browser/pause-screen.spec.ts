@@ -69,8 +69,8 @@ async function player(page: Page, itemId = 'pause-movie', audioOnly = false) {
 async function pause(page: Page) { await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause()); }
 const screen = (page: Page) => page.getByRole('region', { name: 'Paused media details', exact: true });
 
-test('paused movies show their own artwork and metadata while native controls keep focus and resume playback', async ({ page }) => {
-  await fixture(page); await page.goto('/#/video'); await player(page);
+for (const desktop of [false, true]) test(`paused ${desktop ? 'desktop' : 'TV'} movies show metadata while native controls keep focus and resume playback`, async ({ page }) => {
+  await fixture(page, desktop ? `document.body.classList.replace('layout-tv', 'layout-desktop');` : ''); await page.goto('/#/video'); await player(page);
   await expect(screen(page)).toBeHidden();
   await page.locator('.btnPause').focus();
   await pause(page);
@@ -187,7 +187,7 @@ test('the standalone PauseScreen marker suppresses ours and destruction cleans u
   await expect(page.locator('video')).toHaveJSProperty('paused', true);
 });
 
-test('theme routes, desktop layout and audio-only playback never show a pause treatment', async ({ page }) => {
+test('theme routes, unsupported layouts and audio-only playback never show a pause treatment', async ({ page }) => {
   await fixture(page); await page.goto('/#/details?id=movie-tide'); await player(page); await pause(page);
   await expect(screen(page)).toBeHidden();
   await page.goto('/#/video'); await player(page, 'pause-audio', true); await pause(page);

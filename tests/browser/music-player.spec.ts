@@ -2,11 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 
 // Native selectors/structure from Jellyfin 10.11 + 12 nowPlayingBar and
 // playback/queue. The fixture owns actions just as Jellyfin does in production.
-async function nativeMusicPlayer(page: Page) {
+async function nativeMusicPlayer(page: Page, desktop = false) {
   await page.goto('/#/queue');
-  await page.evaluate(() => {
+  await page.evaluate(desktop => {
+    if (desktop) { document.documentElement.classList.remove('layout-tv'); document.body.classList.replace('layout-tv', 'layout-desktop'); }
     const style = document.createElement('style');
-    style.textContent = `.hide{display:none!important}#nowPlayingPage{position:relative;z-index:100;padding:100px 32px 120px;min-height:600px}.nowPlayingInfoContainer{display:flex}.nowPlayingPageImageContainer{width:16%;margin-right:1em}.nowPlayingPageImage{width:100%}.nowPlayingInfoControls{flex:1;min-width:0}.nowPlayingInfoButtons,.nowPlayingButtonsContainer{display:flex;align-items:center}.nowPlayingButtonsContainer{justify-content:space-between}.sliderContainer{display:flex;align-items:center}.nowPlayingPositionSliderContainer{flex:1;margin:1em}.nowPlayingPlaylist .listItem{display:flex;align-items:center}.listItemBody{flex:1;padding:1em;background:transparent;border:0;color:inherit;text-align:left}.listItemImage{width:3em;height:3em}.nowPlayingBar{position:fixed;bottom:0;left:0;right:0;z-index:1000}.nowPlayingBarTop{display:flex;align-items:center;height:4.2em;position:relative}.nowPlayingBarInfoContainer{display:flex;width:40%;align-items:center}.nowPlayingImage{width:4.2em;height:3em}.nowPlayingBarCenter{display:flex;align-items:center;position:absolute;left:42%}.nowPlayingBarRight{display:flex;margin-left:auto}.nowPlayingBarPositionContainer{position:absolute;top:-.6em;left:0;right:0}.nowPlayingBar-hidden{transform:translateY(100%)}.paper-icon-button-light,.mediaButton{border:0;background:transparent;font-size:18px;padding:.7em;cursor:pointer}.mdl-slider{color:#00a4dc}.nowPlayingPositionSlider,.nowPlayingBarPositionSlider{width:100%}.mdl-slider-background-lower{background:#00a4dc;height:3px;width:35%}`;
+    style.textContent = `.hide{display:none!important}#nowPlayingPage{position:relative;z-index:100;padding:100px 32px 120px;min-height:600px}.nowPlayingInfoContainer{display:flex}.nowPlayingPageImageContainer{width:16%;margin-right:1em}.nowPlayingPageImage{width:100%}.nowPlayingInfoControls{flex:1;min-width:0}.nowPlayingInfoButtons,.nowPlayingButtonsContainer{display:flex;align-items:center}.nowPlayingButtonsContainer{justify-content:space-between}.sliderContainer{display:flex;align-items:center}.nowPlayingPositionSliderContainer{flex:1;margin:1em}.nowPlayingPlaylist .listItem{display:flex;align-items:center}.listItemBody{flex:1;padding:1em;background:transparent;border:0;color:inherit;text-align:left}.listItemImage{width:3em;height:3em}.appfooter{position:fixed;bottom:0;left:0;right:0;z-index:1201!important;contain:layout style}.appfooter.headroom--unpinned{transform:translateY(100%)!important}.nowPlayingBar{position:relative}.nowPlayingBarTop{display:flex;align-items:center;height:4.2em;position:relative}.nowPlayingBarInfoContainer{display:flex;width:40%;align-items:center}.nowPlayingImage{width:4.2em;height:3em}.nowPlayingBarCenter{display:flex;align-items:center;position:absolute;left:42%}.nowPlayingBarRight{display:flex;margin-left:auto}.nowPlayingBarPositionContainer{position:absolute;top:-.6em;left:0;right:0}.nowPlayingBar-hidden{transform:translateY(100%)}.paper-icon-button-light,.mediaButton{border:0;background:transparent;font-size:18px;padding:.7em;cursor:pointer}.mdl-slider{color:#00a4dc}.nowPlayingPositionSlider,.nowPlayingBarPositionSlider{width:100%}.mdl-slider-background-lower{background:#00a4dc;height:3px;width:35%}`;
     document.head.append(style);
     const queue = document.createElement('main'); queue.id = 'nowPlayingPage'; queue.className = 'page libraryPage nowPlayingPage hideVideoButtons';
     queue.innerHTML = `<div class="remoteControlContent">
@@ -23,7 +24,8 @@ async function nativeMusicPlayer(page: Page) {
     </div>`;
     const bar = document.createElement('aside'); bar.className = 'nowPlayingBar';
     bar.innerHTML = `<div class="nowPlayingBarTop"><div class="nowPlayingBarPositionContainer sliderContainer"><input aria-label="Mini player seek" class="mdl-slider nowPlayingBarPositionSlider" type="range" min="0" max="100" value="25"></div><div class="nowPlayingBarInfoContainer"><div class="nowPlayingImage"></div><div class="nowPlayingBarText">Tidelight<div class="nowPlayingBarSecondaryText">Mira Vale</div></div></div><div class="nowPlayingBarCenter"><button class="mediaButton previousTrackButton" aria-label="Mini previous">◀</button><button class="mediaButton playPauseButton" aria-label="Mini pause">Ⅱ</button><button class="mediaButton nextTrackButton" aria-label="Mini next">▶</button></div><div class="nowPlayingBarRight"><button class="mediaButton muteButton" aria-label="Mute">Volume</button><input aria-label="Volume" class="mdl-slider nowPlayingBarVolumeSlider" type="range" min="0" max="100" value="75"><button class="mediaButton openLyricsButton hide">Lyrics</button></div></div>`;
-    document.body.append(queue, bar);
+    const footer = document.createElement('div'); footer.className = 'appfooter'; footer.append(bar);
+    document.body.append(queue, footer);
     const state = { paused: false, track: 0, repeat: false, shuffle: false, muted: false, seek: 25, volume: 75, saves: 0, lyrics: 0 };
     (window as any).__musicState = state;
     (window as any).__musicNativeNodes = [queue, bar, queue.querySelector('.btnPlayPause'), queue.querySelector('#playlist')];
@@ -39,17 +41,18 @@ async function nativeMusicPlayer(page: Page) {
     queue.querySelector('.btnLyrics')!.addEventListener('click', () => { state.lyrics++; });
     bar.querySelector('.muteButton')!.addEventListener('click', () => { state.muted = !state.muted; });
     queue.querySelector('.nowPlayingPositionSlider')!.addEventListener('input', event => { state.seek = +(event.target as HTMLInputElement).value; });
+    bar.querySelector('.nowPlayingBarPositionSlider')!.addEventListener('input', event => { state.seek = +(event.target as HTMLInputElement).value; });
     bar.querySelector('.nowPlayingBarVolumeSlider')!.addEventListener('input', event => { state.volume = +(event.target as HTMLInputElement).value; });
     queue.querySelector('#playlist')!.addEventListener('click', event => {
       const control = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
       if (control?.dataset.action === 'remove') control.closest('.listItem')!.remove();
       else if (control) state.track = control.closest<HTMLElement>('.listItem')!.dataset.playlistitemid === 'track-2' ? 1 : 0;
     });
-  });
+  }, desktop);
 }
 
-test('native music player and queue use Cinema colours while native actions remain functional', async ({ page }) => {
-  await nativeMusicPlayer(page);
+for (const desktop of [false, true]) test(`native ${desktop ? 'desktop' : 'TV'} music player and queue use Cinema colours while native actions remain functional`, async ({ page }) => {
+  await nativeMusicPlayer(page, desktop);
   const queue = page.locator('#nowPlayingPage'), bar = page.locator('.nowPlayingBar');
   await expect(queue).toHaveCSS('background-color', 'rgb(16, 17, 18)');
   await expect(bar).toHaveCSS('color', 'rgb(245, 245, 242)');
@@ -91,5 +94,49 @@ test('music skin follows TV mode and teardown without leaking into video control
   await expect(page.locator('#nowPlayingPage')).toHaveCSS('background-color', 'rgb(16, 17, 18)');
   await page.evaluate(() => window.TvItemLayout?.destroy());
   await expect(page.locator('#nowPlayingPage')).not.toHaveCSS('background-color', 'rgb(16, 17, 18)');
+  expect(await page.evaluate(() => (window as any).__musicNativeNodes.every((node: Element) => node.isConnected))).toBe(true);
+});
+
+test('desktop album keeps the real footer clickable and keyboard-operable without covering scrollable content', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 650 });
+  await nativeMusicPlayer(page, true);
+  await page.evaluate(() => { document.querySelector('#nowPlayingPage')!.classList.add('hide'); location.hash = '/details?id=album-tidelight'; });
+  const album = page.locator('#tv-layout'), bar = page.locator('.nowPlayingBar'), footer = page.locator('.appfooter');
+  await expect(album.getByRole('heading', { name: 'Tidelight', exact: true })).toBeVisible();
+  await expect(page.locator('body')).toHaveClass(/tvl-desktop-player/);
+  await expect(page.locator('body')).toHaveClass(/layout-desktop/);
+  await expect(page.locator('body')).not.toHaveClass(/layout-tv/);
+  const pause = bar.getByRole('button', { name: 'Mini pause', exact: true });
+  await pause.click();
+  expect(await page.evaluate(() => (window as any).__musicState.paused)).toBe(true);
+  await pause.focus(); await expect(pause).toBeFocused(); await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => (window as any).__musicState.paused)).toBe(false);
+  const seek = bar.getByRole('slider', { name: 'Mini player seek', exact: true });
+  await seek.focus(); await expect(seek).toBeFocused(); await page.keyboard.press('ArrowRight');
+  await expect(seek).toHaveValue('26');
+  const volume = bar.getByRole('slider', { name: 'Volume', exact: true });
+  await volume.focus(); await page.keyboard.press('ArrowLeft'); await expect(volume).toHaveValue('74');
+  await expect(album).toBeVisible();
+  await album.getByRole('button', { name: 'Play album', exact: true }).focus();
+  await page.mouse.move(1100, 400); await page.mouse.wheel(0, 1400);
+  await expect.poll(() => album.locator('.tvl-content').evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  const lastCard = album.locator('.tvl-browse-card').last(); await lastCard.scrollIntoViewIfNeeded();
+  const cardBox = await lastCard.boundingBox(), footerBox = await footer.boundingBox();
+  expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);
+  await page.screenshot({ path: test.info().outputPath('desktop-album-audio-footer.png') });
+  await page.evaluate(() => document.querySelector('.appfooter')!.classList.add('headroom--unpinned'));
+  await expect(page.locator('body')).not.toHaveClass(/tvl-desktop-player/);
+  await expect(footer).toHaveClass(/headroom--unpinned/);
+  await page.evaluate(() => document.querySelector('.appfooter')!.classList.remove('headroom--unpinned'));
+  await expect(page.locator('body')).toHaveClass(/tvl-desktop-player/);
+  await page.evaluate(() => document.querySelector('.nowPlayingBar')!.classList.add('nowPlayingBar-hidden'));
+  await expect(page.locator('body')).not.toHaveClass(/tvl-desktop-player/);
+  await expect(bar).toHaveClass(/nowPlayingBar-hidden/);
+  await page.evaluate(() => document.querySelector('.nowPlayingBar')!.classList.remove('nowPlayingBar-hidden'));
+  await expect(page.locator('body')).toHaveClass(/tvl-desktop-player/);
+  await page.evaluate(() => window.TvItemLayout!.destroy());
+  await expect(page.locator('body')).not.toHaveClass(/tvl-desktop-player/);
+  await expect(footer).toHaveCSS('z-index', '1201');
+  await pause.click(); expect(await page.evaluate(() => (window as any).__musicState.paused)).toBe(true);
   expect(await page.evaluate(() => (window as any).__musicNativeNodes.every((node: Element) => node.isConnected))).toBe(true);
 });

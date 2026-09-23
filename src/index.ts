@@ -1,4 +1,6 @@
 import styles from './style.css';
+import { isCinemaLayout } from './layout';
+import { DesktopPlayer } from './desktop-player';
 import guideStyles from './guide.css';
 import themeVideoStyles from './theme-video.css';
 import collectionStyles from './collection.css';
@@ -47,6 +49,7 @@ let accountScope:string|null|undefined;
 const nativeHostMask=new NativeHostMask();
 const nativeRecordingsTheme=new NativeRecordingsTheme();
 const profileMenu=new ProfileMenu();
+const desktopPlayer=new DesktopPlayer();
 const nativeFolderTheme=new NativeFolderTheme();
 const nativeLoginTheme=new NativeLoginTheme();
 const nativeUserPages=new NativeUserPages();
@@ -153,15 +156,16 @@ function refresh():void{
   if(disposed)return;
   const api=getPlayerApi();
   updateAccount(api);
-  const tv=document.documentElement.classList.contains('layout-tv')||document.body.classList.contains('layout-tv');
-  nativeRecordingsTheme.update(tv && !!api);
-  profileMenu.update(tv && !!api, scopeOf(api));
-  nativeFolderTheme.update(tv && !!api, scopeOf(api));
-  nativeLoginTheme.update(tv);
-  nativeUserPages.update(tv && !!api, scopeOf(api));
+  const cinema=isCinemaLayout();
+  if(document.body.classList.contains('tvl-layout')!==cinema)document.body.classList.toggle('tvl-layout',cinema);
+  nativeRecordingsTheme.update(cinema && !!api);
+  profileMenu.update(cinema && !!api, scopeOf(api));
+  nativeFolderTheme.update(cinema && !!api, scopeOf(api));
+  nativeLoginTheme.update(cinema);
+  nativeUserPages.update(cinema && !!api, scopeOf(api));
   const route=currentRoute();
   if(pendingHash && pendingHash!==location.hash){pendingHash='';probeRevision++;}
-  if(!tv||!route){dismissed='';pendingHash='';probeRevision++;close(false);return;}
+  if(!cinema||!route){dismissed='';pendingHash='';probeRevision++;close(false);return;}
   if(dismissed===location.hash)return;
   if(!api){close(false);return;}
   const scope=scopeOf(api);
@@ -326,5 +330,5 @@ const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerCo
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
 schedule();

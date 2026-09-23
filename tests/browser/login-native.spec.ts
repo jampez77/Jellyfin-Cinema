@@ -63,20 +63,20 @@ test.beforeAll(async () => {
     } }] })).outputFiles[0].text;
 });
 
-async function setup(page: Page, options: { desktop?: boolean; noUsers?: boolean; width?: number; multiServer?: boolean; elegantFin?: boolean } = {}) {
+async function setup(page: Page, options: { desktop?: boolean; mobile?: boolean; jf12PublicUsers?: boolean; noUsers?: boolean; width?: number; multiServer?: boolean; elegantFin?: boolean } = {}) {
   if (options.width) await page.setViewportSize({ width: options.width, height: 900 });
   await page.goto('/?featured=0#/login');
   await page.locator('style[data-tv-item-layout]').waitFor({ state: 'attached' });
   await page.evaluate(({ template, nativeCss, elegantFinCss, strings, dialogTemplate, options }) => {
-    document.documentElement.classList.remove('layout-tv', 'layout-desktop'); document.body.classList.remove('layout-tv', 'layout-desktop');
-    document.documentElement.classList.add(options.desktop ? 'layout-desktop' : 'layout-tv'); document.documentElement.dir = 'ltr';
+    document.documentElement.classList.remove('layout-tv', 'layout-desktop', 'layout-mobile'); document.body.classList.remove('layout-tv', 'layout-desktop', 'layout-mobile');
+    document.documentElement.classList.add(options.mobile ? 'layout-mobile' : options.desktop ? 'layout-desktop' : 'layout-tv'); document.documentElement.dir = 'ltr';
     // Model a signed-out session. Login theme must not depend on a MediaApi.
     delete (window as any).TvItemLayoutDemo;
     const state = { remember: true, attempts: [] as { name: string; password: string }[], routes: [] as string[], reject: 0, signedIn: '', multiServer: !!options.multiServer, quickRequests: 0 };
     (window as any).__loginState = state; (window as any).__loginStrings = strings;
     (window as any).ApiClient = {
       getCurrentUserId: () => '', serverId: () => 'fixture-server', accessToken: () => '',
-      getPublicUsers: async () => options.noUsers ? [] : [{ Id: 'protected', Name: 'Alex', HasPassword: true, PrimaryImageTag: 'art' }, { Id: 'guest', Name: 'Guest', HasPassword: false }, { Id: 'long', Name: 'An unusually long profile name', HasPassword: true }],
+      getPublicUsers: async () => options.noUsers ? [] : [{ Id: 'protected', Name: 'Alex', HasPassword: true, PrimaryImageTag: 'art' }, { Id: 'guest', Name: 'Guest', HasPassword: !!options.jf12PublicUsers }, { Id: 'long', Name: 'An unusually long profile name', HasPassword: true }],
       getUserImageUrl: () => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="#405d4c"/><circle cx="150" cy="112" r="50" fill="#c6d6c9"/><ellipse cx="150" cy="275" rx="105" ry="95" fill="#c6d6c9"/></svg>'),
       getQuickConnect: async () => true, getUrl: (path: string) => path,
       getJSON: async () => ({ LoginDisclaimer: '<p>Welcome to our library. <a href="https://example.invalid/help">Sign-in help</a></p>' }),
@@ -179,11 +179,11 @@ test('empty public-user list and a narrow TV screen keep manual login usable', a
   await page.screenshot({ path: test.info().outputPath('cinema-login-narrow.png'), fullPage: true });
 });
 
-test('desktop, route transitions and teardown release login skin without changing auth inputs', async ({ page }) => {
-  await setup(page, { desktop: true });
+test('mobile, route transitions and teardown release login skin without changing auth inputs', async ({ page }) => {
+  await setup(page, { mobile: true });
   await expect(page.locator('body')).not.toHaveClass(/tvl-login-native/);
   await expect(page.locator('#loginPage')).not.toHaveCSS('background-color', 'rgb(16, 17, 18)');
-  await page.evaluate(() => { document.documentElement.classList.replace('layout-desktop', 'layout-tv'); window.TvItemLayout!.refresh(); });
+  await page.evaluate(() => { document.documentElement.classList.replace('layout-mobile', 'layout-desktop'); window.TvItemLayout!.refresh(); });
   await expect(page.locator('body')).toHaveClass(/tvl-login-native/);
   await page.getByRole('button', { name: 'Manual Login', exact: true }).click(); await page.getByLabel('User', { exact: true }).fill('Still editing');
   expect(await page.evaluate(async () => { let count = 0; const observer = new MutationObserver(records => { count += records.length; }); observer.observe(document.body, { attributes: true, attributeFilter: ['class'] }); for (let i = 0; i < 5; i++) window.TvItemLayout!.refresh(); await new Promise(resolve => requestAnimationFrame(resolve)); observer.disconnect(); return count; })).toBe(0);
@@ -195,6 +195,43 @@ test('desktop, route transitions and teardown release login skin without changin
   await expect(page.locator('body')).not.toHaveClass(/tvl-login-native/);
   await expect(page.getByLabel('User', { exact: true })).toHaveValue('Still editing');
   expect(await page.evaluate(() => (window as any).__loginNativeNodes.every((node: Element) => node.isConnected))).toBe(true);
+});
+
+test('desktop native chooser, keyboard password form and Quick Connect use Cinema without TV markup or auth changes', async ({ page }) => {
+  await setup(page, { desktop: true, jf12PublicUsers: true, elegantFin: elegantFinAvailable });
+  await expect(page.locator('body')).toHaveClass(/tvl-login-native/);
+  await expect(page.locator('.layout-tv')).toHaveCount(0);
+  await expect(page.locator('#divUsers .card.show-focus')).toHaveCount(0);
+  await expect(page.locator('.visualLoginForm h1')).toBeVisible();
+  const alex = page.getByRole('button', { name: 'Alex', exact: true });
+  await alex.click();
+  const password = page.getByLabel('Password', { exact: true });
+  await expect(password).toBeFocused();
+  await expect(page.getByLabel('User', { exact: true })).toHaveValue('Alex');
+  expect(await page.evaluate(() => (window as any).__loginState.attempts)).toEqual([]);
+  await password.fill('invalid-fixture'); await page.evaluate(() => { (window as any).__loginState.reject = 401; });
+  await password.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('Invalid username or password');
+  await expect(password).toHaveValue('');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Use Quick Connect', exact: true }).click();
+  const quick = page.getByRole('dialog', { name: 'Quick Connect', exact: true });
+  await expect(quick).toContainText('123456'); await expect(quick.getByRole('button', { name: 'Got it' })).toBeFocused();
+  await page.keyboard.press('Enter'); await expect(quick).toHaveCount(0);
+  const guest = page.getByRole('button', { name: 'Guest', exact: true });
+  await guest.focus(); await page.keyboard.press('Enter');
+  await expect(password).toBeFocused(); await expect(password).toHaveValue('');
+  // Jellyfin 12 reports HasPassword=true even for a blank-password account.
+  // Cinema styles native login but must not infer eligibility or auto-submit it.
+  expect(await page.evaluate(() => (window as any).__loginState.attempts.length)).toBe(1);
+  await page.evaluate(() => { (window as any).__loginState.reject = 0; });
+  await password.press('Enter');
+  expect(await page.evaluate(() => (window as any).__loginState.attempts)).toEqual([
+    { name: 'Alex', password: 'invalid-fixture' }, { name: 'Guest', password: '' }
+  ]);
+  expect(await page.evaluate(() => (window as any).__loginNativeNodes.every((node: Element) => node.isConnected))).toBe(true);
+  await expect(page.locator('.layout-tv')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('cinema-desktop-native-login.png'), fullPage: true });
 });
 
 test('active ElegantFin theme cannot replace Cinema login layout, headings, primary action or error colours', async ({ page }) => {

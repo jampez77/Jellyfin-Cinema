@@ -1,4 +1,5 @@
 import type { Item, MediaApi, PlaybackContext } from './types';
+import { isCinemaLayout } from './layout';
 
 /** Native OSD identity and queue handling follow InPlayerEpisodePreview-TV
  * (jampez77, f61a2d6), distributed under the MIT notice in LICENSE.md. */
@@ -79,7 +80,7 @@ export function createPlayerContext(getApi: () => MediaApi | null): PlayerContex
     return item;
   };
   function nativePlayer(): { video: HTMLVideoElement; osd: HTMLElement; itemId: string; key: string } | null {
-    if (leaving || !(document.documentElement.classList.contains('layout-tv') || document.body.classList.contains('layout-tv'))
+    if (leaving || !isCinemaLayout()
       || !/(?:^|\/)video\/?(?:\?|$)/i.test(location.hash.replace(/^#/, '') || location.pathname)) return null;
     const osd = Array.from(document.querySelectorAll<HTMLElement>('[data-type="video-osd"], #videoOsdPage')).find(visible);
     if (!osd) return null;

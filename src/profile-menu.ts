@@ -1,5 +1,6 @@
 import { button, el } from './dom';
 import { attachRemote } from './remote';
+import { isCinemaLayout } from './layout';
 import { currentUserAccount, isCurrentUserAdministrator, sameUserAccount } from './current-user-policy';
 import { openProfileLogin, profileImage, profileSession, profileSwitchPending, ProfileLoginRequired, publicProfiles, sameProfileServer, sameProfileSession, switchPublicProfile,
   type ProfileSession, type ProfileSwitchPhase, type PublicProfile } from './profile-auth';
@@ -7,8 +8,9 @@ import { openProfileLogin, profileImage, profileSession, profileSwitchPending, P
 type NativeDashboard = { logout(): void; navigate?(route: string): unknown };
 const dashboard = () => (window as Window & { Dashboard?: NativeDashboard }).Dashboard;
 
-/** TV profile chooser backed by Jellyfin's public profiles and native session
- * lifecycle. Desktop retains the original avatar and its native handler. */
+
+/** Desktop/TV profile chooser backed by Jellyfin's public profiles and native
+ * session lifecycle. Mobile retains the original avatar's native handler. */
 export class ProfileMenu {
   private enabled = false;
   private scope: string | null | undefined;
@@ -30,7 +32,9 @@ export class ProfileMenu {
 
   update(enabled: boolean, scope: string | null): void {
     if (this.disposed) return;
-    if (!document.documentElement.classList.contains('layout-tv') && !document.body.classList.contains('layout-tv')) this.switching?.cancel();
+    const supported = isCinemaLayout();
+    if (!supported) this.switching?.cancel();
+    enabled = enabled && supported;
     if (!enabled || scope !== this.scope) this.close(false);
     this.enabled = enabled; this.scope = scope;
   }
@@ -40,7 +44,7 @@ export class ProfileMenu {
   }
 
   private open(anchor: HTMLElement): boolean {
-    if (!this.enabled || this.disposed || this.overlay || this.switching || profileSwitchPending() || typeof dashboard()?.logout !== 'function') return false;
+    if (!this.enabled || !isCinemaLayout() || this.disposed || this.overlay || this.switching || profileSwitchPending() || typeof dashboard()?.logout !== 'function') return false;
     // Do not compete with an existing native or Cinema modal.
     if (Array.from(document.querySelectorAll<HTMLElement>('.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"]'))
       .some(node => !node.closest('.hide,[hidden]') && !!node.getClientRects().length)) return false;

@@ -5,14 +5,15 @@ const elegantCss = existsSync(elegantSource) ? readFileSync(elegantSource, 'utf8
 const avatar = (page: Page) => page.locator('.skinHeader .headerUserButton');
 const menu = (page: Page) => page.getByRole('dialog', { name: 'Who’s watching?', exact: true });
 
-async function setup(page: Page, desktop = false) {
-  if (desktop) await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => document.body.classList.replace('layout-tv', 'layout-desktop')));
+type ProfileLayout = 'tv' | 'desktop' | 'mobile';
+async function setup(page: Page, layout: ProfileLayout = 'tv') {
+  if (layout !== 'tv') await page.addInitScript(layout => document.addEventListener('DOMContentLoaded', () => document.body.classList.replace('layout-tv', 'layout-' + layout)), layout);
   await page.goto('/?featured=0#/home');
   // Navigation's load event precedes both native Home's initial focus restore
   // and Cinema's first scheduled refresh. Wait for those observable states so
   // a synthetic remote command is not sent before the profile menu is enabled.
   await expect(page.getByRole('region', { name: 'My Media', exact: true }).getByRole('button', { name: 'Movies', exact: true })).toBeFocused();
-  if (!desktop) await expect(page.locator('body')).toHaveClass(/\btvl-home\b/);
+  if (layout === 'tv') await expect(page.locator('body')).toHaveClass(/\btvl-home\b/);
   await page.evaluate(() => {
     const state = { nativeClicks: 0, logout: 0, routes: [] as string[] };
     (window as any).__profileState = state;
@@ -21,7 +22,7 @@ async function setup(page: Page, desktop = false) {
       navigate(route: string) { state.routes.push(route); location.hash = '/' + route; }
     };
     // The native avatar can arrive after Cinema has initialized, including its
-    // image child. Cinema must retain this element and its desktop listener.
+    // image child. Cinema must retain this element and its native listener.
     const control = document.createElement('button'); control.type = 'button';
     control.className = 'headerButton headerButtonRight headerUserButton headerUserButtonRound'; control.title = 'Family';
     control.innerHTML = '<div class="headerButton headerUserButtonRound" style="width:36px;height:36px;background-image:linear-gradient(45deg,#759a87,#d3e7de)"></div>';
@@ -73,8 +74,8 @@ test('holding Enter while opening does not immediately sign out; a fresh press s
   await expect(page).toHaveURL(/#\/login$/); expect(await page.evaluate(() => (window as any).__profileState.logout)).toBe(1);
 });
 
-test('desktop retains the original avatar, artwork and native click handler', async ({ page }) => {
-  await setup(page, true); await avatar(page).click();
+test('mobile retains the original avatar, artwork and native click handler', async ({ page }) => {
+  await setup(page, 'mobile'); await avatar(page).click();
   await expect(menu(page)).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__profileState)).toEqual({ nativeClicks: 1, logout: 0, routes: [] });
   expect(await avatar(page).evaluate(node => node === (window as any).__profileAvatar && node.outerHTML === (window as any).__profileAvatarHtml)).toBe(true);
@@ -94,10 +95,10 @@ test('native fallback, layout changes, account changes and destroy release all m
   expect(await page.evaluate(() => (window as any).__profileState.nativeClicks)).toBe(1);
   await page.evaluate(() => { (window as any).Dashboard = (window as any).__nativeDashboard; });
   await avatar(page).click(); await expect(menu(page)).toBeVisible();
-  await page.evaluate(() => document.body.classList.replace('layout-tv', 'layout-desktop'));
+  await page.evaluate(() => document.body.classList.replace('layout-tv', 'layout-mobile'));
   await expect(menu(page)).toHaveCount(0); await avatar(page).click();
   expect(await page.evaluate(() => (window as any).__profileState.nativeClicks)).toBe(2);
-  await page.evaluate(() => { document.body.classList.replace('layout-desktop', 'layout-tv'); window.TvItemLayout!.refresh(); });
+  await page.evaluate(() => { document.body.classList.replace('layout-mobile', 'layout-tv'); window.TvItemLayout!.refresh(); });
   await avatar(page).click(); await expect(menu(page)).toBeVisible();
   await page.evaluate(() => { window.TvItemLayoutDemo!.api = { ...window.TvItemLayoutDemo!.api, userId: 'another-user' }; });
   await expect(menu(page)).toHaveCount(0);
@@ -164,8 +165,8 @@ test('ordinary users and stale account policy responses cannot expose Dashboard 
   await expect(menu(page).getByRole('button', { name: 'Dashboard', exact: true })).toHaveCount(0);
 });
 
-async function setupSwitch(page: Page, options: { deferLogout?: boolean; rejectAuth?: boolean; deferAuth?: boolean; deferProfiles?: boolean; brokenImage?: boolean } = {}) {
-  await setup(page);
+async function setupSwitch(page: Page, options: { deferLogout?: boolean; rejectAuth?: boolean; deferAuth?: boolean; deferProfiles?: boolean; brokenImage?: boolean; layout?: ProfileLayout } = {}) {
+  await setup(page, options.layout);
   await page.evaluate(options => {
     const host = window as any, state = host.__profileState;
     Object.assign(state, { user: 'family', auth: 0, adopted: 0, handoff: 0, publicReads: 0, eligibilityReads: 0, eligible: ['family', 'child'], admin: false });
@@ -369,4 +370,82 @@ test('profile tiles keep Cinema artwork and strong focus over actual ElegantFin 
   expect(await page.evaluate(() => !!document.activeElement?.closest('.tvl-profile-grid'))).toBe(true);
   await current.focus();
   await page.screenshot({ path: '/tmp/jellyfin-cinema-profile-chooser-elegantfin.png' });
+});
+
+
+for (const input of ['mouse', 'keyboard'] as const) {
+  test(`desktop ${input} opens the same chooser and switches directly without native menu or focus leaks`, async ({ page }) => {
+    await setupSwitch(page, { layout: 'desktop' });
+    if (input === 'mouse') await avatar(page).locator('div').click();
+    else { await avatar(page).focus(); await page.keyboard.press('Enter'); }
+    const current = chooser(page).getByRole('button', { name: 'Family, current profile', exact: true });
+    const kids = chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true });
+    await expect(current).toBeFocused();
+    await avatar(page).evaluate(node => (node as HTMLElement).focus()); await expect(current).toBeFocused();
+    await chooser(page).getByRole('button', { name: 'Back', exact: true }).focus();
+    await page.keyboard.press('Tab'); await expect(current).toBeFocused();
+    if (input === 'mouse') await kids.click();
+    else { await page.keyboard.press('Tab'); await expect(kids).toBeFocused(); await page.keyboard.press('Enter'); }
+    await expect(switching(page)).toHaveCount(0); await expect(chooser(page)).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/home$/);
+    expect(await page.evaluate(() => {
+      const s = (window as any).__profileState;
+      return { nativeClicks: s.nativeClicks, user: s.user, logout: s.logout, auth: s.auth, adopted: s.adopted, handoff: s.handoff };
+    })).toEqual({ nativeClicks: 0, user: 'child', logout: 1, auth: 1, adopted: 1, handoff: 1 });
+    expect(await avatar(page).evaluate(node => node === (window as any).__profileAvatar && node.outerHTML === (window as any).__profileAvatarHtml)).toBe(true);
+  });
+}
+
+test('desktop supports current profile, Escape, Settings and freshly revalidated administrator actions', async ({ page }) => {
+  await setupSwitch(page, { layout: 'desktop' });
+  await page.evaluate(() => { (window as any).__profileState.admin = true; });
+  await choose(page);
+  await chooser(page).getByRole('button', { name: 'Family, current profile', exact: true }).click();
+  await expect(chooser(page)).toHaveCount(0); await expect(avatar(page)).toBeFocused();
+  await page.keyboard.press('Enter'); await expect(chooser(page)).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(chooser(page)).toHaveCount(0); await expect(avatar(page)).toBeFocused();
+  await choose(page);
+  const admin = chooser(page).getByRole('button', { name: 'Dashboard', exact: true });
+  await expect(admin).toBeVisible();
+  await page.evaluate(() => { (window as any).__profileState.admin = false; });
+  await admin.click(); await expect(admin).toHaveCount(0);
+  await expect(chooser(page).getByRole('status')).toHaveText('Dashboard access is no longer available.');
+  await chooser(page).getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page).toHaveURL(/#\/mypreferencesmenu$/); await expect(chooser(page)).toHaveCount(0);
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.logout, s.auth, s.routes]; })).toEqual([0, 0, ['mypreferencesmenu']]);
+});
+
+test('desktop pending authentication survives a TV layout change but is cancelled when switching to mobile', async ({ page }) => {
+  await setupSwitch(page, { layout: 'desktop', deferAuth: true }); await choose(page);
+  await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
+  await expect(switching(page).getByRole('status')).toHaveText('Signing in…');
+  await page.evaluate(() => { document.body.classList.replace('layout-desktop', 'layout-tv'); window.TvItemLayout!.refresh(); });
+  await expect(switching(page)).toBeVisible();
+  await page.evaluate(() => { document.body.classList.replace('layout-tv', 'layout-mobile'); window.TvItemLayout!.refresh(); });
+  await expect(switching(page)).toHaveCount(0);
+  await page.evaluate(async () => { (window as any).__finishAuth(); await new Promise(resolve => setTimeout(resolve, 0)); });
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.user, s.auth, s.adopted, s.handoff]; })).toEqual(['', 1, 0, 0]);
+  await expect(page).toHaveURL(/#\/login$/);
+});
+
+test('desktop account changes close the chooser and cannot adopt a late response for the previous account', async ({ page }) => {
+  await setupSwitch(page, { layout: 'desktop', deferAuth: true }); await choose(page);
+  await page.evaluate(() => {
+    (window as any).__profileState.user = 'other';
+    window.TvItemLayoutDemo!.api = { ...window.TvItemLayoutDemo!.api, userId: 'other' }; window.TvItemLayout!.refresh();
+  });
+  await expect(chooser(page)).toHaveCount(0);
+  await page.evaluate(() => {
+    (window as any).__profileState.user = 'family';
+    window.TvItemLayoutDemo!.api = { ...window.TvItemLayoutDemo!.api, userId: 'family' }; window.TvItemLayout!.refresh();
+  });
+  await choose(page); await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
+  await expect(switching(page).getByRole('status')).toHaveText('Signing in…');
+  await page.evaluate(async () => {
+    (window as any).__profileState.user = 'other';
+    window.TvItemLayoutDemo!.api = { ...window.TvItemLayoutDemo!.api, userId: 'other' }; window.TvItemLayout!.refresh();
+    (window as any).__finishAuth(); await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  await expect(switching(page)).toHaveCount(0);
+  expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.user, s.auth, s.adopted, s.handoff]; })).toEqual(['other', 1, 0, 0]);
 });

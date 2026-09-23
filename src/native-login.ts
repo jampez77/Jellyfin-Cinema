@@ -9,9 +9,9 @@ export class NativeLoginTheme {
     window.addEventListener('popstate', this.refresh);
   }
 
-  update(tv: boolean): void {
+  update(enabled: boolean): void {
     if (this.disposed) return;
-    this.enabled = tv;
+    this.enabled = enabled;
     this.refresh();
   }
 

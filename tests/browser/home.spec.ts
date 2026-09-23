@@ -124,8 +124,8 @@ test('A late native Home host and later section insertions remain visible withou
   await expect(page.locator('#indexPage')).not.toHaveClass(/tvl-native-hidden/);await expect(page.locator('#tv-layout')).toHaveCount(0);
 });
 
-test('Desktop Home retains native content without the TV Home skin',async({page})=>{
-  await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{document.body.classList.remove('layout-tv');document.body.classList.add('layout-desktop');}));
+test('Mobile Home retains native content without the Cinema Home skin',async({page})=>{
+  await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{document.body.classList.remove('layout-tv');document.body.classList.add('layout-mobile');}));
   await page.goto('/?featured=0#/home');await expect(home(page)).toBeVisible();await expect(page.locator('body')).not.toHaveClass(/tvl-home/);
   await expect(page.locator('#tv-layout')).toHaveCount(0);await expect(page.locator('.headerBackButton')).toBeVisible();
 });

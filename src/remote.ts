@@ -1,3 +1,5 @@
+import { desktopPlayerBar } from './desktop-player';
+
 // Remote key coverage follows InPlayerEpisodePreview-TV (MIT).
 const keyCommands: Record<string, string> = {
   ArrowDown:'down', ArrowUp:'up', ArrowLeft:'left', ArrowRight:'right', Enter:'select',
@@ -7,8 +9,11 @@ const remoteCodes: Record<number, string> = {13:'select',37:'left',38:'up',39:'r
 export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane?: (direction:string)=>boolean): () => void {
   let lastFocus: HTMLElement | null = null;
   const held = new Set<string>();
-  const controls = () => Array.from(root.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"], a[href]'))
-    .filter(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
+  const controls = () => [root, desktopPlayerBar(root)].filter((node): node is HTMLElement => !!node)
+    .flatMap(node => Array.from(node.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"], a[href]')))
+    .filter(node => !node.closest('.hide,[hidden]') && node.getClientRects().length > 0);
+  const ownsFocus = (node: Node | null) => !!node && (root.contains(node) || !!desktopPlayerBar(root)?.contains(node));
+  const nativeBarFocused = () => !!desktopPlayerBar(root)?.contains(document.activeElement);
   const foreignDialog = () => Array.from(document.querySelectorAll<HTMLElement>('.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"]'))
     .some(node => node !== root && !root.contains(node) && !node.closest('.hide, [hidden]') && !!node.getClientRects().length);
   const editing = () => {
@@ -79,6 +84,9 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     && ['left', 'right', 'select'].includes(keyCommands[event.key] || remoteCodes[event.keyCode]);
   const keydown = (event: KeyboardEvent) => {
     if (foreignDialog() || event.altKey || event.ctrlKey || event.metaKey) return;
+    // Desktop sliders and playback buttons keep their native keys. Tab still
+    // connects the visible bar to the page's keyboard order.
+    if (nativeBarFocused() && event.key !== 'Tab') return;
     if (event.isComposing) { if (editing()) event.stopImmediatePropagation(); return; }
     // Text fields retain caret keys, Backspace and native form submission.
     // Up/Down, Tab and Escape still let a TV remote leave the field.
@@ -102,6 +110,7 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     held.add(command); act(command);
   };
   const keyup = (event: KeyboardEvent) => {
+    if (nativeBarFocused()) return;
     if (event.isComposing) { if (editing()) event.stopImmediatePropagation(); return; }
     if (editing() && (event.key === 'Backspace' || event.keyCode === 8 || nativeEditingKey(event))) {
       event.stopImmediatePropagation(); return;
@@ -111,7 +120,7 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     if (command && !foreignDialog()) { event.preventDefault(); event.stopImmediatePropagation(); }
   };
   const command = (event: Event) => {
-    if (foreignDialog()) return;
+    if (foreignDialog() || nativeBarFocused()) return;
     const value = (event as CustomEvent).detail?.command?.toLowerCase();
     const translated = value === 'enter' || value === 'ok' ? 'select' : value;
     if (!['select','back','left','right','up','down'].includes(translated)) return;
@@ -121,8 +130,8 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
   };
   const onFocus = (event: FocusEvent) => {
     if (foreignDialog()) return;
-    if (root.contains(event.target as Node)) lastFocus = event.target as HTMLElement;
-    else focus(lastFocus?.isConnected ? lastFocus : controls()[0]);
+    if (ownsFocus(event.target as Node)) lastFocus = event.target as HTMLElement;
+    else focus(lastFocus?.isConnected && ownsFocus(lastFocus) ? lastFocus : controls()[0]);
   };
   const clear = () => held.clear();
   window.addEventListener('keydown',keydown,true);
