@@ -6,8 +6,8 @@ import { existsSync, readFileSync } from 'node:fs';
 const elegantSource = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
 const elegantCss = existsSync(elegantSource) ? readFileSync(elegantSource, 'utf8') : '';
 
-async function setup(page: Page, route: string, admin = false, desktop = false) {
-  if (desktop) await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => document.body.classList.replace('layout-tv', 'layout-desktop')));
+async function setup(page: Page, route: string, admin = false, layout: 'tv' | 'desktop' | 'mobile' = 'tv') {
+  if (layout !== 'tv') await page.addInitScript(layout => document.addEventListener('DOMContentLoaded', () => document.body.classList.replace('layout-tv', `layout-${layout}`)), layout);
   await page.goto('/#/' + route);
   await page.evaluate(admin => {
     document.querySelector('.demo-native-page')?.classList.add('hide');
@@ -51,7 +51,10 @@ async function searchMarkup(page: Page) {
     page.innerHTML = `<div class="padded-left padded-right searchFields"><div class="searchFieldsInner flex align-items-center justify-content-center"><span class="searchfields-icon material-icons search" aria-hidden="true"></span><div class="inputContainer flex-grow" style="margin-bottom:0"><input id="searchTextInput" class="emby-input searchfields-txtSearch" type="text" data-keyboard="true" placeholder="Search" aria-label="Search" autocomplete="off" maxlength="40"></div></div><div class="alphaPicker align-items-center alphaPicker-tv focuscontainer-x focusable"><div class="alphaPickerRow"><button data-value=" " class="alphaPickerButton alphaPickerButton-tv" aria-label="Space">_</button>${letters}<button data-value="backspace" class="alphaPickerButton alphaPickerButton-tv" aria-label="Backspace">←</button></div><div class="alphaPickerRow"><br><button data-value="0" class="alphaPickerButton alphaPickerButton-tv">0</button><button data-value="1" class="alphaPickerButton alphaPickerButton-tv">1</button></div></div></div><div class="verticalSection searchSuggestions" style="text-align:center"><div><h2 class="sectionTitle padded-left padded-right">Suggestions</h2></div><div class="searchSuggestionsList padded-left padded-right"><div><a class="emby-button button-link" style="display:inline-block;padding:.5em 1em" href="#/details?id=movie-tide">After the Tide</a></div><div><a class="emby-button button-link" style="display:inline-block;padding:.5em 1em" href="#/details?id=movie-blue">A Kind of Blue</a></div></div></div><div class="searchResults padded-top padded-bottom-page"><div class="verticalSection"><h2 class="sectionTitle sectionTitle-cards focuscontainer-x padded-left padded-right">Movies</h2><div is="emby-scroller" data-horizontal="true" data-centerfocus="card" class="padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider"><button class="card" aria-label="After the Tide result"><div class="cardBox"><div class="cardScalable"><div class="cardImageContainer"></div></div><div class="cardText">After the Tide</div><div class="cardText cardText-secondary">2025</div></div></button></div></div></div></div>`;
     const input = page.querySelector<HTMLInputElement>('input')!;
     input.addEventListener('input', () => { (window as any).__userPageState.query = input.value; });
-    page.querySelector('.alphaPicker')!.addEventListener('click', event => {
+    // Jellyfin 12 SearchFields.tsx renders the alphabet only in TV mode.
+    // Keep native desktop structure instead of adding TV-only controls to it.
+    if (!document.body.classList.contains('layout-tv') && !document.documentElement.classList.contains('layout-tv')) page.querySelector('.alphaPicker')!.remove();
+    page.querySelector('.alphaPicker')?.addEventListener('click', event => {
       const value = (event.target as HTMLElement).closest<HTMLElement>('[data-value]')?.dataset.value;
       if (value === undefined) return;
       input.value = value === 'backspace' ? input.value.slice(0, -1) : input.value + value;
@@ -132,7 +135,7 @@ test('a pending admin response cannot cross accounts and a revoked policy cannot
   expect(await page.evaluate(() => (window as any).__userPageState.cachedReads)).toBe(0);
 });
 
-test('native preference form controls retain submit behavior and TV styling does not leak to desktop', async ({ page }) => {
+test('native preference form controls retain submit behavior and Cinema styling does not leak to mobile', async ({ page }) => {
   await setup(page, 'mypreferencesdisplay?userId=demo');
   await page.evaluate(() => {
     const page = document.createElement('main'); page.id = 'displayPreferencesPage'; page.className = 'page libraryPage userPreferencesPage noSecondaryNavPage test-native-page';
@@ -142,23 +145,55 @@ test('native preference form controls retain submit behavior and TV styling does
   await expect(page.locator('#displayPreferencesPage')).toHaveCSS('background-color', 'rgb(16, 17, 18)');
   await page.getByRole('button', { name: 'Save', exact: true }).click(); expect(await page.evaluate(() => (window as any).__userPageState.saves)).toBe(1);
   await expect(page.getByRole('button', { name: 'Unavailable setting', exact: true })).toBeHidden();
-  await page.evaluate(() => { document.body.classList.replace('layout-tv', 'layout-desktop'); });
+  await page.evaluate(() => { document.body.classList.replace('layout-tv', 'layout-mobile'); });
   await expect(page.locator('body')).not.toHaveClass(/tvl-native-settings/);
   await expect(page.locator('#displayPreferencesPage')).toHaveCSS('background-color', 'rgb(7, 23, 44)');
 });
 
-test('desktop Search and Settings remain native, and disabling/destroying releases the owned link', async ({ page }) => {
-  await setup(page, 'search', true, true); await searchMarkup(page);
+test('mobile Search and Settings remain native, and destroying desktop Cinema releases the owned link', async ({ page }) => {
+  await setup(page, 'search', true, 'mobile'); await searchMarkup(page);
   await expect(page.locator('#searchPage')).toHaveCSS('background-color', 'rgb(7, 23, 44)');
   await page.evaluate(() => { location.hash = '/mypreferencesmenu'; }); await settingsMarkup(page);
   await expect(page.locator('.tvl-settings-dashboard')).toHaveCount(0);
   await expect(page.locator('#myPreferencesMenuPage .readOnlyContent')).not.toHaveCSS('display', 'grid');
-  await page.evaluate(() => { document.body.classList.replace('layout-desktop', 'layout-tv'); });
+  await page.evaluate(() => { document.body.classList.replace('layout-mobile', 'layout-desktop'); });
   await expect(page.locator('.tvl-settings-dashboard')).toBeVisible();
   await page.evaluate(() => window.TvItemLayout!.destroy());
   await expect(page.locator('.tvl-settings-dashboard')).toHaveCount(0);
   await expect(page.locator('#myPreferencesMenuPage')).toBeVisible();
   await expect(page.locator('body')).not.toHaveClass(/tvl-native-settings|tvl-native-search/);
+});
+
+test('desktop Search keeps native text editing and result actions; Settings retains links and fresh admin checks', async ({ page }) => {
+  await setup(page, 'search', true, 'desktop'); await searchMarkup(page);
+  await expect(page.locator('.layout-tv')).toHaveCount(0);
+  const search = page.locator('#searchPage');
+  await expect(search).toHaveCSS('background-color', 'rgb(16, 17, 18)');
+  await expect(search.locator('.alphaPicker')).toHaveCount(0);
+  const input = search.getByRole('textbox', { name: 'Search', exact: true });
+  await input.click(); await input.fill('Tide'); await input.press('ArrowLeft');
+  expect(await input.evaluate(node => (node as HTMLInputElement).selectionStart)).toBe(3);
+  await input.press('Backspace');
+  expect(await page.evaluate(() => (window as any).__userPageState.query)).toBe('Tie');
+  await expect(input).toHaveCSS('outline-style', 'solid');
+  expect(await input.evaluate(node => node === (window as any).__nativeSearchInput)).toBe(true);
+  await search.getByRole('button', { name: 'After the Tide result', exact: true }).click();
+  await expect(page).toHaveURL(/#\/details\?id=movie-tide$/);
+  await expect(page.locator('body')).not.toHaveClass(/tvl-native-search/);
+  await page.evaluate(() => { document.querySelector('#searchPage')!.classList.add('hide'); location.hash = '/mypreferencesmenu'; });
+  await settingsMarkup(page);
+  const settings = page.locator('#myPreferencesMenuPage');
+  await expect(settings.locator('.readOnlyContent')).toHaveCSS('display', 'grid');
+  await expect(settings.getByRole('link', { name: 'Hidden option', exact: true })).toBeHidden();
+  const dashboard = settings.getByRole('link', { name: 'Dashboard', exact: true });
+  await expect(dashboard).toBeVisible(); await dashboard.focus();
+  await expect(dashboard).toHaveCSS('outline-style', 'solid');
+  const reads = await page.evaluate(() => (window as any).__userPageState.reads.length);
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/dashboard$/);
+  expect(await page.evaluate(() => (window as any).__userPageState.reads.length)).toBe(reads + 1);
+  expect(await page.evaluate(() => (window as any).__userPageState.cachedReads)).toBe(0);
+  await expect(page.locator('.layout-tv')).toHaveCount(0);
 });
 
 test('native page refresh reattaches one admin link without observer churn and layouts fit narrower screens', async ({ page }) => {

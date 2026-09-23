@@ -1,4 +1,5 @@
 import { button, el, replace } from './dom';
+import { isCinemaLayout } from './layout';
 import { plainText } from './utils';
 import type { Item, MediaApi } from './types';
 import { isIntro, queuedFeature, sameMediaId, visible, type ActivePlayback, type PlayerContext } from './player-context';
@@ -86,7 +87,7 @@ export class PlayerBrowser {
   }
   private active(): ActivePlayback | null {
     if (!/(?:^|\/)video\/?(?:\?|$)/i.test(location.hash.replace(/^#/, '') || location.pathname)
-      || !(document.documentElement.classList.contains('layout-tv') || document.body.classList.contains('layout-tv'))) return null;
+      || !isCinemaLayout()) return null;
     const current = this.context.getSnapshot();
     return current && visible(current.osd) && visible(current.video) ? current : null;
   }

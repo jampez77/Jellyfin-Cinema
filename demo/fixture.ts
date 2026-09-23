@@ -4,6 +4,7 @@ import { el, picture, replace } from '../src/dom';
 // This file belongs to the preview only. It is never included in the installer bundle.
 const MINUTE = 60 * 10_000_000;
 const scenario = new URLSearchParams(location.search).get('scenario');
+if (new URLSearchParams(location.search).get('layout') === 'desktop') document.body.classList.replace('layout-tv', 'layout-desktop');
 const library = new Map<string, Item>();
 const artwork = new Map<string, string>();
 const asset = (name: string) => `/demo/assets/${name}.jpg`;

@@ -1,8 +1,8 @@
 {
   "name": "jellyfin-cinema",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "private": true,
-  "description": "Cinematic Jellyfin TV browsing, personal collection rows and in-player navigation",
+  "description": "Cinematic Jellyfin TV and desktop browsing, personal collection rows and in-player navigation",
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/dev.mjs",

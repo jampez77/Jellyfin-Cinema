@@ -82,6 +82,41 @@ async function transition(page: Page, id: string) {
   }, id);
 }
 
+test('desktop mouse browsing preserves native player controls, sliders and layout, while mobile stays native', async ({ page }) => {
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page);
+  await page.evaluate(() => {
+    const state = { clicks: 0 }; (window as any).__desktopPlayerState = state;
+    document.querySelector('.btnUserRating')!.addEventListener('click', () => state.clicks++);
+    const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = '25';
+    slider.setAttribute('aria-label', 'Native volume'); document.querySelector('.osdControls')!.append(slider);
+    document.querySelector<HTMLVideoElement>('video')!.style.cursor = 'crosshair';
+  });
+  await expect(page.locator('body')).toHaveClass(/layout-desktop/);
+  await expect(page.locator('body')).not.toHaveClass(/layout-tv/);
+  const native = page.locator('.btnUserRating'), controls = page.locator('.osdControls');
+  const before = await controls.boundingBox();
+  await page.locator('#tvl-player-browse').click();
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await page.screenshot({ path: test.info().outputPath('desktop-episode-browser.png') });
+  await browser(page).locator('.tvl-player-next').click();
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-3');
+  await browser(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(browser(page)).toHaveCount(0); await native.click();
+  expect(await page.evaluate(() => (window as any).__desktopPlayerState.clicks)).toBe(1);
+  const after = await controls.boundingBox();
+  expect(after!.x).toBe(before!.x); expect(after!.width).toBe(before!.width);
+  const slider = page.getByRole('slider', { name: 'Native volume', exact: true });
+  await slider.focus(); await page.keyboard.press('ArrowDown');
+  await expect(slider).toHaveValue('24'); await expect(browser(page)).toHaveCount(0);
+  await expect(page.locator('video')).toHaveCSS('cursor', 'crosshair');
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+  await page.evaluate(() => document.documentElement.classList.add('layout-mobile'));
+  await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
+  await native.click(); expect(await page.evaluate(() => (window as any).__desktopPlayerState.clicks)).toBe(2);
+  await page.evaluate(() => document.documentElement.classList.remove('layout-mobile'));
+  await expect(page.locator('#tvl-player-browse')).toBeVisible();
+});
+
 test('Down browses the complete show continuously across seasons and wraps without interrupting playback', async ({ page }) => {
   await fixture(page); await player(page);
   await page.keyboard.press('ArrowDown');

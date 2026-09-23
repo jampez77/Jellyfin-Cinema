@@ -83,6 +83,9 @@ async function setup(page: Page, artwork: 'image' | 'missing' | 'empty' = 'image
     queue.querySelector('.nowPlayingVolumeSlider')!.addEventListener('input', event => { state.volume = +(event.target as HTMLInputElement).value; });
     playlist.addEventListener('click', event => { const row = (event.target as HTMLElement).closest<HTMLElement>('[data-playlistitemid]'); if (row) state.track = +row.dataset.playlistitemid!.slice(-1); });
   }, { template, nativeCss, artwork });
+  // Cinema applies its owned layout marker on the scheduled initial refresh.
+  // Wait for the rendered queue layout before measuring artwork geometry.
+  await expect(page.locator('#nowPlayingPage .nowPlayingInfoContainer')).toHaveCSS('display', 'grid');
 }
 
 test('Jellyfin 12 queue has a full Cinema hero and usable native playback controls', async ({ page }) => {
@@ -142,12 +145,20 @@ test('missing artwork and idle player preserve bounded artwork and native disabl
   await page.screenshot({ path: test.info().outputPath('jellyfin12-music-idle.png') });
 });
 
-test('real queue returns to native desktop and teardown leaves native nodes intact', async ({ page }) => {
+test('real queue remains themed on desktop, releases on mobile and preserves native nodes on teardown', async ({ page }) => {
   await setup(page);
   await page.evaluate(() => { document.documentElement.classList.remove('layout-tv'); document.body.classList.remove('layout-tv'); document.documentElement.classList.add('layout-desktop'); });
+  await expect(page.locator('#nowPlayingPage .nowPlayingInfoContainer')).toHaveCSS('display', 'grid');
+  await page.locator('#nowPlayingPage .btnPlayPause').click();
+  await page.getByRole('slider', { name: 'Seek', exact: true }).focus(); await page.keyboard.press('ArrowRight');
+  expect(await page.evaluate(() => (window as any).__musicNativeState.paused)).toBe(true);
+  expect(await page.evaluate(() => (window as any).__musicNativeState.seek)).toBe(26);
+  await expect(page.locator('html')).toHaveClass(/layout-desktop/);
+  await expect(page.locator('html')).not.toHaveClass(/layout-tv/);
+  await page.evaluate(() => document.body.classList.add('layout-mobile'));
   await expect(page.locator('#nowPlayingPage .nowPlayingInfoContainer')).toHaveCSS('display', 'flex');
   await expect(page.locator('#nowPlayingPage .remoteControlContent')).toHaveCSS('background-color', 'rgb(0, 110, 152)');
-  await page.evaluate(() => { document.documentElement.classList.remove('layout-desktop'); document.documentElement.classList.add('layout-tv'); });
+  await page.evaluate(() => { document.body.classList.remove('layout-mobile'); });
   await expect(page.locator('#nowPlayingPage .nowPlayingInfoContainer')).toHaveCSS('display', 'grid');
   await page.evaluate(() => window.TvItemLayout?.destroy());
   await expect(page.locator('#nowPlayingPage .nowPlayingInfoContainer')).toHaveCSS('display', 'flex');

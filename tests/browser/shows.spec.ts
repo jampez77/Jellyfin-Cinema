@@ -145,7 +145,7 @@ test('TV URL genres and native viewshow activate the library while unsupported n
     document.querySelector('#tvRecommendedPage')!.dispatchEvent(new CustomEvent('viewshow', { detail: { params: { topParentId: 'library-tv' } } }));
   });
   await expect(cards(page)).toHaveCount(5);
-  await page.evaluate(() => document.body.classList.replace('layout-tv', 'layout-desktop'));
+  await page.evaluate(() => document.body.classList.replace('layout-tv', 'layout-mobile'));
   await expect(shows(page)).toHaveCount(0);
   await expect(page.locator('#tvRecommendedPage')).toHaveCSS('visibility', 'visible');
 });
