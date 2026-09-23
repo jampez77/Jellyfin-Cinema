@@ -1,0 +1,17 @@
+.tvl-channel-status {
+  position: fixed;
+  z-index: 10030;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  margin: 0;
+  padding: .8em 1.3em;
+  border: 1px solid rgba(207, 225, 211, .25);
+  border-radius: .7em;
+  background: rgba(14, 27, 20, .96);
+  color: #f0f5ef;
+  font: 500 1.05rem/1.4 system-ui, sans-serif;
+  box-shadow: 0 .4em 2em rgba(0, 0, 0, .35);
+  pointer-events: none;
+}

@@ -449,3 +449,93 @@ test('desktop account changes close the chooser and cannot adopt a late response
   await expect(switching(page)).toHaveCount(0);
   expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.user, s.auth, s.adopted, s.handoff]; })).toEqual(['other', 1, 0, 0]);
 });
+
+
+async function nativeTvSwitch(page: Page, options: { deferLogout?: boolean; rejectAuth?: boolean; deferAuth?: boolean } = {}) {
+  await setupSwitch(page, options);
+  await page.evaluate(options => {
+    const host = window as any, state = host.__profileState;
+    Object.assign(state, { nativeServerSelections: 0, queryClears: 0, viewResets: 0 });
+    // Official webOS NativeShell.selectServer posts to its parent, which
+    // removes the web frame. A document navigation exercises the same loss of
+    // Cinema's in-memory switch; no intent or credentials are persisted here.
+    host.NativeShell = { selectServer() { state.nativeServerSelections++; location.href = '/demo/index.html?tv-server-picker#/selectserver'; } };
+    host.__nativeSelectServer = host.NativeShell.selectServer;
+    host.__finishLogout = () => {
+      state.user = ''; state.queryClears++; state.viewResets++;
+      host.NativeShell.selectServer();
+    };
+    host.Dashboard.logout = () => {
+      state.logout++;
+      if (!options.deferLogout) void Promise.resolve().then(host.__finishLogout);
+    };
+    const authenticate = host.ApiClient.ajax;
+    host.ApiClient.ajax = (request: unknown) => {
+      state.cleanupBeforeAuth = [state.queryClears, state.viewResets];
+      return authenticate(request);
+    };
+  }, options);
+}
+
+test('webOS native logout keeps the chosen server alive until exactly one eligible profile authentication completes', async ({ page }) => {
+  await nativeTvSwitch(page); await choose(page);
+  await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
+  await expect(switching(page)).toHaveCount(0); await expect(page).toHaveURL(/#\/home$/);
+  expect(await page.evaluate(() => {
+    const host = window as any, s = host.__profileState;
+    return { selected: s.nativeServerSelections, cleanup: s.cleanupBeforeAuth, routes: s.routes, auth: s.auth, adopted: s.adopted, user: s.user, restored: host.NativeShell.selectServer === host.__nativeSelectServer };
+  })).toEqual({ selected: 0, cleanup: [1, 1], routes: ['login?serverid=demo', 'home'], auth: 1, adopted: 1, user: 'child', restored: true });
+  // Unrelated ordinary logout still delegates to the TV's real server picker.
+  await page.evaluate(() => (window as any).Dashboard.logout());
+  await expect(page).toHaveURL(/\?tv-server-picker#\/selectserver$/);
+});
+
+test('webOS explicit login stays on the current server without attempting authentication', async ({ page }) => {
+  await nativeTvSwitch(page); await choose(page);
+  await chooser(page).getByRole('button', { name: 'Use login screen', exact: true }).click();
+  await expect(chooser(page)).toHaveCount(0); await expect(page).toHaveURL(/#\/login\?serverid=demo$/);
+  expect(await page.evaluate(() => {
+    const host = window as any, s = host.__profileState;
+    return [s.nativeServerSelections, s.queryClears, s.viewResets, s.auth, host.NativeShell.selectServer === host.__nativeSelectServer];
+  })).toEqual([0, 1, 1, 0, true]);
+});
+
+test('webOS rejected authentication restores the native shell and keeps the same-server login usable', async ({ page }) => {
+  await nativeTvSwitch(page, { rejectAuth: true }); await choose(page);
+  await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
+  await expect(switching(page).getByRole('button', { name: 'Continue to login', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => {
+    const host = window as any, s = host.__profileState;
+    return [s.nativeServerSelections, s.auth, s.adopted, host.NativeShell.selectServer === host.__nativeSelectServer];
+  })).toEqual([0, 1, 0, true]);
+  await switching(page).getByRole('button', { name: 'Continue to login', exact: true }).click();
+  await expect(switching(page)).toHaveCount(0); await expect(page).toHaveURL(/#\/login\?serverid=demo$/);
+});
+
+test('webOS cancel during authentication cannot adopt a late response and leaves the shell restored', async ({ page }) => {
+  await nativeTvSwitch(page, { deferAuth: true }); await choose(page);
+  await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
+  await expect(switching(page).getByRole('status')).toHaveText('Signing in…');
+  await switching(page).getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.evaluate(async () => { (window as any).__finishAuth(); await new Promise(resolve => setTimeout(resolve, 0)); });
+  expect(await page.evaluate(() => {
+    const host = window as any, s = host.__profileState;
+    return [s.nativeServerSelections, s.auth, s.adopted, s.user, host.NativeShell.selectServer === host.__nativeSelectServer];
+  })).toEqual([0, 1, 0, '', true]);
+  await expect(switching(page)).toHaveCount(0); await expect(page).toHaveURL(/#\/login\?serverid=demo$/);
+});
+
+for (const action of ['switch', 'login'] as const) test(`destroy restores the webOS bridge during pending native ${action} cleanup`, async ({ page }) => {
+  await nativeTvSwitch(page, { deferLogout: true }); await choose(page);
+  await chooser(page).getByRole('button', { name: action === 'switch' ? 'Kids, switch profile' : 'Use login screen', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const host = window as any; return host.NativeShell.selectServer !== host.__nativeSelectServer;
+  })).toBe(true);
+  await page.evaluate(() => window.TvItemLayout!.destroy());
+  await expect(chooser(page)).toHaveCount(0); await expect(switching(page)).toHaveCount(0);
+  expect(await page.evaluate(() => {
+    const host = window as any; return [host.NativeShell.selectServer === host.__nativeSelectServer, host.__profileState.auth];
+  })).toEqual([true, 0]);
+  await page.evaluate(() => (window as any).__finishLogout());
+  await expect(page).toHaveURL(/\?tv-server-picker#\/selectserver$/);
+});

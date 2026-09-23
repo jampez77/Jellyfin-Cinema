@@ -6,7 +6,7 @@ Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netf
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
-**0.2.8 is available as a prerelease** ([release notes](docs/releases/v0.2.8.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It brings the Cinema theme, collection rows, player features and **Who’s watching?** chooser to desktop, while preserving Jellyfin’s selected display mode. Mouse, keyboard and TV remote controls are supported. This release still needs installation and physical-TV testing.
+**0.2.9 is available as a prerelease** ([release notes](docs/releases/v0.2.9.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It syncs custom Home rows between devices for the same account, keeps webOS profile switches on the current server, removes the delayed Cinema takeover on navigation, and adds live-channel commands where the client exposes them. This release still needs installation and physical-TV testing.
 
 ## The layouts
 
@@ -33,6 +33,8 @@ Working standalone InPlayerEpisodePreview-TV controls take precedence to avoid d
 
 Movie and series pages reveal Jellyfin’s existing theme video behind readable gradients when it is playing. Theme playback remains controlled by Jellyfin’s user settings; the plugin does not start another stream. Static artwork returns when the video is unavailable. Native page controls are hidden visually while our layout is open, while remaining available to Jellyfin’s playback actions.
 
+During live video, exposed **ChannelUp / ChannelDown** commands or channel keys step through the same permitted channel order as the guide. A held key does not repeatedly retune. LG lists programme +/− as unavailable to web apps on some devices, so physical delivery needs testing; if those keys do not reach Jellyfin, use **Down → Channels** to choose a channel. See [LG’s remote-key documentation](https://webostv.developer.lge.com/develop/guides/magic-remote).
+
 Open **Live TV** from Jellyfin's navigation (`web/#/livetv?collectionType=livetv`) to use the main guide. **Channels & guide** on a channel's detail page links to that same guide. Use arrows to navigate, **OK / Enter** to select, and **Back / Escape** to return. Episode and guide lists scroll as focus moves. Pointer controls also work.
 
 The plugin activates in Jellyfin Web’s TV and desktop display modes. Mobile mode retains its normal pages. Web-based TV clients can load it; native clients with independent interfaces cannot. CSS and JavaScript include fallbacks for webOS 6’s Chromium 79 engine. Physical remotes and an actual Jellyfin server still need installation testing.
@@ -51,7 +53,7 @@ Choose **Save rows** to apply your changes. Ranked artwork uses large outlined S
 
 For platform charts, use one row per service with separate **Movies** and **Shows** tabs. The [UK platform trending setup](docs/platform-trending.md) explains optional SmartLists/MDBList sources for Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+. Existing Jellyfin collections work without those integrations.
 
-These choices are saved in this browser’s local storage for the current server and account. They stay on this device/browser and do not sync to other clients; clearing browser storage removes them. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
+These choices now sync through your Jellyfin server for the signed-in account, including row titles, sources, tabs, ranking, item order and Home position. After upgrading, open Home once in the desktop browser where you configured your rows so it can migrate them. Then reopen Home on the TV using the same account; an already-open Home checks for updates every minute and when it regains focus. The server copy wins if devices disagree; concurrent edits prompt you to reload instead of overwriting another device. Local storage is an offline cache. The standalone demo remains local-only. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
 
 ## Preview locally
 
@@ -65,7 +67,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.8 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.8) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.8 release notes](docs/releases/v0.2.8.md) for changes and validation status.
+The [v0.2.9 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.9) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.9 release notes](docs/releases/v0.2.9.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -81,7 +83,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.8.1` for 10.10.7, `0.2.8.2` for 10.11.x and `0.2.8.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.9.1` for 10.10.7, `0.2.9.2` for 10.11.x and `0.2.9.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -133,8 +135,10 @@ Optional theme-conflict checks use an external [ElegantFin stylesheet](https://g
 | `src/native-user-pages.ts`, `src/native-user-pages.css`, `src/current-user-policy.ts` | Native Search and Settings styling with current-account Dashboard permission checks |
 | `src/native-login.ts`, `src/login.css`, `src/native-folder.ts`, `src/native-folder.css` | Signed-out login and ordinary folder styling without replacing native controllers |
 | `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
-| `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, local preferences and numbered artwork |
+| `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, settings schema and numbered artwork |
 | `src/home-collection-editor.ts`, `src/home-row-card.ts`, `src/home-row-placement.ts` | Collection row editor, shared Home/preview cards and placement among native Home sections |
+| `src/home-collection-store.ts`, `src/home-collection-transport.ts` | Per-account server sync, migration, revisions and offline cache |
+| `src/channel-zapper.ts` | Live channel commands with native playback and stale-request guards |
 | `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
 | `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
 | `src/native-host.ts`, `src/native-host.css` | Native page visibility and restoration |

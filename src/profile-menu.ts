@@ -20,6 +20,7 @@ export class ProfileMenu {
   private expanded: string | null = null;
   private popup: string | null = null;
   private detachRemote?: () => void;
+  private loginPending?: AbortController;
   private switching?: { cancel: () => void; remove: () => void; routeChanged: () => void };
 
   constructor() {
@@ -33,7 +34,7 @@ export class ProfileMenu {
   update(enabled: boolean, scope: string | null): void {
     if (this.disposed) return;
     const supported = isCinemaLayout();
-    if (!supported) this.switching?.cancel();
+    if (!supported) { this.switching?.cancel(); this.loginPending?.abort(); }
     enabled = enabled && supported;
     if (!enabled || scope !== this.scope) this.close(false);
     this.enabled = enabled; this.scope = scope;
@@ -66,7 +67,7 @@ export class ProfileMenu {
       const failed = () => {
         if (current()) { status.textContent = 'Could not open the login screen. Please try again.'; login.disabled = false; }
       };
-      if (session) { void openProfileLogin(session).then(() => this.close(false)).catch(failed); return; }
+      if (session) { void this.openLogin(session).then(() => this.close(false)).catch(failed); return; }
       try {
         const native = dashboard();
         if (typeof native?.logout !== 'function') throw new Error('Native profile switching is unavailable');
@@ -203,11 +204,18 @@ export class ProfileMenu {
       const action = button(needsLogin ? 'Continue to login' : 'Close', '', 'tvl-primary', () => {
         remove();
         if (needsLogin && sameProfileServer(session) && session.client.getCurrentUserId() === failedUser) {
-          if (session.client.getCurrentUserId()) void openProfileLogin(session).catch(() => {});
+          if (session.client.getCurrentUserId()) void this.openLogin(session).catch(() => {});
           else session.dashboard.navigate(`login?serverid=${encodeURIComponent(session.serverId)}`);
         }
       });
       panel.append(action); action.focus({ preventScroll: true });
+    });
+  }
+
+  private openLogin(session: ProfileSession): Promise<void> {
+    const controller = new AbortController(); this.loginPending = controller;
+    return openProfileLogin(session, controller.signal).finally(() => {
+      if (this.loginPending === controller) this.loginPending = undefined;
     });
   }
 
@@ -244,6 +252,7 @@ export class ProfileMenu {
 
   destroy(): void {
     if (this.disposed) return;
+    this.loginPending?.abort();
     this.switching?.cancel(); this.switching?.remove();
     this.close(true); this.disposed = true; this.enabled = false;
     document.removeEventListener('click', this.onClick, true);

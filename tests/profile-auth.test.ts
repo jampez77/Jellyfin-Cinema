@@ -154,3 +154,115 @@ test('missing server identity and empty or malformed tokens never reach native p
     await assert.rejects(start(), /different profile/); assert.equal(state.adopted, 0);
   }
 });
+
+// Replay Dashboard.logout's real ordering: native logout, query cache clear,
+// view reset, then NativeShell.selectServer on a MultiServer TV. The production
+// webOS callback unloads its content frame; this unit substitute records that
+// boundary and uses an in-document selector so a failing test can still settle.
+function nativeTvLogout(fixture: ReturnType<typeof setup>) {
+  const { state, dashboard, route } = fixture;
+  const native = { serverSelections: 0, queryClears: 0, viewResets: 0 };
+  const shell = { selectServer() { native.serverSelections++; route('#/selectserver'); } };
+  (window as unknown as { NativeShell: typeof shell }).NativeShell = shell;
+  dashboard.logout = () => {
+    state.logout++;
+    void Promise.resolve().then(() => {
+      state.user = ''; native.queryClears++; native.viewResets++;
+      shell.selectServer();
+    });
+  };
+  return { shell, native, original: shell.selectServer };
+}
+
+test('MultiServer TV preserves native logout cleanup but keeps the profile switch on the same server', async () => {
+  const fixture = setup(), { state, start } = fixture;
+  const { shell, native, original } = nativeTvLogout(fixture);
+  await start();
+  assert.deepEqual(native, { serverSelections: 0, queryClears: 1, viewResets: 1 });
+  assert.deepEqual(state.routes, ['login?serverid=server', 'home']);
+  assert.equal(state.auth.length, 1); assert.equal(state.adopted, 1); assert.equal(state.handoff, 1);
+  assert.equal(shell.selectServer, original);
+  // An ordinary later server-selection request still reaches the TV shell.
+  shell.selectServer(); assert.equal(native.serverSelections, 1);
+});
+
+test('explicit Use login screen also preserves the selected TV server without authenticating', async () => {
+  const fixture = setup(), { state, session } = fixture;
+  const { shell, native, original } = nativeTvLogout(fixture);
+  await openProfileLogin(session);
+  assert.deepEqual(native, { serverSelections: 0, queryClears: 1, viewResets: 1 });
+  assert.deepEqual(state.routes, ['login?serverid=server']);
+  assert.deepEqual(state.auth, []); assert.equal(state.adopted, 0); assert.equal(shell.selectServer, original);
+});
+
+
+test('TV shell callback is restored if native logout or same-server navigation fails', async () => {
+  for (const failure of ['logout', 'navigation'] as const) {
+    const fixture = setup(), { dashboard, state, start } = fixture;
+    const { shell, original } = nativeTvLogout(fixture);
+    if (failure === 'logout') dashboard.logout = () => { throw new Error('logout failed'); };
+    else dashboard.navigate = () => { throw new Error('navigation failed'); };
+    await assert.rejects(start(), new RegExp(failure + ' failed'));
+    assert.equal(shell.selectServer, original); assert.equal(profileSwitchPending(), false);
+    assert.deepEqual(state.auth, []); assert.equal(state.adopted, 0);
+  }
+});
+
+test('unmodifiable TV shell fails before logout rather than losing the selected profile', async () => {
+  const fixture = setup(), { state, start } = fixture;
+  const { shell, original } = nativeTvLogout(fixture);
+  Object.defineProperty(shell, 'selectServer', { value: original, writable: false, configurable: false });
+  await assert.rejects(start(), ProfileLoginRequired);
+  assert.equal(state.logout, 0); assert.deepEqual(state.auth, []); assert.equal(profileSwitchPending(), false);
+  assert.equal(shell.selectServer, original);
+});
+
+test('TV cancellation restores the shell callback immediately but keeps the lock through pending native cleanup', async () => {
+  const fixture = setup(), { state, start, dashboard, controller } = fixture;
+  const { shell, original, native } = nativeTvLogout(fixture);
+  dashboard.logout = () => { state.logout++; };
+  const work = start(); await tick();
+  assert.notEqual(shell.selectServer, original);
+  controller.abort(); assert.equal(shell.selectServer, original); assert.equal(profileSwitchPending(), true);
+  assert.deepEqual(state.auth, []);
+  state.user = ''; native.queryClears++; native.viewResets++; shell.selectServer();
+  await assert.rejects(work, { name: 'AbortError' });
+  assert.equal(profileSwitchPending(), false); assert.deepEqual(state.auth, []); assert.equal(state.adopted, 0);
+});
+
+for (const change of ['client', 'server', 'route'] as const) test(`TV logout cannot override a changed ${change}`, async () => {
+  const fixture = setup(), { state, start, dashboard, route, client } = fixture;
+  const { shell, original, native } = nativeTvLogout(fixture);
+  dashboard.logout = () => { state.logout++; };
+  const work = start(); await tick();
+  if (change === 'client') (window as unknown as { ApiClient: typeof client }).ApiClient = { ...client };
+  else if (change === 'server') state.server = 'different-server';
+  else route('#/search');
+  state.user = ''; native.queryClears++; native.viewResets++; shell.selectServer();
+  await assert.rejects(work, { name: 'AbortError' });
+  assert.equal(native.serverSelections, 1); assert.deepEqual(state.routes, []); assert.deepEqual(state.auth, []);
+  assert.equal(shell.selectServer, original);
+});
+
+test('a separate server-selection request during logout is delegated and cancels later profile authentication', async () => {
+  const fixture = setup(), { state, start, dashboard } = fixture;
+  const { shell, original, native } = nativeTvLogout(fixture);
+  dashboard.logout = () => { state.logout++; };
+  const work = start(); await tick();
+  // The current user still exists: this is not Dashboard's completed logout.
+  shell.selectServer(); assert.equal(native.serverSelections, 1); assert.equal(shell.selectServer, original);
+  state.user = ''; shell.selectServer();
+  await assert.rejects(work, { name: 'AbortError' });
+  assert.deepEqual(state.auth, []); assert.equal(state.adopted, 0);
+});
+
+test('cleanup never overwrites a newer shell bridge handler', async () => {
+  const fixture = setup(), { state, start, dashboard, controller, route } = fixture;
+  const { shell } = nativeTvLogout(fixture);
+  dashboard.logout = () => { state.logout++; };
+  const work = start(); await tick();
+  const replacement = () => route('#/selectserver'); shell.selectServer = replacement;
+  controller.abort(); state.user = ''; shell.selectServer();
+  await assert.rejects(work, { name: 'AbortError' }); assert.equal(shell.selectServer, replacement);
+  assert.deepEqual(state.auth, []); assert.equal(profileSwitchPending(), false);
+});

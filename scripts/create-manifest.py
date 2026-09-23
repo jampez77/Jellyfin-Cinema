@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who’s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin’s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
+        'changelog': "Syncs custom Home rows per account across desktop and TV, with migration of existing browser rows and protection against conflicting edits. Keeps Cinema profile switching on the current webOS server after native logout. Applies Cinema route styling immediately on Back/navigation. Adds live channel up/down commands where the TV exposes them; LG remote delivery varies. Open Home once on the original desktop browser after updating to migrate rows. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
