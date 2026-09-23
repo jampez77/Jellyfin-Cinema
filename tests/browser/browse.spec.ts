@@ -47,11 +47,11 @@ test('Audio details recover from playback errors and support favourites without 
   await expect(song.getByRole('button',{name:'Remove from favourites',exact:true})).toBeFocused();
 });
 
-test('Music suggestions, songs and native playlists preserve the correct tab contract',async({page})=>{
+test('Music suggestions, songs and playlists preserve the correct tab contract',async({page})=>{
   await page.goto(`${musicRoute}&tab=1`);await expect(music(page).getByRole('region',{name:'Recently added',exact:true}).locator('[data-browse-item]')).toHaveCount(4);
   await expect(music(page).getByRole('region',{name:'Recently played',exact:true}).locator('[data-browse-item]')).toHaveCount(3);
   await music(page).getByRole('button',{name:'Songs',exact:true}).click();await expect(cards(page,'Music')).toHaveCount(12);
-  await music(page).getByRole('button',{name:'Playlists',exact:true}).click();await expect(page).toHaveURL(/#\/music\?.*tab=4/);await expect(page.locator('#tv-layout')).toHaveCount(0);
+  await music(page).getByRole('button',{name:'Playlists',exact:true}).click();await expect(cards(page,'Music')).toHaveCount(2);await expect(music(page).getByRole('button',{name:'Quiet moments',exact:true})).toBeVisible();
 });
 
 test('Recordings support native list and live-TV tab routes, active/completed filters and title search',async({page})=>{

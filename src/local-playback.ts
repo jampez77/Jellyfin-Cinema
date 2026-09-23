@@ -6,7 +6,7 @@ export interface PlaybackClient {
   getLocalTrailers?(userId: string, itemId: string): Promise<Item[]>;
 }
 
-type ItemsContainer = HTMLDivElement & { attachedCallback?: () => void };
+type ItemsContainer = HTMLDivElement & { attachedCallback?: () => void; fetchData?: () => Promise<{ Items: Item[] }> };
 
 function sameId(a: string | null | undefined, b: string): boolean {
   return !!a && a.replace(/-/g, '').toLowerCase() === b.replace(/-/g, '').toLowerCase();
@@ -107,7 +107,7 @@ export async function dispatchTrailerPlayback(client: PlaybackClient, userId: st
  * confirms dispatch only; the caller must wait for the playback route to open.
  */
 export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks: number,
-  isCurrent: () => boolean): Promise<void> {
+  isCurrent: () => boolean, playlist?: { items: Item[]; startIndex: number }): Promise<void> {
   if (!isCurrent()) throw new DOMException('This media page has closed.', 'AbortError');
   if (!item.Id || item.PlayAccess === 'None' || item.LocationType === 'Virtual'
     || item.IsMissing || item.IsVirtualItem || item.IsPlaceHolder) {
@@ -125,11 +125,15 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     id = item.ChannelId;
     type = 'TvChannel';
   }
-  if (!['Movie', 'Episode', 'TvChannel', 'Trailer', 'Audio', 'MusicAlbum', 'Video'].includes(type || '')) {
+  if (!['Movie', 'Episode', 'TvChannel', 'Trailer', 'Audio', 'MusicAlbum', 'Video', 'Playlist'].includes(type || '')) {
     throw new Error('Choose an available video, album, song, or live channel to play.');
   }
   const position = type === 'TvChannel' || !Number.isFinite(ticks) ? 0 : Math.max(0, Math.trunc(ticks));
-  if (clickCurrentMovie(item, position)) return;
+  if (!playlist && clickCurrentMovie(item, position)) return;
+  if (playlist && (!playlist.items.length || !Number.isInteger(playlist.startIndex)
+    || playlist.startIndex < 0 || playlist.startIndex >= playlist.items.length)) {
+    throw new Error('This playlist has no available items to play.');
+  }
 
   let container: ItemsContainer | undefined;
   try {
@@ -144,15 +148,31 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     container.setAttribute('data-contextmenu', 'false');
     container.setAttribute('data-multiselect', 'false');
     container.style.display = 'none';
-    const card = document.createElement('div');
-    card.className = 'itemAction';
-    card.dataset.id = id;
-    card.dataset.type = type;
-    card.dataset.mediatype = type === 'Audio' || type === 'MusicAlbum' ? 'Audio' : 'Video';
-    card.dataset.serverid = serverId;
-    card.dataset.isfolder = type === 'MusicAlbum' ? 'true' : 'false';
-    card.dataset.positionticks = String(position);
-    container.appendChild(card);
+    let card: HTMLDivElement | undefined;
+    const entries = playlist?.items || [{ ...item, Id: id, Type: type }];
+    if (playlist) {
+      // Native shortcuts.playAllFromHere uses the selected sibling's index and
+      // fetchData to hand the complete, ordered playlist to playbackManager.
+      container.className = 'itemsContainer';
+      container.fetchData = async () => {
+        if (!isCurrent()) throw new DOMException('This media page has closed.', 'AbortError');
+        return { Items: playlist.items.map(entry => ({ ...entry, ServerId: serverId })) };
+      };
+    }
+    for (const [index, entry] of entries.entries()) {
+      const element = document.createElement('div');
+      element.className = 'itemAction';
+      element.dataset.id = entry.Id;
+      element.dataset.type = entry.Type || '';
+      const mediaType = entry.MediaType || (entry.Type === 'Audio' || entry.Type === 'MusicAlbum' ? 'Audio' : entry.Type === 'Playlist' ? undefined : 'Video');
+      if (mediaType) element.dataset.mediatype = mediaType;
+      element.dataset.serverid = serverId;
+      element.dataset.isfolder = entry.Type === 'MusicAlbum' || entry.Type === 'Playlist' ? 'true' : 'false';
+      element.dataset.positionticks = String(playlist ? 0 : position);
+      if (playlist) element.dataset.action = 'playallfromhere';
+      container.appendChild(element);
+      if (index === (playlist?.startIndex || 0)) card = element;
+    }
     document.body.appendChild(container);
     // Allow the polyfill's MutationObserver to attach Jellyfin's command handler.
     await new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -160,11 +180,13 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     if (!container.isConnected || typeof container.attachedCallback !== 'function') {
       throw new Error('The Jellyfin playback action is unavailable.');
     }
-    container.addEventListener('command', event => event.stopPropagation());
-    const command = new CustomEvent('command', {
+    const eventType = playlist ? 'click' : 'command';
+    container.addEventListener(eventType, event => event.stopPropagation());
+    // playallfromhere is a native card click action, not an input command.
+    const command = playlist ? new MouseEvent('click', { bubbles: true, cancelable: true }) : new CustomEvent('command', {
       detail: { command: 'play' }, bubbles: true, cancelable: true
     });
-    card.dispatchEvent(command);
+    card!.dispatchEvent(command);
     if (!command.defaultPrevented) throw new Error('Jellyfin did not handle the playback action.');
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;

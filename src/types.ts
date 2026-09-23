@@ -4,6 +4,7 @@ export type Item = {
   Id: string; Name: string; Type?: string; Overview?: string; OriginalTitle?: string;
   CollectionType?: string;
   Artists?: string[]; AlbumArtist?: string; Album?: string; AlbumId?: string;
+  PlaylistItemId?: string;
   IsInProgress?: boolean; Status?: string; MediaType?: string; IsFolder?: boolean;
   ExtraType?: string;
   ProductionYear?: number; OfficialRating?: string; CommunityRating?: number;
@@ -63,6 +64,7 @@ export interface MediaApi extends BrowseApi {
   getPrograms(channelId: string): Promise<Item[]>;
   setFavorite(id: string, favorite: boolean): Promise<void>;
   play(item: Item, ticks: number, isCurrent: () => boolean): Promise<void>;
+  playPlaylist(playlist: Item, entryId: string | undefined, isCurrent: () => boolean): Promise<void>;
   playTrailer(item: Item, isCurrent: () => boolean): Promise<void>;
   image(item: Item, kind: 'backdrop' | 'thumb' | 'logo' | 'disc' | 'poster'): string | null;
 }

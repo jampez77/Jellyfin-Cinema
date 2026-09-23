@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
+        'changelog': "Fixes the video OSD preview button squeezing playback controls. Moves Home collection setup to Collections with one-row editing, local item sorting and manual order, and custom rows positioned among native Home sections. Adds cinematic playlists with complete ordered queue playback, native music-player styling, album focus spacing and themed native DVR controls. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

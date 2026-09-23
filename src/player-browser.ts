@@ -40,7 +40,9 @@ export class PlayerBrowser {
 
   constructor(private context: PlayerContext, private getApi: () => MediaApi | null) {
     this.entry.id = 'tvl-player-browse';
-    this.entry.title = 'Browse without leaving playback';
+    this.entry.lastElementChild?.remove();
+    this.entry.setAttribute('aria-label', 'Browse');
+    this.entry.title = 'Browse (Down)';
     this.entry.setAttribute('aria-haspopup', 'dialog');
     this.seasonNav.setAttribute('aria-label', 'Seasons');
     this.status.setAttribute('role', 'status');
@@ -97,10 +99,14 @@ export class PlayerBrowser {
     if (!current || this.standalone()) {
       this.entry.remove(); this.close(false); return;
     }
-    const bar = current.osd.querySelector<HTMLElement>('.buttons, .osdControls, .videoOsdBottom') || current.osd;
-    if (this.entry.parentElement !== bar) bar.append(this.entry);
+    // The native bottom OSD is a flex row around .osdControls. A text button
+    // in that flow shrinks the entire seek/control area. Keep mouse access in
+    // its reserved gradient padding; unknown player layouts retain Down only.
+    const bar = current.osd.querySelector<HTMLElement>('.videoOsdBottom');
+    if (bar && this.entry.parentElement !== bar) bar.append(this.entry);
+    else if (!bar) this.entry.remove();
     const label = current.item?.Type === 'Episode' ? 'Episodes & seasons' : current.item?.Type === 'TvChannel' || current.item?.Type === 'Program' ? 'Channels' : current.item?.Type === 'Movie' ? 'More like this' : 'Browse';
-    if (this.entry.lastElementChild?.textContent !== label) this.entry.lastElementChild!.textContent = label;
+    this.entry.setAttribute('aria-label', label); this.entry.title = `${label} (Down)`;
     if (this.element) {
       if (this.dialog() || (this.state !== 'playing' && this.current && (this.current.key !== current.key
         || !sameMediaId(this.current.playingItemId, current.playingItemId)

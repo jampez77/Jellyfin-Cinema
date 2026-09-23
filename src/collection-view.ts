@@ -2,6 +2,7 @@ import type { Item, MediaApi } from './types';
 import { button, el, icon, picture, replace } from './dom';
 import { attachRemote } from './remote';
 import { plainText } from './utils';
+import { HomeCollectionEditor } from './home-collection-editor';
 
 type CollectionOptions = {
   item?: Item;
@@ -30,6 +31,7 @@ export class CollectionView {
   private disposed = false;
   private revision = 0;
   private focusId: string;
+  private editor?: HomeCollectionEditor;
 
   constructor(private api: MediaApi, private options: CollectionOptions) {
     this.focusId = options.focusId || '';
@@ -42,6 +44,17 @@ export class CollectionView {
     this.backButton = button('Back', 'back', 'tvl-back', options.back);
     this.backButton.dataset.focusId = 'back';
     header.append(this.backButton);
+    const customize = button('Customize collection rows', 'grid', 'tvl-collection-customize', () => {
+      if (this.editor || this.disposed) return;
+      this.removeRemote(); this.element.setAttribute('aria-modal', 'false');
+      this.editor = new HomeCollectionEditor(this.api, restore => {
+        this.editor = undefined;
+        if (this.disposed) return;
+        this.element.setAttribute('aria-modal', 'true'); this.removeRemote = attachRemote(this.element, this.options.back);
+        if (restore) customize.focus({ preventScroll: true });
+      });
+    });
+    customize.dataset.focusId = 'collections:customize'; header.append(customize);
     const copy = el('div', 'tvl-collection-hero-copy');
     copy.append(el('h1', 'tvl-collection-title', options.item?.Name || 'Collections'));
     const overview = plainText(options.item?.Overview);
@@ -154,6 +167,7 @@ export class CollectionView {
   destroy(): void {
     this.disposed = true;
     this.revision++;
+    this.editor?.destroy(); this.editor = undefined;
     this.removeRemote();
     this.element.remove();
   }

@@ -6,20 +6,22 @@ Cinematic browsing for Jellyfin’s **TV layout**, inspired by Netflix and built
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
 
+This source tree is preparing **0.2.1** ([release notes](docs/releases/v0.2.1.md)). The refinements below are not yet published; installation instructions still point to **0.2.0**. The new build has not been deployed or tested on a live Jellyfin server or physical TV.
+
 ## The layouts
 
-- **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Use **Customize collection rows** to add rows of selected collections or the items in individual collections, with optional numbered artwork. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
-- **Music:** albums, album artists, artists, songs, genres, suggestions and favourites, with search and A–Z/#. Open an artist’s albums or an album’s tracks and use Jellyfin’s native audio playback. Now playing opens its native playback controls; Playlists remains accessible through the native page.
-- **Recordings:** completed and active recordings, search and pagination, with direct details/playback. The recording schedule and series-recording controls remain available through Jellyfin’s native pages.
+- **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Configure custom collection rows from **Collections → Customize collection rows**, including their item order, optional numbered artwork and position among native Home sections. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
+- **Music:** albums, album artists, artists, songs, playlists, genres, suggestions and favourites, with search and A–Z/#. Playlist detail pages show ordered track rows with artwork and duration. Play the whole playlist or start at a selected entry, preserving repeated tracks and the complete queue. Album Play buttons have space for their focus outline. Jellyfin’s native music player and Now playing queue share the cinematic theme while retaining their playback controls and actions.
+- **Recordings:** completed and active recordings, search and pagination, with direct details/playback. Schedule, Series recordings, recording details and DVR dialogs receive matching styling while keeping Jellyfin’s native permissions, scheduling and editing actions.
 
 - **TV Shows library:** opens Suggestions by default, followed by Favourites, Genres, Collections and **All shows** last. Search and A–Z/# filters help find a title. Suggestions show Jellyfin’s Continue watching, Next up and Recently added items, with episode titles and numbers.
 - **TV Show details:** backdrop and title artwork, next-episode/resume action, and a dedicated browser with seasons on the left and episode thumbnails, synopses and watch progress on the right. Down from a season’s last episode opens the next season’s first episode; Up from its first episode opens the previous season’s last. Season and episode detail links open the corresponding show. Scroll down for collection links and More like this recommendations.
 - **Movies library:** opens Suggestions by default, followed by Favourites, Genres, Collections and **All movies** last, with search and A–Z/# title filters. Suggestions use Jellyfin’s continue-watching, recently-added and recommendation lists. Browse in pages, open a film and return to the same filters and selected card.
 - **Movie details:** a large backdrop, title, Play/Resume, a trailer button with a clapperboard icon, favourites, runtime/rating/quality when available, cast and genres, and a More like this grid. Trailer playback uses Jellyfin’s own trailer action or an available local trailer; unavailable trailers show a clear message. Recommendations open their own detail pages. Collection cards show which collections contain the movie and open their collection pages in the same style.
-- **Collections:** a cinematic collections list and individual collection pages with artwork, descriptions and a remote-friendly grid. Use **Add to collection** from media details to choose an existing collection or create one when your account has permission. Existing memberships are shown and refreshed after saving. Open a member or nested collection, then use Back to return to the selected card.
+- **Collections:** a cinematic collections list and individual collection pages with artwork, descriptions and a remote-friendly grid. **Customize collection rows** opens the Home row editor from this page. Use **Add to collection** from media details to choose an existing collection or create one when your account has permission. Existing memberships are shown and refreshed after saving. Open a member or nested collection, then use Back to return to the selected card.
 - **Live TV:** current programme, broadcast times and live progress, plus a landscape guide with channel rows and programmes laid out horizontally under a shared time axis. The highlighted programme’s artwork keeps its original proportions on the right and blends into the background, confined above the schedule, with its title, synopsis and live/upcoming status over a left fade. Missing or failed programme artwork falls back to the channel logo. Left/Right moves through a channel’s schedule; Up/Down moves between channels. Select a currently live programme or a channel name to tune that channel. Future programmes show details without changing playback. The hero has no separate Watch live button, and the guide has no channel-count footer.
 
-- **During playback:** Down or the Browse control opens episodes across every available season, similar films, or live channels. A season selector jumps directly to that season’s first available episode; playback changes only when you choose Play/Resume. Left/Right browses, OK plays/resumes, and Back returns to playback. Episode browsing wraps across seasons and the whole series. Cinema intros use the current device’s queue to identify the upcoming feature. A new selection stays open until local playback is confirmed, with a retry if it fails.
+- **During playback:** Down or the Browse icon in the player controls opens episodes across every available season, similar films, or live channels. The compact icon leaves the native control bar sizing intact and has a tooltip and accessible label. A season selector jumps directly to that season’s first available episode; playback changes only when you choose Play/Resume. Left/Right browses, OK plays/resumes, and Back returns to playback. Episode browsing wraps across seasons and the whole series. Cinema intros use the current device’s queue to identify the upcoming feature. A new selection stays open until local playback is confirmed, with a retry if it fails.
 - **Pause screen:** Logo/title, metadata, synopsis and optional disc artwork appear when video is paused, without a redundant “Paused” label. Missing logo/disc art can come from the season or series; the synopsis stays with the playing item. The treatment yields to native dialogs and in-player browsing, and disappears on resume.
 
 Working standalone InPlayerEpisodePreview-TV controls take precedence to avoid duplicate previews. A failed or stale preview script no longer blocks Down from opening the integrated browser. The standalone PauseScreen plugin still takes precedence over the integrated pause treatment.
@@ -32,9 +34,15 @@ The plugin activates only in Jellyfin Web’s TV display mode. Desktop and mobil
 
 ## Your Home collection rows
 
-On Home, choose **Customize collection rows**. Add a **Collections row** to select and order several collections, or add a **collection items row** for the contents of one collection. You can add several item rows, name and reorder them, and enable **Ranked artwork** separately for each. Large outlined SVG number images appear to the left of the posters; the numbers follow the item order returned by Jellyfin for that collection. They do not calculate popularity or create a top-ten chart.
+Open **Collections → Customize collection rows**. Choose a row from the row list, then edit it in one workspace:
 
-These choices are saved in this browser’s local storage for the current server and account. They stay on this device/browser and do not sync to other clients; clearing browser storage removes them. Native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and display up to 60 members in an item row. Larger item rows end with **View full collection**.
+- **Content:** select several collections for a Collections row, or one collection for a collection items row. Set a title and optionally enable Ranked artwork.
+- **Item order:** keep the collection’s order, sort members by title or year, or move them into a custom order. Collection cards can also be reordered. These changes affect this Home row only, not the server’s collection order.
+- **Home position:** move your row between existing Home sections, including Featured and each library’s Latest row. Visit Home once if its sections are not listed. A row falls back to the end when its chosen section is unavailable.
+
+Choose **Save rows** to apply your changes. Ranked artwork uses large outlined SVG number images to the left of posters; numbers follow the row’s chosen item order, not popularity scores. Existing saved rows keep their collection order and end-of-Home position until you change them.
+
+These choices are saved in this browser’s local storage for the current server and account. They stay on this device/browser and do not sync to other clients; clearing browser storage removes them. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members in an item row; larger rows end with **View full collection**.
 
 ## Preview locally
 
@@ -64,7 +72,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-For 0.2.0, the final plugin version component identifies the server target: `0.2.0.1` for 10.10.7, `0.2.0.2` for 10.11.x and `0.2.0.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The current source builds `0.2.1.1` for 10.10.7, `0.2.1.2` for 10.11.x and `0.2.1.3` for 12.x. Published 0.2.0 uses the same `.1`/`.2`/`.3` target suffixes. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -101,8 +109,12 @@ Its server-side feed generation and external trailer providers are not covered b
 | `src/collection-picker.ts` | Create collections and add media from detail pages |
 | `src/api.ts`, `src/local-playback.ts` | Authenticated Jellyfin data and native playback bridge |
 | `src/browse-api.ts`, `src/browse-view.ts`, `src/browse.css` | Music and Recordings |
+| `src/music-player.css`, `src/native-recordings.ts`, `src/recordings.css` | Native music playback and DVR control styling |
+| `src/music-player.css`, `src/native-recordings.ts`, `src/recordings.css` | Native music player, queue and DVR styling |
 | `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
 | `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, local preferences and numbered artwork |
+| `src/home-collection-editor.ts`, `src/home-row-placement.ts` | Collection row editor and placement among native Home sections |
+| `src/home-collection-editor.ts`, `src/home-row-placement.ts` | Collection row editor and placement among native Home sections |
 | `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
 | `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
 | `src/native-host.ts`, `src/native-host.css` | Native page visibility and restoration |
