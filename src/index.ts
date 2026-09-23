@@ -5,6 +5,7 @@ import collectionStyles from './collection.css';
 import libraryStyles from './library.css';
 import nativeHostStyles from './native-host.css';
 import browseStyles from './browse.css';
+import homeStyles from './home.css';
 import pauseStyles from './pause-screen.css';
 import playerStyles from './player-browser.css';
 import { NativeHostMask } from './native-host';
@@ -23,7 +24,7 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+pauseStyles+playerStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+homeStyles+pauseStyles+playerStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
@@ -47,13 +48,16 @@ function close(restore=true):void{
   view?.destroy();view=null;activeKey='';openedHash='';
   nativeHostMask.clear();
   if(document.body.classList.contains('tvl-open'))document.body.classList.remove('tvl-open');
+  if(document.body.classList.contains('tvl-home'))document.body.classList.remove('tvl-home');
   if(restore&&previousFocus?.isConnected)previousFocus.focus({preventScroll:true});
 }
 function currentRoute():Route|null{
   const [path,query='']=location.hash.replace(/^#\/?/,'').split('?');
   const params=new URLSearchParams(query);
   if(/^home\/?$/i.test(path)){
-    if(!onlyParams(params,['serverId','tab'])||(params.has('tab')&&params.get('tab')!=='0'))return null;
+    // Home/Favourites switch native controllers without changing the URL.
+    // Both retain their native tabs, focus handling and content ownership.
+    if(!onlyParams(params,['serverId','tab'])||(params.has('tab')&&!['0','1'].includes(params.get('tab')!)))return null;
     return {kind:'home'};
   }
   if(/^music\/?$/i.test(path)){
@@ -109,7 +113,8 @@ function back():void{
   else location.hash='/home';
 }
 function hideNativeHost(route:Route):void{
-  const selector=route.kind==='home'?'#indexPage':route.kind==='music'?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
+  if(route.kind==='home')return;
+  const selector=route.kind==='music'?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
   nativeHostMask.setSelector(selector);
 }
 function scopeOf(api:MediaApi|null):string|null{
@@ -136,7 +141,7 @@ function refresh():void{
   if(!api){close(false);return;}
   const scope=scopeOf(api);
   const key=`${scope}:${route.kind}:${location.hash}`;
-  if(activeKey===key&&view){hideNativeHost(route);return;}
+  if(activeKey===key&&(view||route.kind==='home')){if(view)hideNativeHost(route);return;}
   if(route.kind==='collections'&&route.verifyParent){
     if(pendingHash===location.hash)return;
     close(false);
@@ -177,6 +182,12 @@ function collectionBack(route:CollectionRoute):void{
 }
 function openRoute(route:Route,api:MediaApi,key:string):void{
   close(false);activeKey=key;openedHash=location.hash;previousFocus=document.activeElement as HTMLElement;
+  if(route.kind==='home'){
+    // Keep Jellyfin's Home in place. Its controllers own user/device settings,
+    // section order, hidden libraries, focus and Featured's carousel lifecycle.
+    // Styling alone also works when the native page arrives after this route.
+    document.body.classList.add('tvl-home');return;
+  }
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
@@ -213,7 +224,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
       location.hash=target;
     }});
   }
-  else if(route.kind==='home'||route.kind==='music'||route.kind==='recordings'){
+  else if(route.kind==='music'||route.kind==='recordings'){
     const hash=location.hash;
     view=new BrowseView(api,{...route,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
       browseStates.set(hash,state);
@@ -255,7 +266,16 @@ const show=(event:Event)=>{
   const target=event.target as HTMLElement;
   if(target.matches?.(nativePages))schedule();
 };
-window.addEventListener('hashchange',schedule);window.addEventListener('popstate',schedule);
+const hashChanged=(event:HashChangeEvent)=>{
+  // The offline preview also has native Home/Featured links. Distinguish those
+  // entries from a direct detail preview, whose Back dismisses the demo overlay.
+  if(window.TvItemLayoutDemo&&/^#\/home(?:\?|$)/.test(new URL(event.oldURL,location.href).hash)&&/^#\/details\?/.test(location.hash)){
+    detailOrigins.add(location.hash);
+    if(detailOrigins.size>100)detailOrigins.delete(detailOrigins.values().next().value!);
+  }
+  schedule();
+};
+window.addEventListener('hashchange',hashChanged);window.addEventListener('popstate',schedule);
 document.addEventListener('viewshow',show,true);document.addEventListener('viewbeforehide',hide,true);
 document.addEventListener('tabchange',schedule,true);
 const observer=new MutationObserver(schedule);
@@ -268,5 +288,5 @@ const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerCo
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',schedule);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
 schedule();

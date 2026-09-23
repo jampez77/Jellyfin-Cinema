@@ -7,7 +7,7 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 - **TV Shows:** browse five fictional series using search, genres, A–Z/#, favourites and native-style episode suggestions. Open North of Nowhere to try its full episode browser. North of Nowhere has three seasons and six episodes per season. The first episode is watched; the second is partially watched. Down from the last episode advances to the next season; Up from the first returns to the previous season’s last episode.
 - **Movies:** the library includes search, letter filters, genres, favourites and suggestions. Open a card to view its details; After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
 - **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and artwork for the highlighted programme fits above the schedule, including future programmes. The schedule is calculated when the page loads.
-- **Home:** library links, Continue watching, Next up and latest additions, with a featured title. Native-only destinations such as settings/search are not simulated.
+- **Home:** a native-shaped Home fixture with My Media, Continue watching/listening, Next up, Live TV navigation and latest additions. The installed layout styles Jellyfin's existing sections in place, preserving its user preferences and plugins. The preview's fictional featured hero is labelled; it is not the Featured plugin. Native-only destinations such as settings/search are not simulated.
 - **Music:** fictional albums, artists and tracks, with search, genres, A–Z/#, favourites and suggestions. Open an artist to see albums, then an album to select its tracks.
 - **Recordings:** completed and active recordings, search and direct playback. Scheduling links point to Jellyfin's native pages, which the local fixture does not implement.
 
@@ -38,6 +38,22 @@ Add a query before the hash and reload:
 - `/?scenario=slow#/details?id=series-north`: longer, varied response times. Switch items or seasons quickly to check that older requests cannot replace the active view.
 
 Remove the query and reload to restore ordinary behaviour. All titles, descriptions, cast names and ratings are fictional demonstration data. Photograph sources are recorded in [assets/CREDITS.md](assets/CREDITS.md).
+
+## Native Home preferences fixture
+
+The Home preview uses the native `#indexPage #homeTab .sections.homeSectionsContainer` structure. It keeps the native Home/Favourites tabs and navigation controls. It does not fetch or overwrite a real user's preferences.
+
+Query parameters before the hash demonstrate different native section outputs:
+
+- `/?featured=0#/home`: native rows without the fictional featured hero.
+- `/?featured=0&homeSections=nextup,librarybuttons,resumeaudio,latestmedia#/home`: reordered sections, library buttons, and Continue listening.
+- `/?featured=0&libraryOrder=library-music,library-tv,library-movies,library-live&hiddenLibraries=library-tv&hiddenLatest=library-movies#/home`: library order, a hidden library, and Movies excluded from Latest.
+
+Supported fixture section names are `smalllibrarytiles`, `librarybuttons`, `resume`, `resumeaudio`, `nextup`, `livetv`, `activerecordings`, `latestmedia`, and `none`. As native TV Home does, the fixture adds a library section if both library section types are absent. These are fictional preview preferences only.
+
+Browser tests can dispatch `demo-home-settings` on `document`, with a `CustomEvent` detail containing `sections`, `libraryOrder`, `hiddenLibraries`, `hiddenLatest`, or `featured`, to model native sections changing after activation. Production applies styling without replacing, cloning or moving those sections.
+
+The ordinary preview hero uses a representative `.ec-root` solely to verify that independently owned controls survive the Home skin. The dedicated Featured browser tests disable it with `featured=0`, load the actual upstream Featured bundle and stub its server responses. No Featured source or bundle is included in this plugin or the preview installer.
 
 ## Collections and theme videos
 

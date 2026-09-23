@@ -302,13 +302,6 @@ function browseLibrary(ids: string[], genres: Item[], parentId: string, query: L
 }
 
 const api: MediaApi = {
-  getHome: () => respond(() => ({libraries:list(['library-movies','library-tv','library-music','library-collections','library-live'].map(id=>library.get(id)!)),sections:scenario==='empty'?[]:[
-    {title:'Continue watching',items:['movie-tide','episode-north-1-2'].map(id=>copy(library.get(id)!))},
-    {title:'Next up',items:['episode-signal-1-1','episode-wild-1-1'].map(id=>copy(library.get(id)!))},
-    {title:'Latest in Movies',items:movieIds.slice().reverse().map(id=>copy(library.get(id)!))},
-    {title:'Latest in TV Shows',items:seriesIds.slice().reverse().map(id=>copy(library.get(id)!))},
-    {title:'Latest in Music',items:list(albums)},
-  ]})),
   getMusic: query => respond(() => {
     const genre=musicGenres.find(item=>item.Id===query.genreId)?.Name;
     let found=list(query.kind==='artists'||query.kind==='albumArtists'?artists:query.kind==='songs'?songs:albums);
@@ -377,6 +370,136 @@ const api: MediaApi = {
 
 const nativePage = document.querySelector<HTMLElement>('.demo-native-page')!;
 const originalNativeContent = nativePage.innerHTML;
+// A small native-shaped Home fixture: production keeps Jellyfin's real Home DOM,
+// settings, item listeners and extensions. This preview does not emulate its API.
+type HomePreviewPreferences = { sections: string[]; hiddenLibraries: string[]; hiddenLatest: string[]; libraryOrder: string[]; featured: boolean };
+const homeQuery = new URLSearchParams(location.search);
+const homePreferences: HomePreviewPreferences = {
+  sections: (homeQuery.get('homeSections') || 'smalllibrarytiles,resume,resumeaudio,livetv,nextup,latestmedia').split(','),
+  hiddenLibraries: (homeQuery.get('hiddenLibraries') || '').split(',').filter(Boolean),
+  hiddenLatest: (homeQuery.get('hiddenLatest') || '').split(',').filter(Boolean),
+  libraryOrder: (homeQuery.get('libraryOrder') || 'library-movies,library-tv,library-music,library-collections,library-live').split(','),
+  featured: homeQuery.get('featured') !== '0'
+};
+const nativeHeader=el('header','skinHeader demo-home-header hide');
+nativeHeader.setAttribute('aria-label','Library navigation');
+const nativeBack=el('button','headerBackButton','Back');nativeBack.type='button';nativeBack.addEventListener('click',()=>history.back());
+const nativeTabs=el('nav','headerTabs');nativeTabs.setAttribute('aria-label','Home tabs');nativeTabs.setAttribute('is','emby-tabs');
+for(const [name,index] of [['Home','0'],['Favourites','1']]){
+  const tab=el('button','emby-tab-button',name);tab.type='button';tab.dataset.index=index;
+  tab.addEventListener('click',()=>selectNativeHomeTab(Number(index),true));nativeTabs.append(tab);
+}
+const nativeGlobals=el('nav','demo-home-globals');nativeGlobals.setAttribute('aria-label','Library navigation');
+for(const [name,hash] of [['Search','#/search'],['Now playing','#/queue'],['Settings','#/mypreferencesmenu']]){
+  const link=el('a','emby-button',name);link.href=hash;nativeGlobals.append(link);
+}
+nativeHeader.append(nativeBack,nativeTabs,nativeGlobals);
+const nativeHome=el('main','page homePage libraryPage demo-native-home-page hide');nativeHome.id='indexPage';
+nativeHome.dataset.role='page';nativeHome.dataset.domCache='true';
+const homeTab=el('section','tabContent pageTabContent is-active');homeTab.id='homeTab';homeTab.dataset.index='0';homeTab.setAttribute('aria-label','Home');
+const homeSections=el('div','sections homeSectionsContainer');homeTab.append(homeSections);
+const favoritesTab=el('section','tabContent pageTabContent hide');favoritesTab.id='favoritesTab';favoritesTab.dataset.index='1';favoritesTab.setAttribute('aria-label','Favourites');
+favoritesTab.append(el('h1','','Favourites'),el('p','','Your saved films, shows and albums.'));
+nativeHome.append(homeTab,favoritesTab);document.body.insertBefore(nativeHeader,nativePage);document.body.insertBefore(nativeHome,nativePage);
+function selectNativeHomeTab(index:number,notify=false):void{
+  const previousIndex=homeTab.classList.contains('is-active')?0:1;
+  homeTab.classList.toggle('hide',index!==0);homeTab.classList.toggle('is-active',index===0);
+  favoritesTab.classList.toggle('hide',index!==1);favoritesTab.classList.toggle('is-active',index===1);
+  (nativeTabs as HTMLElement&{selectedTabIndex:number}).selectedTabIndex=index;
+  nativeTabs.querySelectorAll<HTMLElement>('[data-index]').forEach(tab=>tab.classList.toggle('emby-tab-button-active',Number(tab.dataset.index)===index));
+  if(notify)nativeTabs.dispatchEvent(new CustomEvent('tabchange',{detail:{selectedTabIndex:index,previousIndex}}));
+}
+let homeFocused: HTMLElement|null=null;
+homeTab.addEventListener('focusin',event=>{homeFocused=event.target as HTMLElement;});
+
+function nativeLibraryRoute(item:Item):string{
+  if(item.CollectionType==='livetv')return '#/livetv?collectionType=livetv';
+  if(item.CollectionType==='boxsets')return `#/list?parentId=${item.Id}`;
+  const path=item.CollectionType==='tvshows'?'tv':item.CollectionType;
+  return `#/${path}?topParentId=${item.Id}&collectionType=${item.CollectionType}`;
+}
+function homeCard(item:Item,shape='backdropCard',isLibrary=false):HTMLElement{
+  const card=el('button',`card ${shape} card-hoverable card-withuserdata`);card.type='button';
+  card.dataset.id=item.Id;card.dataset.type=item.Type||'';card.dataset.action='link';card.dataset.context='home';
+  if(item.CollectionType)card.dataset.collectiontype=item.CollectionType;
+  card.setAttribute('aria-label',item.Name);
+  const box=el('div','cardBox');const scalable=el('div','cardScalable');
+  const image=el('div','cardImageContainer coveredImage');image.style.backgroundImage=`url("${artwork.get(item.Id)||artwork.get(item.SeriesId||'')||''}")`;
+  scalable.append(el('div',`cardPadder cardPadder-${shape.startsWith('portrait')?'portrait':shape.startsWith('square')?'square':'backdrop'}`),image);
+  const text=el('div','cardText cardText-first',item.Type==='Episode'?item.SeriesName||item.Name:item.Name);
+  box.append(scalable,text);
+  if(item.Type==='Episode')box.append(el('div','cardText cardText-secondary',`S${item.ParentIndexNumber} · E${item.IndexNumber} · ${item.Name}`));
+  else if(!isLibrary)box.append(el('div','cardText cardText-secondary',item.AlbumArtist||String(item.ProductionYear||'')));
+  if(item.UserData?.PlayedPercentage){const progress=el('div','itemProgressBar');const value=el('div','itemProgressBarForeground');value.style.width=`${item.UserData.PlayedPercentage}%`;progress.append(value);image.append(progress);}
+  card.append(box);card.addEventListener('click',()=>{location.hash=isLibrary?nativeLibraryRoute(item):`#/details?id=${item.Id}`;});return card;
+}
+function homeRow(title:string,items:Item[],shape='backdropCard',isLibrary=false):HTMLElement{
+  const row=el('section','verticalSection');row.setAttribute('aria-label',title);
+  row.append(el('h2','sectionTitle sectionTitle-cards padded-left',title));
+  const scroller=el('div','emby-scroller padded-top-focusscale padded-bottom-focusscale');scroller.setAttribute('is','emby-scroller');scroller.dataset.centerfocus='true';
+  const container=el('div','itemsContainer scrollSlider focuscontainer-x');container.setAttribute('is','emby-itemscontainer');
+  for(const item of items)container.append(homeCard(item,shape,isLibrary));scroller.append(container);row.append(scroller);
+  if(!items.length)row.classList.add('hide');return row;
+}
+function featuredPreview():HTMLElement{
+  const item=library.get('movie-tide')!;
+  const root=el('section','ec-root demo-featured-preview');root.setAttribute('aria-label','Fictional featured preview');
+  root.style.backgroundImage=`linear-gradient(90deg,#08090bea,#08090b20),linear-gradient(0deg,#08090b,transparent 65%),url("${artwork.get(item.Id)}")`;
+  const copy=el('div','demo-featured-copy');copy.append(el('p','demo-native-eyebrow','FICTIONAL FEATURED PREVIEW'),el('h1','',item.Name),el('p','',item.Overview));
+  const actions=el('div','demo-featured-actions');const play=el('button','demo-featured-play','Resume');play.type='button';play.addEventListener('click',()=>showPlayer(item,item.UserData?.PlaybackPositionTicks||0));
+  const detail=el('a','demo-featured-details','Details');detail.href=`#/details?id=${item.Id}`;actions.append(play,detail);copy.append(actions);root.append(copy);
+  // A visible demo of an independently owned plugin listener, not upstream code.
+  root.addEventListener('keydown',event=>{if(event.key==='ArrowRight'){root.dataset.featuredKey='ArrowRight';detail.focus();event.stopPropagation();event.preventDefault();}});
+  return root;
+}
+function renderNativeHome():void{
+  const views=homePreferences.libraryOrder.filter(id=>!homePreferences.hiddenLibraries.includes(id)).map(id=>library.get(id)).filter((item):item is Item=>!!item);
+  const sectionNames=[...homePreferences.sections];
+  if(!sectionNames.some(name=>['smalllibrarytiles','librarybuttons'].includes(name)))sectionNames.unshift('smalllibrarytiles');
+  const fragments:HTMLElement[]=[];
+  if(homePreferences.featured)fragments.push(featuredPreview());
+  const found=(ids:string[])=>scenario==='empty'?[]:ids.map(id=>library.get(id)!).filter(Boolean);
+  for(const [index,name] of sectionNames.entries()){
+    const slot=el('div',`section${index}`);slot.dataset.homeSection=name;
+    if(name==='smalllibrarytiles')slot.append(homeRow('My Media',views,'backdropCard',true));
+    else if(name==='librarybuttons'){
+      const row=el('section','verticalSection');row.setAttribute('aria-label','My Media');row.append(el('h2','sectionTitle sectionTitle-cards padded-left','My Media'));
+      const buttons=el('div','homeLibraryButtonContainer itemsContainer focuscontainer-x');buttons.setAttribute('is','emby-itemscontainer');
+      for(const item of views){const button=el('a','raised homeLibraryButton',item.Name);button.href=nativeLibraryRoute(item);button.dataset.id=item.Id;buttons.append(button);}row.append(buttons);slot.append(row);
+    }else if(name==='resume')slot.append(homeRow('Continue watching',found(['movie-tide','episode-north-1-2'])));
+    else if(name==='resumeaudio')slot.append(homeRow('Continue listening',found(['song-tidelight-1','song-nightlines-2']),'squareCard'));
+    else if(name==='nextup')slot.append(homeRow('Next up',found(['episode-signal-1-1','episode-wild-1-1'])));
+    else if(name==='activerecordings')slot.append(homeRow('Active recordings',found(['recording-coast'])));
+    else if(name==='livetv'&&views.some(item=>item.CollectionType==='livetv')){
+      const row=el('section','verticalSection');row.setAttribute('aria-label','Live TV');row.append(el('h2','sectionTitle sectionTitle-cards padded-left','Live TV'));
+      const links=el('div','focuscontainer-x demo-home-live-links');
+      for(const [name,tab]of[['Guide','1'],['Recordings','3'],['Schedule','4']]){const link=el('a','raised',name);link.href=`#/livetv?tab=${tab}&collectionType=livetv`;links.append(link);}row.append(links);slot.append(row);
+    }else if(name==='latestmedia'){
+      for(const view of views){if(homePreferences.hiddenLatest.includes(view.Id))continue;
+        const ids=view.CollectionType==='movies'?movieIds.slice().reverse():view.CollectionType==='tvshows'?seriesIds.slice().reverse():view.CollectionType==='music'?albums.map(item=>item.Id):[];
+        if(ids.length)slot.append(homeRow(`Latest in ${view.Name}`,found(ids),view.CollectionType==='music'?'squareCard':'portraitCard'));
+      }
+    }
+    fragments.push(slot);
+  }
+  replace(homeSections,...fragments);
+  replace(favoritesTab,el('h1','','Favourites'),homeRow('Favourites', [...favorites].map(id=>library.get(id)!).filter(Boolean)));
+}
+document.addEventListener('demo-home-settings',((event:CustomEvent<Partial<HomePreviewPreferences>>)=>{
+  const prefs=event.detail;for(const key of ['sections','hiddenLibraries','hiddenLatest','libraryOrder'] as const){if(Array.isArray(prefs[key]))homePreferences[key]=prefs[key]!.filter(value=>typeof value==='string');}
+  if(typeof prefs.featured==='boolean')homePreferences.featured=prefs.featured;renderNativeHome();
+}) as EventListener);
+// Stand in for native Jellyfin's keyboard handler only inside this demo Home.
+nativeHome.addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)||document.querySelector('#tv-layout')||(event.target as Element).closest('.ec-root'))return;
+  const focused=document.activeElement as HTMLElement;const row=focused.closest('.focuscontainer-x');if(!row)return;
+  const selectors='button,a[href]';const rows=Array.from(homeTab.querySelectorAll<HTMLElement>('.focuscontainer-x')).filter(node=>!node.closest('.hide'));
+  const items=Array.from(row.querySelectorAll<HTMLElement>(selectors));const index=items.indexOf(focused);let next:HTMLElement|undefined;
+  if(event.key==='ArrowLeft'||event.key==='ArrowRight')next=items[Math.max(0,Math.min(items.length-1,index+(event.key==='ArrowLeft'?-1:1)))];
+  else{const target=rows[rows.indexOf(row as HTMLElement)+(event.key==='ArrowUp'?-1:1)];const cards=target?.querySelectorAll<HTMLElement>(selectors);if(cards?.length)next=cards[Math.min(index,cards.length-1)];}
+  if(next){event.preventDefault();next.focus();next.scrollIntoView({block:'nearest',inline:'nearest'});}
+});
+renderNativeHome();
 function syncRoute() {
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const current = library.get(params.get('id') || 'series-north');
@@ -385,7 +508,15 @@ function syncRoute() {
   const shows = /^#\/tv(?:\?|$)/.test(location.hash);
   const music = /^#\/music(?:\?|$)/.test(location.hash);
   const home = /^#\/home(?:\?|$)/.test(location.hash);
-  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':music?'musicRecommendedPage':home?'indexPage':guide?'liveTvSuggestedPage':'';
+  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':music?'musicRecommendedPage':guide?'liveTvSuggestedPage':'';
+  const homeActive=home&&params.get('tab')!=='1';
+  nativeHome.classList.toggle('hide',!home);nativeHeader.classList.toggle('hide',!home);nativePage.classList.toggle('hide',home);
+  selectNativeHomeTab(homeActive?0:1);
+  if(homeActive)setTimeout(function restoreHomeFocus(attempt=0){if(!/^#\/home(?:\?|$)/.test(location.hash)||!homeTab.classList.contains('is-active')||!nativeHome.isConnected)return;
+    if(document.getElementById('tv-layout')){if(attempt<20)requestAnimationFrame(()=>restoreHomeFocus(attempt+1));return;}
+    const focus=homeFocused?.isConnected?homeFocused:homeTab.querySelector<HTMLElement>('.itemsContainer button,.homeLibraryButton');
+    if(focus&&(!document.activeElement||document.activeElement===document.body||!nativeHome.contains(document.activeElement)))focus.focus({preventScroll:true});
+  },30);
   const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
   const collectionList = /^#\/(list|boxsets)\?/.test(location.hash) && (params.get('parentId')==='library-collections'||location.hash.startsWith('#/boxsets')||params.get('type')==='BoxSet');
   nativePage.classList.toggle('mainAnimatedPage',collectionList);

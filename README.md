@@ -6,7 +6,7 @@ This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordi
 
 ## The layouts
 
-- **Home:** a featured title, your libraries, Continue watching, Next up and latest additions, with access to native search, favourites and settings.
+- **Home:** the same cinematic card styling applied to Jellyfin’s own Home sections. Your user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. No Home heading or Back button is added. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) keeps its original carousel, settings, trailers and remote controls when installed.
 - **Music:** albums, album artists, artists, songs, genres, suggestions and favourites, with search and A–Z/#. Open an artist’s albums or an album’s tracks and use Jellyfin’s native audio playback. Now playing opens its native playback controls; Playlists remains accessible through the native page.
 - **Recordings:** completed and active recordings, search and pagination, with direct details/playback. The recording schedule and series-recording controls remain available through Jellyfin’s native pages.
 
@@ -18,7 +18,7 @@ This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordi
 - **Live TV:** current programme, broadcast times and live progress, plus a landscape guide with channel rows and programmes laid out horizontally under a shared time axis. The highlighted programme’s artwork keeps its original proportions on the right and blends into the background, confined above the schedule, with its title, synopsis and live/upcoming status over a left fade. Missing or failed programme artwork falls back to the channel logo. Left/Right moves through a channel’s schedule; Up/Down moves between channels. Select a currently live programme or a channel name to tune that channel. Future programmes show details without changing playback. The hero has no separate Watch live button, and the guide has no channel-count footer.
 
 - **During playback:** Down or the Browse control opens episodes across every available season, similar films, or live channels. Left/Right browses, OK plays/resumes, and Back returns to playback. Episode browsing wraps across seasons and the whole series. Cinema intros use the current device’s queue to identify the upcoming feature. A new selection stays open until local playback is confirmed, with a retry if it fails.
-- **Pause screen:** logo/title, metadata, synopsis and optional disc artwork appear when video is paused. Missing logo/disc art can come from the season or series; the synopsis stays with the playing item. The treatment yields to native dialogs and in-player browsing, and disappears on resume.
+- **Pause screen:** Logo/title, metadata, synopsis and optional disc artwork appear when video is paused, without a redundant “Paused” label. Missing logo/disc art can come from the season or series; the synopsis stays with the playing item. The treatment yields to native dialogs and in-player browsing, and disappears on resume.
 
 If the separate InPlayerEpisodePreview-TV or PauseScreen plugin is installed, its feature takes precedence to avoid duplicate controls. Disable the corresponding standalone plugin to use this plugin’s integrated treatment.
 
@@ -40,7 +40,7 @@ Open [the local preview](http://127.0.0.1:4173). The controls at the top switch 
 
 ## Install
 
-The [v0.1.6 test release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.6) is available for Jellyfin 10.10.7, 10.11.x and 12.x. In **Dashboard → Plugins → Repositories**, add:
+The [v0.1.7 test release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.7) is available for Jellyfin 10.10.7, 10.11.x and 12.x. In **Dashboard → Plugins → Repositories**, add:
 
 ```text
 https://raw.githubusercontent.com/jampez77/Jellyfin-TV-Item-Layout/main/manifest.json
@@ -54,7 +54,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The final plugin version component identifies the server target: `0.1.6.1` for 10.10.7, `0.1.6.2` for 10.11.x and `0.1.6.3` for 12.x. The catalogue selects the compatible build. Release preparation is documented in [publishing](docs/publishing.md).
+The final plugin version component identifies the server target: `0.1.7.1` for 10.10.7, `0.1.7.2` for 10.11.x and `0.1.7.3` for 12.x. The catalogue selects the compatible build. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -69,6 +69,16 @@ dotnet run --project server/verification/TvItemLayout.ServerChecks.csproj --conf
 
 The browser suite exercises the actual layout against a simulated Jellyfin API. Server checks exercise injection, script delivery and caching on a temporary local HTTP host. These checks do not establish real-server playback or hardware compatibility.
 
+The Featured compatibility tests additionally run its unmodified frontend with fixture API responses and a generated local trailer. To enable them, provide the audited checkout; otherwise those tests explicitly skip:
+
+```sh
+git clone https://github.com/spkesDE/jellyfin-featured-plugin.git /tmp/tvl-featured-audit
+git -C /tmp/tvl-featured-audit checkout 2cb03c5360cc39836bc0f7c283752c9398eb50b9
+TVL_FEATURED_SOURCE=/tmp/tvl-featured-audit npx playwright test tests/browser/featured-home.spec.ts
+```
+
+Its server-side feed generation and external trailer providers are not covered by these fixtures. Native Home tests run without the external checkout.
+
 ## Project structure
 
 | Path | Purpose |
@@ -79,7 +89,8 @@ The browser suite exercises the actual layout against a simulated Jellyfin API. 
 | `src/library-view.ts`, `src/library.css` | Shared Movies and TV Shows filters, suggestions and paginated browsing |
 | `src/collection-view.ts`, `src/collection.css` | Collections list and member browsing |
 | `src/api.ts`, `src/local-playback.ts` | Authenticated Jellyfin data and native playback bridge |
-| `src/browse-api.ts`, `src/browse-view.ts`, `src/browse.css` | Home, Music and Recordings |
+| `src/browse-api.ts`, `src/browse-view.ts`, `src/browse.css` | Music and Recordings |
+| `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
 | `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
 | `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
 | `src/native-host.ts`, `src/native-host.css` | Native page visibility and restoration |

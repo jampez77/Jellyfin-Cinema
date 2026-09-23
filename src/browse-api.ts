@@ -5,9 +5,7 @@ type Result = { Items?: Item[]; TotalRecordCount?: number };
 export type MusicKind = 'albums' | 'artists' | 'albumArtists' | 'songs';
 export type MusicQuery = LibraryQuery & { kind: MusicKind; artistId?: string; albumId?: string };
 export type RecordingQuery = { search?: string; status?: 'all' | 'active' | 'completed'; startIndex?: number; limit?: number };
-export type HomeData = { libraries: Item[]; sections: SuggestionSection[] };
 export interface BrowseApi {
-  getHome(): Promise<HomeData>;
   getMusic(query: MusicQuery): Promise<ItemPage>;
   getMusicGenres(parentId?: string): Promise<Item[]>;
   getMusicSuggestions(parentId?: string): Promise<SuggestionSection[]>;
@@ -15,7 +13,6 @@ export interface BrowseApi {
 }
 export interface BrowseClient {
   getItems(userId: string, query: Query): Promise<Result>;
-  getNextUpEpisodes(query: Query): Promise<Result>;
   getUrl(path: string, query?: Query): string;
   getJSON(url: string): Promise<unknown>;
 }
@@ -44,7 +41,6 @@ function page(value: unknown, start: number, limit: number, label: string, accep
   return { items: found.filter(accept), total: total!, nextStartIndex: start + count };
 }
 const musicTypes = ['MusicAlbum', 'MusicArtist', 'Audio'];
-const mediaTypes = ['Movie', 'Series', 'Episode', 'MusicAlbum', 'Audio', 'Video', 'Recording'];
 
 /** Uses existing authenticated ApiClient requests and the adapter's session guard. */
 export function createBrowseApi(client: BrowseClient, userId: string, read: Read): BrowseApi {
@@ -70,33 +66,6 @@ export function createBrowseApi(client: BrowseClient, userId: string, read: Read
     throw new Error(`The ${label} list exceeded the browsing limit. Refine your library and try again.`);
   }
   return {
-    getHome: () => read(async () => {
-      // These are the same native Home sources: user views, video resume,
-      // next-up episodes, and latest items grouped by each visible library.
-      const [views, resume, next] = await Promise.all([
-        json(`Users/${encodeURIComponent(userId)}/Views`),
-        json(`Users/${encodeURIComponent(userId)}/Items/Resume`, { ...art, MediaTypes: 'Video', Limit: 18, EnableTotalRecordCount: false }),
-        read(() => client.getNextUpEpisodes({ ...art, UserId: userId, Limit: 18, EnableTotalRecordCount: false }))
-      ]);
-      const libraries = items(views, 'library');
-      const sections: SuggestionSection[] = [
-        { title: 'Continue watching', items: items(resume, 'continue watching').filter(item => available(item) && mediaTypes.includes(item.Type || '')) },
-        { title: 'Next up', items: items(next, 'next episode').filter(item => available(item) && item.Type === 'Episode' && !!item.SeriesId) }
-      ];
-      const recentLibraries = libraries.filter(item => !['boxsets','playlists','livetv','channels','folders'].includes(item.CollectionType || ''));
-      // Keep all library sections in native order while bounding concurrent reads.
-      const recent: SuggestionSection[] = new Array(recentLibraries.length);
-      let cursor = 0;
-      await Promise.all(Array.from({ length: Math.min(3, recentLibraries.length) }, async () => {
-        while (cursor < recentLibraries.length) {
-          const index = cursor++;
-          const library = recentLibraries[index];
-          recent[index] = { title: `Latest in ${library.Name}`, items: (await latest({ ParentId: library.Id, Limit: 12 }, 'latest media'))
-            .filter(item => mediaTypes.includes(item.Type || '')) };
-        }
-      }));
-      return { libraries, sections: [...sections, ...recent].filter(section => section.items.length) };
-    }),
     getMusic: query => read(async () => {
       const { start, limit } = bounds(query);
       const letter = query.letter?.trim().toUpperCase();

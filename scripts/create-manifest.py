@@ -26,7 +26,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': 'Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.',
+        'changelog': "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
         'targetAbi': target,
         'sourceUrl': f'https://github.com/{repository}/releases/download/v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

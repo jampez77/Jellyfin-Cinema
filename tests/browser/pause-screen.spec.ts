@@ -76,6 +76,8 @@ test('paused movies show their own artwork and metadata while native controls ke
   await pause(page);
   const overlay = screen(page);
   await expect(overlay).toBeVisible();
+  await expect(overlay).not.toContainText('Paused');
+  await expect(overlay.locator('.tvl-pause-mark, .tvl-pause-eyebrow')).toHaveCount(0);
   await expect(overlay).toContainText('A cartographer follows a vanished coastline.');
   await expect(overlay).toContainText('Every tide leaves a trace.');
   await expect(overlay).toContainText('2024');
@@ -96,6 +98,7 @@ test('episode artwork falls back through season and series without inheriting th
   await fixture(page); await page.goto('/#/video'); await player(page, 'pause-episode'); await pause(page);
   const overlay = screen(page);
   await expect(overlay).toBeVisible();
+  await expect(overlay).not.toContainText('Paused');
   await expect(overlay).toContainText('The Crossing');
   await expect(overlay).toContainText('S2 · E3');
   await expect(overlay).toContainText('The team reaches the frozen strait.');
@@ -109,6 +112,9 @@ test('Live TV uses the current programme and channel logo', async ({ page }) => 
   await fixture(page); await page.goto('/#/video'); await player(page, 'pause-channel'); await pause(page);
   const overlay = screen(page);
   await expect(overlay).toBeVisible();
+  await expect(overlay).not.toContainText('Paused');
+  await expect(overlay.locator('.tvl-pause-channel')).toHaveText('Field Notes');
+  await expect(overlay.locator('.tvl-pause-channel')).toHaveCSS('margin-left', '0px');
   await expect(overlay).toContainText('Field Notes');
   await expect(overlay).toContainText('Discover life under the canopy.');
   await expect(overlay.getByRole('heading', { name: 'Hidden Forests' })).toBeVisible();

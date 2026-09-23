@@ -11,39 +11,10 @@ function setup(handler:(request:Request)=>unknown,overrides:Partial<BrowseClient
     getUrl:(path,query={})=>JSON.stringify({path,query}),
     getJSON:async url=>{const request=JSON.parse(url) as Request;requests.push(request);return handler(request);},
     getItems:async(user,query)=>{assert.equal(user,'user');const request={path:'Items',query};requests.push(request);return handler(request) as never;},
-    getNextUpEpisodes:async query=>{const request={path:'Shows/NextUp',query};requests.push(request);return handler(request) as never;},
     ...overrides
   };
   return {api:createBrowseApi(client,'user',action=>action()),client,requests};
 }
-
-test('Home uses user-visible libraries, native resume/next-up and library-scoped latest items',async()=>{
-  const {api,requests}=setup(({path,query})=>{
-    if(path==='Users/user/Views')return{Items:[item('movies','CollectionFolder',{CollectionType:'movies',Name:'Movies'}),item('music','CollectionFolder',{CollectionType:'music',Name:'Music'}),item('collections','CollectionFolder',{CollectionType:'boxsets'})]};
-    if(path.endsWith('/Resume'))return{Items:[item('resume','Movie'),item('missing','Movie',{IsMissing:true})]};
-    if(path==='Shows/NextUp')return{Items:[item('next','Episode',{SeriesId:'show'}),item('orphan','Episode')]};
-    if(path.endsWith('/Latest'))return[item(String(query.ParentId),query.ParentId==='music'?'MusicAlbum':'Movie')];
-    throw new Error('Unexpected endpoint');
-  });
-  const home=await api.getHome();
-  assert.deepEqual(home.libraries.map(i=>i.Id),['movies','music','collections']);
-  assert.deepEqual(home.sections.map(s=>[s.title,s.items.map(i=>i.Id)]),[['Continue watching',['resume']],['Next up',['next']],['Latest in Movies',['movies']],['Latest in Music',['music']]]);
-  const resume=requests.find(r=>r.path.endsWith('/Resume'))!;
-  assert.equal(resume.query.MediaTypes,'Video');
-  assert.deepEqual(requests.filter(r=>r.path.endsWith('/Latest')).map(r=>r.query.ParentId),['movies','music']);
-});
-
-test('Home latest reads bound concurrency and preserve native library order',async()=>{
-  let active=0,peak=0;
-  const {api}=setup(({path,query})=>{
-    if(path.endsWith('/Views'))return{Items:Array.from({length:7},(_,i)=>item(String(i),'CollectionFolder',{Name:`Library ${i}`,CollectionType:'movies'}))};
-    if(path.endsWith('/Latest'))return(async()=>{peak=Math.max(peak,++active);await new Promise(resolve=>setTimeout(resolve,2));active--;return[item(String(query.ParentId),'Movie')];})();
-    return{Items:[]};
-  });
-  const home=await api.getHome();
-  assert.ok(peak<=3);assert.ok(peak>1);
-  assert.deepEqual(home.sections.map(s=>s.items[0].Id),['0','1','2','3','4','5','6']);
-});
 
 test('Music queries use native artists endpoints and scoped server filters',async()=>{
   const {api,requests}=setup(({path})=>({Items:[item('artist',path==='Items'?'MusicAlbum':'MusicArtist')],TotalRecordCount:1}));
@@ -139,10 +110,9 @@ test('All browse reads use the caller session guard and reject failed sources',a
   const {client}=setup(()=>({Items:[],TotalRecordCount:0}));
   const api=createBrowseApi(client,'user',async action=>{if(!signedIn)throw new Error('Account changed');const value=await action();if(!signedIn)throw new Error('Account changed');return value;});
   signedIn=false;
-  await assert.rejects(api.getHome(),/Account changed/);
   await assert.rejects(api.getMusic({kind:'albums'}),/Account changed/);
   await assert.rejects(api.getMusicGenres(),/Account changed/);
   await assert.rejects(api.getMusicSuggestions(),/Account changed/);
   await assert.rejects(api.getRecordings(),/Account changed/);
-  const invalid=setup(()=>null);await assert.rejects(invalid.api.getHome(),/invalid library/i);
+  const invalid=setup(()=>null);await assert.rejects(invalid.api.getMusic({kind:'albums'}),/invalid music/i);
 });

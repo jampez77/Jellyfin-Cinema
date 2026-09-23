@@ -6,25 +6,6 @@ const recordings=(page:Page)=>root(page,'Recordings');
 const cards=(page:Page,name:string)=>root(page,name).locator('[data-browse-item]');
 async function patch(page:Page,source:string){await page.route('**/dist/demo.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:`${await response.text()}\n(()=>{const api=window.TvItemLayoutDemo.api;${source}})();`});});}
 
-test('Home shows actual user libraries and progress rows, and library Back restores focus',async({page})=>{
-  await page.goto('/#/home');
-  const home=root(page,'Home');
-  await expect(home.getByRole('navigation',{name:'Your libraries'}).locator('[data-library-id]')).toHaveCount(5);
-  await expect(home.getByRole('region',{name:'Continue watching',exact:true}).locator('[data-browse-item]')).toHaveCount(2);
-  await expect(home.getByRole('region',{name:'Next up',exact:true}).locator('[data-browse-item]')).toHaveCount(2);
-  await expect(home.locator('.tvl-browse-hero h1')).toHaveText('After the Tide');
-  const library=home.getByRole('navigation',{name:'Your libraries'}).getByRole('button',{name:'Movies',exact:true});
-  await library.click();await expect(root(page,'Movies')).toBeVisible();
-  await page.keyboard.press('Escape');await expect(library).toBeFocused();
-});
-
-test('Home retains native global search, favourites and settings access',async({page})=>{
-  for(const [name,target] of [['Search Jellyfin',/#\/search(?:\?|$)/],['Favourites',/#\/home\?tab=1/],['Settings',/#\/mypreferencesmenu(?:\?|$)/]] as const){
-    await page.goto('/#/home');await root(page,'Home').getByRole('navigation',{name:'Jellyfin navigation'}).getByRole('button',{name,exact:true}).click();
-    await expect(page).toHaveURL(target);await expect(page.locator('#tv-layout')).toHaveCount(0);
-  }
-});
-
 test('Music albums search, favourites and genre filters use real music data',async({page})=>{
   await page.goto(musicRoute);await expect(cards(page,'Music')).toHaveCount(4);
   await music(page).getByRole('searchbox',{name:'Search music'}).fill('Tidelight');
@@ -111,17 +92,10 @@ test('Browse failures retry and late responses cannot replace another route',asy
   await patch(page,`const get=api.getRecordings;let first=true;api.getRecordings=async query=>{if(first){first=false;throw new Error('offline');}if(query.search==='slow'){document.body.dataset.waiting='true';await new Promise(resolve=>document.addEventListener('release-recordings',resolve,{once:true}));}return get(query);};`);
   await page.goto('/#/list?type=Recordings');await expect(recordings(page).getByRole('button',{name:'Try again',exact:true})).toBeFocused();await page.keyboard.press('Enter');await expect(cards(page,'Recordings')).toHaveCount(3);
   await recordings(page).getByRole('searchbox',{name:'Search recordings'}).fill('slow');await recordings(page).getByRole('searchbox',{name:'Search recordings'}).press('Enter');await expect(page.locator('body')).toHaveAttribute('data-waiting','true');
-  await page.evaluate(()=>{location.hash='/home';});await expect(root(page,'Home')).toBeVisible();await page.evaluate(()=>document.dispatchEvent(new Event('release-recordings')));
-  await expect(root(page,'Home').getByRole('navigation',{name:'Your libraries'}).locator('[data-library-id]')).toHaveCount(5);await expect(recordings(page)).toHaveCount(0);
+  await page.evaluate(()=>{location.hash='/home';});await expect(page.locator('#homeTab')).toBeVisible();await page.evaluate(()=>document.dispatchEvent(new Event('release-recordings')));
+  await expect(page.locator('#homeTab').getByRole('region',{name:'My Media',exact:true}).locator('.card')).toHaveCount(5);await expect(recordings(page)).toHaveCount(0);
 });
 
-
-test('Home exposes recordings only for a real Live TV view',async({page})=>{
-  await page.goto('/#/home');await root(page,'Home').getByRole('navigation',{name:'Your libraries'}).getByRole('button',{name:'Recordings',exact:true}).click();
-  await expect(recordings(page)).toBeVisible();
-  await patch(page,`const get=api.getHome;api.getHome=async()=>{const result=await get();return{...result,libraries:result.libraries.filter(item=>item.CollectionType!=='livetv')};};`);
-  await page.goto('/#/home');await expect(root(page,'Home').getByRole('navigation',{name:'Your libraries'}).getByRole('button',{name:'Recordings',exact:true})).toHaveCount(0);
-});
 
 test('Video dispatch stays pending, times out and rejects a late playback callback',async({page})=>{
   await page.clock.install();

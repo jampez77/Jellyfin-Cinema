@@ -8,6 +8,30 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.7.3",
+        "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.7/TvItemLayout_0.1.7.3_jellyfin-12.0.0.zip",
+        "checksum": "2858442d45aeb974c2898cbefb526cad",
+        "timestamp": "2026-09-23T11:19:11Z"
+      },
+      {
+        "version": "0.1.7.2",
+        "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.7/TvItemLayout_0.1.7.2_jellyfin-10.11.0.zip",
+        "checksum": "6c4972962b32ece7bc917a29f41252b1",
+        "timestamp": "2026-09-23T11:19:11Z"
+      },
+      {
+        "version": "0.1.7.1",
+        "changelog": "Home now preserves Jellyfin user/device section preferences, ordering and the Jellyfin Featured carousel by styling the native page in place. Removes Home's Back button and label, and the visible Paused label. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.7/TvItemLayout_0.1.7.1_jellyfin-10.10.7.zip",
+        "checksum": "b6133d4dd25dd51b3fdfdfe63f852ead",
+        "timestamp": "2026-09-23T11:19:11Z"
+      },
+      {
         "version": "0.1.6.3",
         "changelog": "Adds matching Home, Music and Recordings pages, in-player episode/film/channel browsing and pause artwork. Guide programme/channel selection tunes directly with no separate Watch live button or footer count. Movies and TV Shows open Suggestions by default. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",

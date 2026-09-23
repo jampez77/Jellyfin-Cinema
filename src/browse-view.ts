@@ -1,5 +1,5 @@
 import type { Item, ItemPage, MediaApi, SuggestionSection } from './types';
-import type { HomeData, MusicKind } from './browse-api';
+import type { MusicKind } from './browse-api';
 import { button, el, icon, picture, replace } from './dom';
 import { attachRemote } from './remote';
 import { plainText, runtime } from './utils';
@@ -7,14 +7,14 @@ import { plainText, runtime } from './utils';
 export type BrowseTab = MusicKind | 'suggestions' | 'genres' | 'all' | 'active' | 'completed';
 export type BrowseState = { tab: BrowseTab; search: string; letter: string; genreId?: string; genreName?: string;
   favorite?: boolean; loadedCount: number; focusId?: string; scrollTop?: number };
-type Options = { kind: 'home' | 'music' | 'recordings'; tab?: BrowseTab; parentId?: string; item?: Item;
+type Options = { kind: 'music' | 'recordings'; tab?: BrowseTab; parentId?: string; item?: Item;
   back: () => void; navigate: (id: string) => void; navigateRoute: (hash: string) => void;
   focusId?: string; state?: BrowseState; onState?: (state: BrowseState) => void };
 const pageSize = 48;
 const playable = (item: Item) => ['Movie','Episode','Video','Recording','Audio','MusicAlbum'].includes(item.Type || '')
   && item.PlayAccess !== 'None' && !item.IsMissing && !item.IsVirtualItem && item.LocationType !== 'Virtual';
 
-/** Home, music and recordings share the same remote navigation and artwork. */
+/** Music and recordings share the same remote navigation and artwork. */
 export class BrowseView {
   readonly element = el('section', 'tvl-root tvl-keyboard tvl-browse-view');
   private content = el('div', 'tvl-content');
@@ -39,7 +39,7 @@ export class BrowseView {
   private initialScroll: number;
   private restored = false;
   private removeRemote: () => void;
-  private get title(): string { return this.options.kind === 'home' ? 'Home' : this.options.kind === 'music' ? 'Music' : 'Recordings'; }
+  private get title(): string { return this.options.kind === 'music' ? 'Music' : 'Recordings'; }
 
   constructor(private api: MediaApi, private options: Options) {
     this.state = { tab: options.tab || (options.kind === 'music' ? 'albums' : 'all'), search: '', letter: '', loadedCount: 0, ...options.state };
@@ -52,13 +52,7 @@ export class BrowseView {
     const header = el('header', 'tvl-header');
     const back = button('Back', 'back', 'tvl-back', options.back); back.dataset.focusId = 'back';
     header.append(back, el('span', 'tvl-browse-page-title', this.title));
-    if (options.kind === 'home') {
-      const links = el('nav','tvl-browse-global'); links.setAttribute('aria-label','Jellyfin navigation');
-      for (const [label,route] of [['Search Jellyfin','#/search'],['Favourites','#/home?tab=1'],['Now playing','#/queue'],['Settings','#/mypreferencesmenu']]) {
-        const link = button(label,'','',()=>options.navigateRoute(route));link.dataset.focusId=`native:${label}`;links.append(link);
-      }
-      header.append(links);
-    } else if (options.kind === 'music') {
+    if (options.kind === 'music') {
       const queue=button('Now playing','play','',()=>options.navigateRoute('#/queue'));queue.dataset.focusId='now-playing';header.append(queue);
     }
     this.status.setAttribute('role', 'status');
@@ -94,7 +88,7 @@ export class BrowseView {
   }
   private renderControls(): void {
     replace(this.controls);
-    if (this.options.kind === 'home' || this.options.item) return;
+    if (this.options.item) return;
     const nav = el('nav', 'tvl-browse-tabs'); nav.setAttribute('aria-label', `Browse ${this.title.toLowerCase()}`);
     const tabs: [BrowseTab,string][] = this.options.kind === 'recordings'
       ? [['all','All recordings'],['active','Recording now'],['completed','Completed']]
@@ -153,8 +147,7 @@ export class BrowseView {
     try {
       if (this.options.item && !['MusicAlbum','MusicArtist'].includes(this.options.item.Type || '')) {
         replace(this.results, el('p','tvl-browse-detail-note', this.options.item.Type === 'Audio' ? 'Ready to listen.' : 'Ready to watch.'));
-      } else if (this.options.kind === 'home') this.renderHome(await this.api.getHome(), current);
-      else if (!this.options.item && this.state.tab === 'suggestions') {
+      } else if (!this.options.item && this.state.tab === 'suggestions') {
         const sections = await this.api.getMusicSuggestions(this.options.parentId); if (!current()) return; this.renderSections(sections);
       } else if (!this.options.item && this.state.tab === 'genres') {
         const genres = await this.api.getMusicGenres(this.options.parentId); if (!current()) return; this.renderGenres(genres);
@@ -192,36 +185,6 @@ export class BrowseView {
       else replace(this.results,error);
       if (focusRevision === this.focusRevision && (this.element.contains(document.activeElement) || document.activeElement === document.body)) this.focus('retry');
     }
-  }
-  private renderHome(home: HomeData, current: () => boolean): void {
-    if (!current()) return;
-    replace(this.results);
-    const librarySection = el('section','tvl-browse-section'); librarySection.setAttribute('aria-label','Your libraries');
-    librarySection.append(el('h2','','Your libraries'));
-    const libraries = el('nav','tvl-browse-libraries'); libraries.setAttribute('aria-label','Your libraries');
-    for (const library of home.libraries) {
-      const card = button(library.Name,'grid','tvl-browse-library',() => this.options.navigateRoute(this.libraryRoute(library)));
-      card.dataset.libraryId = library.Id; card.dataset.focusId = `library:${library.Id}`;
-      const art = picture(this.api.image(library,'thumb'),'tvl-browse-library-art'); card.prepend(art); libraries.append(card);
-    }
-    if (home.libraries.some(library=>library.CollectionType==='livetv')) {
-      const recordings=button('Recordings','grid','tvl-browse-library',()=>this.options.navigateRoute('#/livetv?tab=3&collectionType=livetv'));
-      recordings.dataset.focusId='library:recordings';libraries.append(recordings);
-    }
-    librarySection.append(libraries); this.results.append(librarySection);
-    for (const [index,section] of home.sections.entries()) this.results.append(this.section(section,`section-${index}`));
-    this.renderHero(home.sections.find(section => section.items.length)?.items[0]);
-    if (!home.libraries.length && !home.sections.length) this.results.append(this.empty('Your library is empty','Add media in Jellyfin to see it here.'));
-  }
-  private libraryRoute(item: Item): string {
-    const params = new URLSearchParams(); const type = item.CollectionType;
-    let path: string;
-    if (type === 'movies' || type === 'tvshows' || type === 'music') {
-      path = type === 'tvshows' ? 'tv' : type; params.set('topParentId',item.Id); params.set('collectionType',type);
-    } else if (type === 'livetv') { path = 'livetv'; params.set('collectionType','livetv'); }
-    else { path = 'list'; params.set('parentId',item.Id); }
-    if (this.api.serverId) params.set('serverId',this.api.serverId);
-    return `#/${path}?${params}`;
   }
   private renderSections(sections: SuggestionSection[]): void {
     replace(this.results,...sections.filter(section => section.items.length).map((section,index)=>this.section(section,`section-${index}`)));
@@ -278,7 +241,7 @@ export class BrowseView {
     this.selected=item;replace(this.hero);
     const backdrop=picture(item?this.api.image(item,'backdrop')||this.api.image(item,'thumb'):null,'tvl-browse-backdrop');backdrop.setAttribute('aria-hidden','true');
     const copy=el('div','tvl-browse-hero-copy');
-    copy.append(el('p','tvl-browse-eyebrow',this.options.item?this.options.item.Type==='MusicArtist'?'ARTIST':this.options.item.Type==='MusicAlbum'?'ALBUM':this.title.toUpperCase():this.options.kind==='home'?'YOUR LIBRARY':this.title.toUpperCase()));
+    copy.append(el('p','tvl-browse-eyebrow',this.options.item?.Type==='MusicArtist'?'ARTIST':this.options.item?.Type==='MusicAlbum'?'ALBUM':this.title.toUpperCase()));
     copy.append(el('h1','',item?.Type==='Episode'&&item.SeriesName?item.SeriesName:item?.Name||this.title));
     if(item){
       const meta=[item.Type==='Episode'?item.Name:'',item.AlbumArtist||item.Artists?.join(', ')||'',item.ProductionYear?String(item.ProductionYear):'',runtime(item.RunTimeTicks),item.IsInProgress||item.Status==='InProgress'?'Recording now':''].filter(Boolean);
@@ -291,7 +254,7 @@ export class BrowseView {
         const favorite=button(item.UserData?.IsFavorite?'Remove from favourites':'Add to favourites','heart','',()=>{void this.favorite(item);});favorite.dataset.focusId='favorite-item';actions.append(favorite);
       }
       copy.append(actions);
-    } else copy.append(el('p','tvl-browse-overview',this.options.kind==='home'?'Find your next story, favourite album or something new.':'Explore your Jellyfin library.'));
+    } else copy.append(el('p','tvl-browse-overview','Explore your Jellyfin library.'));
     this.hero.append(backdrop,copy);
   }
   private async play(item: Item): Promise<void> {

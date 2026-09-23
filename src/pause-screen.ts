@@ -89,17 +89,14 @@ export function startPauseScreen(options: Options): () => void {
 
   function render(model: PauseDetails): void {
     const copy = el('div', 'tvl-pause-copy');
-    const eyebrow = el('div', 'tvl-pause-eyebrow');
-    const pauseMark = el('span', 'tvl-pause-mark'); pauseMark.setAttribute('aria-hidden', 'true');
-    eyebrow.append(pauseMark, el('span', '', 'Paused'));
-    if (model.channel) eyebrow.append(el('span', 'tvl-pause-channel', model.channel.Name));
+    if (model.channel) copy.append(el('div', 'tvl-pause-channel', model.channel.Name));
     const title = el('h1', 'tvl-pause-title', model.title);
     const titleBlock = el('div', 'tvl-pause-title-block');
     const logo = artwork(model.logos, `tvl-pause-logo${model.channel ? ' tvl-pause-channel-logo' : ''}`, model.channel?.Name || model.title,
       () => { if (!model.channel) title.hidden = true; }, () => { title.hidden = false; });
     if (logo && model.channel) titleBlock.append(logo);
     titleBlock.append(title); if (logo && !model.channel) titleBlock.append(logo);
-    copy.append(eyebrow, titleBlock);
+    copy.append(titleBlock);
     const subject = model.subject;
     if (subject.Type === 'Episode') {
       copy.append(el('h2', 'tvl-pause-episode', [episodeCode(subject), subject.Name].filter(Boolean).join('  ·  ')));
