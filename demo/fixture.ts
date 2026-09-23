@@ -179,6 +179,14 @@ for (const spec of [
     Album:album.Name,AlbumId:album.Id,AlbumArtist:spec.artist.Name,Artists:[spec.artist.Name],IndexNumber:index+1,ParentIndexNumber:1,
     ProductionYear:2025,Genres:[spec.genre],RunTimeTicks:(3.5+index*.25)*MINUTE,MediaType:'Audio',ImageTags:{Primary:'demo'}},spec.photo)));
 }
+const playlists = [
+  register({Id:'playlist-quiet',Type:'Playlist',Name:'Quiet moments',MediaType:'Audio',IsFolder:true,ChildCount:3,Overview:'Slow mornings and quiet shores.',ImageTags:{Primary:'demo'}},'ocean'),
+  register({Id:'playlist-night',Type:'Playlist',Name:'After hours',MediaType:'Audio',IsFolder:true,ChildCount:2,Overview:'Music for the last ferry home.',ImageTags:{Primary:'demo'}},'forest'),
+];
+const playlistMembers = new Map<string, Item[]>([
+  ['playlist-quiet', [songs[0], songs[1], songs[0]].map((item, index) => ({...item, PlaylistItemId:`quiet-entry-${index + 1}`}))],
+  ['playlist-night', [songs[3], songs[4]].map((item, index) => ({...item, PlaylistItemId:`night-entry-${index + 1}`}))],
+]);
 register({Id:'library-music',Type:'CollectionFolder',Name:'Music',CollectionType:'music'},'forest');
 register({Id:'library-live',Type:'CollectionFolder',Name:'Live TV',CollectionType:'livetv'},'ocean');
 const musicGenres=[...new Set(albums.flatMap(item=>item.Genres||[]))].sort().map(Name=>({Id:`music-genre-${Name.toLowerCase()}`,Type:'Genre',Name}));
@@ -304,8 +312,8 @@ function browseLibrary(ids: string[], genres: Item[], parentId: string, query: L
 const api: MediaApi = {
   getMusic: query => respond(() => {
     const genre=musicGenres.find(item=>item.Id===query.genreId)?.Name;
-    let found=list(query.kind==='artists'||query.kind==='albumArtists'?artists:query.kind==='songs'?songs:albums);
-    if(query.parentId&&query.parentId!=='library-music')found=[];
+    let found=list(query.kind==='artists'||query.kind==='albumArtists'?artists:query.kind==='songs'?songs:query.kind==='playlists'?playlists:albums);
+    if(query.kind!=='playlists'&&query.parentId&&query.parentId!=='library-music')found=[];
     found=found.filter(item=>(!query.albumId||item.AlbumId===query.albumId)
       &&(!query.artistId||albumArtistIds.get(item.AlbumId||item.Id)===query.artistId)
       &&(!query.search||item.Name.toLocaleLowerCase().includes(query.search.trim().toLocaleLowerCase()))
@@ -314,6 +322,10 @@ const api: MediaApi = {
     found.sort((a,b)=>query.albumId?(a.IndexNumber||0)-(b.IndexNumber||0):movieSortName(a).localeCompare(movieSortName(b)));
     const start=query.startIndex||0;const items=found.slice(start,start+(query.limit||48));return{items,total:found.length,nextStartIndex:start+items.length};
   },query.search),
+  getPlaylistItems: (id, query={}) => respond(() => {
+    const found = list(playlistMembers.get(id) || []); const start = query.startIndex || 0;
+    const items = found.slice(start, start + (query.limit || 48)); return {items, total:found.length, nextStartIndex:start + items.length};
+  }, id),
   getMusicGenres: () => respond(()=>list(musicGenres)),
   getMusicSuggestions: () => respond(()=>scenario==='empty'?[]:[{title:'Recently added',items:list(albums)},
     {title:'Recently played',items:list(songs.slice(0,3))},{title:'Frequently played',items:list(songs.slice(3,6))}]),
@@ -373,6 +385,14 @@ const api: MediaApi = {
   getPrograms: (channelId) => respond(() => list(schedules.get(channelId) || []), channelId),
   setFavorite: (id, favorite) => respond(() => { if (favorite) favorites.add(id); else favorites.delete(id); }, id),
   play: async (item, ticks, isCurrent) => { await respond(() => undefined, item.Id); if (isCurrent()) showPlayer(item, ticks); },
+  playPlaylist: async (playlist, entryId, isCurrent) => {
+    const items = await respond(() => list(playlistMembers.get(playlist.Id) || []), playlist.Id);
+    if (!isCurrent()) return;
+    const item = entryId ? items.find(item => item.PlaylistItemId === entryId) : items[0];
+    if (!item) throw new Error('This playlist has no playable tracks.');
+    document.body.dataset.playlistEntry = item.PlaylistItemId || '';
+    showPlayer(item, 0);
+  },
   playTrailer: async (item, isCurrent) => {
     await respond(() => undefined, item.Id);
     if (!isCurrent()) return;
@@ -553,7 +573,7 @@ function syncRoute() {
     const items=el('div','itemsContainer');items.dataset.parentid=params.get('parentId')||'';content.append(items);replace(nativePage,content);
   } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
   const recordingPage = guide && params.get('tab')==='3' || /^#\/list(?:\?|$)/.test(location.hash) && params.get('type')==='Recordings';
-  const type = home?'home':music||['MusicAlbum','MusicArtist','Audio'].includes(current?.Type||'')?'music':recordingPage||recordings.some(item=>item.Id===current?.Id)?'recordings':collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
+  const type = home?'home':music||['MusicAlbum','MusicArtist','Audio','Playlist'].includes(current?.Type||'')?'music':recordingPage||recordings.some(item=>item.Id===current?.Id)?'recordings':collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
     if (link.dataset.demoType === type && (home || music || guide || movies || shows || recordingPage || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');

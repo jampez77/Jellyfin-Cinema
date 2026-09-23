@@ -5,6 +5,9 @@ import collectionStyles from './collection.css';
 import libraryStyles from './library.css';
 import nativeHostStyles from './native-host.css';
 import browseStyles from './browse.css';
+import recordingsStyles from './recordings.css';
+import musicPlayerStyles from './music-player.css';
+import { NativeRecordingsTheme } from './native-recordings';
 import homeStyles from './home.css';
 import homeCollectionStyles from './home-collections.css';
 import { HomeCollections } from './home-collections';
@@ -26,7 +29,7 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
 let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
@@ -34,6 +37,7 @@ let timer:number|undefined;
 let disposed=false;
 let accountScope:string|null|undefined;
 const nativeHostMask=new NativeHostMask();
+const nativeRecordingsTheme=new NativeRecordingsTheme();
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
 const libraryStates=new Map<string,LibraryBrowseState>();
@@ -66,7 +70,7 @@ function currentRoute():Route|null{
   }
   if(/^music\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
-    const tabs:Record<string,BrowseTab>={'0':'albums','1':'suggestions','2':'albumArtists','3':'artists','5':'songs','6':'genres'};
+    const tabs:Record<string,BrowseTab>={'0':'albums','1':'suggestions','2':'albumArtists','3':'artists','4':'playlists','5':'songs','6':'genres'};
     const tab=tabs[params.get('tab')||'0'];
     return tab?{kind:'music',parentId:params.get('topParentId')||undefined,tab}:null;
   }
@@ -138,6 +142,7 @@ function refresh():void{
   const api=getPlayerApi();
   updateAccount(api);
   const tv=document.documentElement.classList.contains('layout-tv')||document.body.classList.contains('layout-tv');
+  nativeRecordingsTheme.update(tv && !!api);
   const route=currentRoute();
   if(pendingHash && pendingHash!==location.hash){pendingHash='';probeRevision++;}
   if(!tv||!route){dismissed='';pendingHash='';probeRevision++;close(false);return;}
@@ -243,7 +248,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
       document.body.append(view.element);void view.load();
     };
     const openAdditional=(item:Item):boolean=>{
-      const kind=['MusicAlbum','MusicArtist','Audio'].includes(item.Type||'')?'music'
+      const kind=['MusicAlbum','MusicArtist','Audio','Playlist'].includes(item.Type||'')?'music'
         :recordingOrigins.has(location.hash)||['Video','Recording'].includes(item.Type||'')||item.Type==='Episode'&&!item.SeriesId?'recordings':null;
       if(!kind)return false;
       stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
@@ -293,5 +298,5 @@ const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerCo
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',schedule);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',schedule,true);}};
 schedule();

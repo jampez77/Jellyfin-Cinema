@@ -1,4 +1,9 @@
-export type HomeCollectionRow = { id: string; kind: 'collections' | 'items'; title: string; collectionIds: string[]; ranked: boolean };
+import type { Item } from './types';
+
+export const itemSorts = ['collection', 'title', 'title-desc', 'newest', 'oldest', 'custom'] as const;
+export type HomeItemSort = typeof itemSorts[number];
+export type HomeCollectionRow = { id: string; kind: 'collections' | 'items'; title: string; collectionIds: string[]; ranked: boolean;
+  placement: string; itemSort: HomeItemSort; itemOrder: string[] };
 export type HomeCollectionSettings = { version: 1; rows: HomeCollectionRow[] };
 export const emptyHomeCollections = (): HomeCollectionSettings => ({ version: 1, rows: [] });
 
@@ -11,13 +16,32 @@ export function parseHomeCollections(value: unknown): HomeCollectionSettings {
     if (!row || !['collections', 'items'].includes(row.kind) || typeof row.id !== 'string' || !row.id || seen.has(row.id.slice(0, 100))) continue;
     const ids = Array.isArray(row.collectionIds) ? Array.from(new Set<string>(row.collectionIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))) : [];
     seen.add(row.id.slice(0, 100));
-    rows.push({ id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true });
+    const itemOrder = Array.isArray(row.itemOrder) ? Array.from(new Set<string>(row.itemOrder.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))).slice(0, 2000) : [];
+    rows.push({ id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true,
+      placement: typeof row.placement === 'string' && (['start', 'end'].includes(row.placement) || row.placement.startsWith('native:')) ? row.placement.slice(0, 240) : 'end',
+      itemSort: itemSorts.includes(row.itemSort) ? row.itemSort : 'collection', itemOrder });
   }
   return { version: 1, rows };
 }
 
 export function homeCollectionKey(server: string, user: string): string {
   return `jellyfin-cinema.home-collections.v1:${encodeURIComponent(server)}:${encodeURIComponent(user)}`;
+}
+
+/** Ordering is local to a Home row; never mutate shared Jellyfin collection metadata. */
+export function orderHomeItems(items: Item[], row: Pick<HomeCollectionRow, 'itemSort' | 'itemOrder'>): Item[] {
+  if (row.itemSort === 'collection') return items.slice();
+  const positions = new Map(row.itemOrder.map((id, index) => [id, index]));
+  return items.map((item, index) => ({ item, index })).sort((a, b) => {
+    let comparison = 0;
+    if (row.itemSort === 'custom') comparison = (positions.get(a.item.Id) ?? Infinity) - (positions.get(b.item.Id) ?? Infinity);
+    else if (row.itemSort === 'title' || row.itemSort === 'title-desc') comparison = a.item.Name.localeCompare(b.item.Name, undefined, { numeric: true, sensitivity: 'base' }) * (row.itemSort === 'title-desc' ? -1 : 1);
+    else {
+      const ay = a.item.ProductionYear, by = b.item.ProductionYear;
+      comparison = ay == null ? by == null ? 0 : 1 : by == null ? -1 : (ay - by) * (row.itemSort === 'newest' ? -1 : 1);
+    }
+    return (Number.isNaN(comparison) ? 0 : comparison) || a.index - b.index;
+  }).map(entry => entry.item);
 }
 
 // Outlined vector digits: artwork beside the poster, never a title prefix.

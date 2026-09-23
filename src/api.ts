@@ -228,8 +228,9 @@ export function createJellyfinApi(): MediaApi | null {
     EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableTotalRecordCount: true,
     StartIndex: startIndex, Limit: PAGE_SIZE
   })), type === 'Movie' ? 'movie genre' : 'TV show genre')).filter(item => item.Type === 'Genre'));
+  const browse = createBrowseApi(client, userId, read);
   return {
-    ...createBrowseApi(client, userId, read),
+    ...browse,
     userId,
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     getItem: id => read(async () => {
@@ -400,6 +401,29 @@ export function createJellyfinApi(): MediaApi | null {
     setFavorite: (id, favorite) => read(async () => { await client.updateFavoriteStatus(userId, id, favorite); }),
     play: (item, ticks, isCurrent) => read(() => dispatchPlayback(client, item, ticks,
       () => isCurrent() && sessionCurrent())),
+    playPlaylist: (playlist, entryId, isCurrent) => read(async () => {
+      const current = () => isCurrent() && sessionCurrent();
+      if (playlist.Type !== 'Playlist') throw new Error('Choose a playlist to play.');
+      const entries: Item[] = [];
+      const seen = new Set<string>();
+      let start = 0;
+      for (let index = 0; index < MAX_PAGES; index++) {
+        if (!current()) throw new DOMException('This media page has closed.', 'AbortError');
+        const result = await browse.getPlaylistItems(playlist.Id, { startIndex: start, limit: 100 });
+        for (const entry of result.items) {
+          if (!entry.PlaylistItemId || seen.has(entry.PlaylistItemId)) throw new Error('The playlist changed while loading. Please try again.');
+          seen.add(entry.PlaylistItemId); entries.push(entry);
+        }
+        if (result.nextStartIndex >= result.total) {
+          const selected = entryId === undefined ? 0 : entries.findIndex(entry => entry.PlaylistItemId === entryId);
+          if (selected < 0) throw new Error('This track is no longer in the playlist. Reopen the playlist and try again.');
+          return dispatchPlayback(client, playlist, 0, current, { items: entries, startIndex: selected });
+        }
+        if (result.nextStartIndex <= start) throw new Error('The playlist did not finish loading. Please try again.');
+        start = result.nextStartIndex;
+      }
+      throw new Error('This playlist exceeds the playback browsing limit. Open it in Jellyfin’s native player.');
+    }),
     playTrailer: (item, isCurrent) => read(() => dispatchTrailerPlayback(client, userId, item,
       () => isCurrent() && sessionCurrent())),
     image: (item, kind) => imageFor(client, item, kind)

@@ -2,7 +2,8 @@
 .tvl-browse-view .tvl-header { position:relative; z-index:2; }
 .tvl-browse-page-title { color:#bac0c0; text-transform:uppercase; letter-spacing:.14em; font-size:.78em; }
 .tvl-browse-hero { position:relative; min-height:330px; height:36vh; display:flex; align-items:center; margin-top:-6vw; padding:7vw 4.5vw 3vw; box-sizing:content-box; overflow:hidden; }
-.tvl-browse-music .tvl-browse-hero { min-height:160px; height:19vh; padding-bottom:2vw; }
+.tvl-browse-music .tvl-browse-hero { min-height:160px; height:auto; padding-bottom:2vw; }
+.tvl-browse-music .tvl-browse-actions { padding:.35em .4em; margin-left:-.4em; }
 .tvl-browse-view[data-pane=recordings] .tvl-browse-hero { min-height:250px; height:28vh; padding-bottom:2vw; }
 .tvl-browse-backdrop { position:absolute; inset:0; top:0; right:0; bottom:0; left:0; background:radial-gradient(ellipse at 80% 15%,#36504d,#101112 80%); }
 .tvl-browse-backdrop img { width:100%; height:100%; object-fit:cover; object-position:70% 40%; opacity:.72; }
@@ -42,7 +43,7 @@
 .tvl-browse-art { position:relative; width:100%; padding-top:56.25%; background:radial-gradient(ellipse at 60% 30%,#3d544b,#1c2521); }
 .tvl-browse-art img { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
 .tvl-browse-music .tvl-browse-grid:not(.tvl-browse-row) { grid-template-columns:repeat(5,minmax(0,1fr)); }
-.tvl-browse-card[data-item-type=MusicAlbum] .tvl-browse-art,.tvl-browse-card[data-item-type=MusicArtist] .tvl-browse-art,.tvl-browse-card[data-item-type=Audio] .tvl-browse-art { padding-top:100%; }
+.tvl-browse-card[data-item-type=MusicAlbum] .tvl-browse-art,.tvl-browse-card[data-item-type=MusicArtist] .tvl-browse-art,.tvl-browse-card[data-item-type=Audio] .tvl-browse-art,.tvl-browse-card[data-item-type=Playlist] .tvl-browse-art { padding-top:100%; }
 .tvl-browse-caption { min-height:4.1em; padding:.7em .75em .8em; }
 .tvl-browse-caption h3 { font-size:.9em; font-weight:550; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tvl-browse-caption p { color:#bbc6be; font-size:.72em; margin-top:.25em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -56,6 +57,13 @@
 .tvl-browse-empty h2 { color:#eef6f0; }
 .tvl-browse-empty .tvl-button { margin-top:1em; }
 .tvl-browse-detail-note { color:#a7b9ae; padding:2em 0; }
+.tvl-browse-tracks { display:grid; grid-template-columns:minmax(0,1fr); grid-gap:.55em; gap:.55em; }
+.tvl-browse-tracks .tvl-browse-card { display:grid; grid-template-columns:2.2em 3.8em minmax(0,1fr) 4em; grid-gap:1em; gap:1em; align-items:center; padding:.65em 1em; }
+.tvl-browse-tracks .tvl-browse-card .tvl-browse-art { width:3.8em; height:3.8em; padding:0; border-radius:4px; overflow:hidden; }
+.tvl-browse-tracks .tvl-browse-caption { min-height:0; padding:0; }
+.tvl-browse-track-number,.tvl-browse-track-duration { color:#b7c7bc; font-size:.8em; font-variant-numeric:tabular-nums; }
+.tvl-browse-track-duration { text-align:right; }
+.tvl-browse-tracks .tvl-browse-heart { top:.25em; left:.3em; right:auto; font-size:.7em; }
 /* Chromium 79 supports grid gap but not flex gap. Use margins for flex rows. */
 .tvl-browse-actions,.tvl-browse-tabs,.tvl-browse-search,.tvl-browse-alphabet,.tvl-browse-section-heading,.tvl-browse-row { gap:0; }
 .tvl-browse-actions>* { margin-right:.7em; margin-bottom:.45em; }

@@ -1,0 +1,99 @@
+/* Completed and active recordings share Cinema's artwork and comfortable
+   action spacing. These rules do not affect the shared Music browse view. */
+.tvl-browse-view[data-pane=recordings] .tvl-header { padding-left:5.5vw; padding-right:5.5vw; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-hero { padding-left:5.5vw; padding-right:5.5vw; padding-bottom:2.4vw; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-hero h1 { font-family:'Arial Narrow','Helvetica Neue',Arial,sans-serif; font-weight:900; letter-spacing:-.025em; text-transform:uppercase; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-actions { padding:.4em 0; margin-top:1.15em; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-actions>.tvl-button { margin-right:1em; margin-bottom:.65em; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-controls,
+.tvl-browse-view[data-pane=recordings] .tvl-browse-results,
+.tvl-browse-view[data-pane=recordings] .tvl-browse-status { padding-left:5.5vw; padding-right:5.5vw; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-tabs { padding-top:.45em; padding-bottom:1em; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-tab { border-radius:5px; margin-right:.45em; margin-bottom:.45em; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-tab[aria-pressed=true] { color:#eaf5ee; background:#26352e; border-bottom-color:transparent; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-tab:focus { border-color:#f5f5f2; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-search { margin-top:1.1em; margin-bottom:1.1em; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-grid { gap:1.7vw; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-card { background:transparent; padding:.25em; overflow:visible; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-card:hover,
+.tvl-browse-view[data-pane=recordings] .tvl-browse-card:focus { background:#ffffff08; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-art { border-radius:5px; overflow:hidden; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-caption { padding:.7em .25em .6em; }
+.tvl-browse-view[data-pane=recordings] .tvl-browse-live { padding:.2em .55em; border-radius:3px; background:#56332c; color:#ffded4; }
+
+/* Native Schedule, Series and series-timer detail pages. No display, position,
+   tabindex or visibility overrides: native tabs, permissions and remote
+   navigation keep owning the controls, including destructive confirmations. */
+body.tvl-recordings-native { background:#101112; color:#f5f5f2; }
+.tvl-recordings-native .skinHeader { background:linear-gradient(180deg,#101112fa,#101112e6 75%,#10111200); }
+.tvl-recordings-native .headerTabs .emby-tab-button { color:#bac5be; border-radius:5px; margin-right:.35em; }
+.tvl-recordings-native .headerTabs .emby-tab-button-active { background:#26352e; color:#f5f5f2; }
+.tvl-recordings-native .headerTabs .emby-tab-button:focus { outline:2px solid #f2faf4; outline-offset:2px; background:#34453c; color:#fff; }
+.tvl-recordings-native #liveTvSuggestedPage { background:#101112; color:#f5f5f2; }
+.tvl-recordings-native #liveTvSuggestedPage .pageTabContent { padding-top:1.5em; padding-bottom:3em; }
+.tvl-recordings-native #liveTvSuggestedPage .padded-left { padding-left:5.5vw; }
+.tvl-recordings-native #liveTvSuggestedPage .padded-right { padding-right:5.5vw; }
+.tvl-recordings-native #liveTvSuggestedPage .verticalSection { margin-bottom:2em; }
+.tvl-recordings-native #liveTvSuggestedPage .sectionTitle,
+.tvl-recordings-native #seriesTimerScheduleSection .sectionTitle { color:#f5f5f2; font-weight:600; letter-spacing:-.015em; }
+.tvl-recordings-native #liveTvSuggestedPage .itemsContainer { padding-top:.55em; padding-bottom:1em; }
+.tvl-recordings-native #liveTvSuggestedPage .cardBox,
+.tvl-recordings-native #seriesTimerSchedule .cardBox { background:transparent; border-radius:7px; box-shadow:none; }
+.tvl-recordings-native #liveTvSuggestedPage .cardScalable,
+.tvl-recordings-native #liveTvSuggestedPage .cardImageContainer,
+.tvl-recordings-native #seriesTimerSchedule .cardScalable,
+.tvl-recordings-native #seriesTimerSchedule .cardImageContainer { border-radius:7px; background-color:#22302a; }
+.tvl-recordings-native #liveTvSuggestedPage .cardFooter,
+.tvl-recordings-native #liveTvSuggestedPage .cardText,
+.tvl-recordings-native #seriesTimerSchedule .cardFooter,
+.tvl-recordings-native #seriesTimerSchedule .cardText { background:transparent; }
+.tvl-recordings-native #liveTvSuggestedPage .cardText,
+.tvl-recordings-native #seriesTimerSchedule .cardText { color:#f5f5f2; text-align:left; padding-left:.4em; padding-right:.4em; }
+.tvl-recordings-native #liveTvSuggestedPage .cardText-secondary,
+.tvl-recordings-native #seriesTimerSchedule .cardText-secondary { color:#b9c4bd; }
+.tvl-recordings-native #liveTvSuggestedPage .cardText:last-child,
+.tvl-recordings-native #seriesTimerSchedule .cardText:last-child { padding-bottom:.7em; }
+.tvl-recordings-native #liveTvSuggestedPage .card:focus .cardBox,
+.tvl-recordings-native #liveTvSuggestedPage .cardBox:focus-within,
+.tvl-recordings-native #seriesTimerSchedule .card:focus .cardBox,
+.tvl-recordings-native #seriesTimerSchedule .cardBox:focus-within { outline:2px solid #f2faf4; outline-offset:3px; }
+
+/* A series timer has its own native details route and inline settings form. */
+body[data-tvl-recording-page=series-detail] #itemDetailPage { background-color:#101112; color:#f5f5f2; }
+body[data-tvl-recording-page=series-detail] #itemDetailPage .detailRibbon { background:linear-gradient(90deg,#101112f2,#101112cc); }
+body[data-tvl-recording-page=series-detail] #itemDetailPage .nameContainer { color:#f5f5f2; }
+body[data-tvl-recording-page=series-detail] #itemDetailPage .itemName { font-family:'Arial Narrow','Helvetica Neue',Arial,sans-serif; font-weight:900; letter-spacing:-.025em; text-transform:uppercase; }
+body[data-tvl-recording-page=series-detail] #itemDetailPage .itemMiscInfo,
+body[data-tvl-recording-page=series-detail] #itemDetailPage .overview { color:#c4cec7; }
+body[data-tvl-recording-page=series-detail] #itemDetailPage .seriesRecordingEditor { padding:1em 0 1.5em; }
+body[data-tvl-recording-page=series-detail] #itemDetailPage #seriesTimerScheduleSection { margin-top:1.5em !important; }
+
+/* Native recording and series editors can also open from the guide. */
+.tvl-recordings-ready .recordingDialog { background:#101112; color:#f5f5f2; border:1px solid #536159; border-radius:8px; box-shadow:0 20px 75px #0009; }
+.tvl-recordings-ready .recordingDialog .formDialogHeader,
+.tvl-recordings-ready .recordingDialog .formDialogFooter { background:#101112; color:#f5f5f2; }
+.tvl-recordings-ready .recordingDialog .formDialogHeader { padding:1.1em 1.4em; border-bottom:1px solid #ffffff19; }
+.tvl-recordings-ready .recordingDialog .dialogContentInner { padding-left:2em; padding-right:2em; }
+.tvl-recordings-ready .recordingDialog .formDialogFooter { padding-top:1em; padding-bottom:1em; }
+.tvl-recordings-ready .recordingDialog .formDialogFooterItem { margin-top:.7em; margin-bottom:.7em; }
+.tvl-recordings-ready .recordingDialog .fieldDescription,
+body[data-tvl-recording-page=series-detail] #itemDetailPage .fieldDescription { color:#b9c4bd; }
+.tvl-recordings-ready .recordingDialog .emby-input,
+.tvl-recordings-ready .recordingDialog .emby-select,
+body[data-tvl-recording-page=series-detail] #itemDetailPage .emby-input,
+body[data-tvl-recording-page=series-detail] #itemDetailPage .emby-select { background:#1b2620; border-color:#536159; border-radius:5px; color:#f5f5f2; }
+.tvl-recordings-ready .recordingDialog .raised,
+body[data-tvl-recording-page=series-detail] #itemDetailPage .raised { background:#26352e; color:#f5f5f2; border-radius:5px; box-shadow:none; }
+.tvl-recordings-ready .recordingDialog .button-submit,
+body[data-tvl-recording-page=series-detail] #itemDetailPage .button-submit { background:#f6f6f3; color:#101112; }
+.tvl-recordings-ready .recordingDialog .button-cancel { color:#ffded4; }
+.tvl-recordings-ready .recordingDialog button:focus,
+.tvl-recordings-ready .recordingDialog input:focus,
+.tvl-recordings-ready .recordingDialog select:focus,
+body[data-tvl-recording-page=series-detail] #itemDetailPage button:focus,
+body[data-tvl-recording-page=series-detail] #itemDetailPage input:focus,
+body[data-tvl-recording-page=series-detail] #itemDetailPage select:focus { outline:2px solid #f2faf4; outline-offset:3px; }
+@media (max-width:900px) {
+  .tvl-browse-view[data-pane=recordings] .tvl-browse-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .tvl-recordings-ready .recordingDialog .dialogContentInner { padding-left:1em; padding-right:1em; }
+}

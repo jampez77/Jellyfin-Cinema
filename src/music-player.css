@@ -1,0 +1,64 @@
+/* Native 10.11/12 nowPlayingBar + playback/queue markup. Jellyfin retains
+   layout, visibility, playback handlers, slider geometry and queue ownership. */
+.layout-tv .nowPlayingBar {
+  background:linear-gradient(110deg,#1e2923,#141817 65%);
+  color:#f5f5f2;
+  box-shadow:0 -1px 0 #c3d4c329,0 -12px 36px #0005;
+}
+.layout-tv .nowPlayingBar .nowPlayingBarText { color:#f5f5f2; font-weight:600; }
+.layout-tv .nowPlayingBar .nowPlayingBarSecondaryText,
+.layout-tv .nowPlayingBar .nowPlayingBarCurrentTime { color:#b9c4bd; font-weight:400; }
+.layout-tv .nowPlayingBar .nowPlayingImage { border-radius:6px; }
+.layout-tv .nowPlayingBar button { color:#f5f5f2; border-radius:50%; }
+.layout-tv .nowPlayingBar .playPauseButton { background:#f5f5f2; color:#101112; }
+.layout-tv .nowPlayingBar button:hover { background:#34413a; color:#f5f5f2; }
+.layout-tv .nowPlayingBar button:focus { outline:2px solid #d3e7de; outline-offset:2px; }
+.layout-tv .nowPlayingBar .buttonActive { color:#d3e7de; background:#34413a; }
+
+.layout-tv #nowPlayingPage { background:#101112; color:#f5f5f2; }
+.layout-tv #nowPlayingPage .remoteControlContent { max-width:1440px; margin:0 auto; }
+.layout-tv #nowPlayingPage .nowPlayingInfoContainer {
+  background:linear-gradient(120deg,#202b24,#181d1a 70%);
+  border:1px solid #d3e7de24;
+  border-radius:14px;
+  padding:1.5em;
+  box-shadow:0 18px 48px #0003;
+}
+.layout-tv #nowPlayingPage .nowPlayingPageImage { border-radius:9px; box-shadow:0 8px 24px #0006; }
+.layout-tv #nowPlayingPage .nowPlayingPageTitle,
+.layout-tv #nowPlayingPage .nowPlayingSongName { color:#f5f5f2; letter-spacing:-.025em; }
+.layout-tv #nowPlayingPage .nowPlayingAlbum,
+.layout-tv #nowPlayingPage .nowPlayingArtist,
+.layout-tv #nowPlayingPage .positionTime,
+.layout-tv #nowPlayingPage .runtime { color:#b9c4bd; }
+.layout-tv #nowPlayingPage button { color:#f5f5f2; border-radius:8px; }
+.layout-tv #nowPlayingPage .btnPlayPause { color:#f5f5f2; }
+.layout-tv #nowPlayingPage button:hover,
+.layout-tv #nowPlayingPage .listItem:hover { background-color:#25322b; }
+.layout-tv #nowPlayingPage button:focus,
+.layout-tv #nowPlayingPage a:focus,
+.layout-tv #nowPlayingPage input:focus { outline:2px solid #d3e7de; outline-offset:3px; }
+.layout-tv #nowPlayingPage .buttonActive { color:#d3e7de; background:#34413a; }
+.layout-tv #nowPlayingPage .playlistSection { margin-top:1.8em; }
+.layout-tv #nowPlayingPage .nowPlayingPlaylist { border-radius:10px; background:#161c18; }
+.layout-tv #nowPlayingPage .listItem { border-bottom:1px solid #d3e7de16; border-radius:6px; color:#f5f5f2; }
+.layout-tv #nowPlayingPage .listItemBodyText { color:#b9c4bd; }
+.layout-tv #nowPlayingPage .listItemBodyText:first-child { color:#f5f5f2; }
+.layout-tv #nowPlayingPage .listItemImage { border-radius:5px; }
+.layout-tv #nowPlayingPage .playlistIndexIndicatorImage { background-color:#34413a; color:#d3e7de; }
+.layout-tv #nowPlayingPage .contextMenuList a { color:#f5f5f2; }
+
+/* Colour the native slider pieces without replacing their hit areas. */
+.layout-tv .nowPlayingBar .mdl-slider,
+.layout-tv #nowPlayingPage .mdl-slider { color:#d3e7de; accent-color:#d3e7de; }
+.layout-tv .nowPlayingBar .mdl-slider-background-lower,
+.layout-tv #nowPlayingPage .mdl-slider-background-lower { background:#d3e7de; }
+.layout-tv .nowPlayingBar .mdl-slider-background-upper,
+.layout-tv #nowPlayingPage .mdl-slider-background-upper { background:#66766b80; }
+.layout-tv .nowPlayingBar .mdl-slider::-webkit-slider-thumb,
+.layout-tv #nowPlayingPage .mdl-slider::-webkit-slider-thumb { background:#f5f5f2; }
+.layout-tv .nowPlayingBar .mdl-slider::-moz-range-thumb,
+.layout-tv #nowPlayingPage .mdl-slider::-moz-range-thumb { background:#f5f5f2; }
+@media(max-width:760px) {
+  .layout-tv #nowPlayingPage .nowPlayingInfoContainer { padding:.8em; border-radius:10px; }
+}

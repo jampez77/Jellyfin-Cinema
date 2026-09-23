@@ -2,13 +2,14 @@ import type { Item, ItemPage, LibraryQuery, SuggestionSection } from './types';
 
 type Query = Record<string, string | number | boolean>;
 type Result = { Items?: Item[]; TotalRecordCount?: number };
-export type MusicKind = 'albums' | 'artists' | 'albumArtists' | 'songs';
+export type MusicKind = 'albums' | 'artists' | 'albumArtists' | 'songs' | 'playlists';
 export type MusicQuery = LibraryQuery & { kind: MusicKind; artistId?: string; albumId?: string };
 export type RecordingQuery = { search?: string; status?: 'all' | 'active' | 'completed'; startIndex?: number; limit?: number };
 export interface BrowseApi {
   getMusic(query: MusicQuery): Promise<ItemPage>;
   getMusicGenres(parentId?: string): Promise<Item[]>;
   getMusicSuggestions(parentId?: string): Promise<SuggestionSection[]>;
+  getPlaylistItems(playlistId: string, query?: { startIndex?: number; limit?: number }): Promise<ItemPage>;
   getRecordings(query?: RecordingQuery): Promise<ItemPage>;
 }
 export interface BrowseClient {
@@ -72,20 +73,32 @@ export function createBrowseApi(client: BrowseClient, userId: string, read: Read
       if (letter && !/^[A-Z#]$/.test(letter)) throw new Error('Choose a letter from A to Z, or #.');
       const options: Query = { ...art, UserId: userId, Recursive: true, EnableTotalRecordCount: true,
         StartIndex: start, Limit: limit, SortBy: query.albumId ? 'ParentIndexNumber,IndexNumber,SortName' : 'SortName', SortOrder: 'Ascending',
-        ...(query.albumId || query.parentId ? { ParentId: query.albumId || query.parentId! } : {}),
+        // Native music playlists are global to the account, not children of a music library.
+        ...(query.kind !== 'playlists' && (query.albumId || query.parentId) ? { ParentId: query.albumId || query.parentId! } : {}),
         ...(query.search?.trim() ? { SearchTerm: query.search.trim() } : {}),
         ...(query.favorite ? { IsFavorite: true } : {}),
         ...(query.genreId ? { GenreIds: query.genreId } : {}),
         ...(letter === '#' ? { NameLessThan: 'A' } : letter ? { NameStartsWith: letter } : {}) };
       const artists = query.kind === 'artists' || query.kind === 'albumArtists';
       if (!artists) {
-        options.IncludeItemTypes = query.kind === 'songs' ? 'Audio' : 'MusicAlbum';
+        options.IncludeItemTypes = query.kind === 'playlists' ? 'Playlist' : query.kind === 'songs' ? 'Audio' : 'MusicAlbum';
         if (query.artistId) options.ContributingArtistIds = query.artistId;
       }
       const result = artists ? await json(query.kind === 'albumArtists' ? 'Artists/AlbumArtists' : 'Artists', options)
         : await client.getItems(userId, options);
-      const type = artists ? 'MusicArtist' : query.kind === 'songs' ? 'Audio' : 'MusicAlbum';
+      const type = artists ? 'MusicArtist' : query.kind === 'playlists' ? 'Playlist' : query.kind === 'songs' ? 'Audio' : 'MusicAlbum';
       return page(result, start, limit, 'music', item => item.Type === type && available(item));
+    }),
+    getPlaylistItems: (playlistId, query = {}) => read(async () => {
+      if (!playlistId) throw new Error('Choose a playlist to browse.');
+      const { start, limit } = bounds(query);
+      // The playlist endpoint retains entry order and PlaylistItemId, including
+      // repeated tracks. Sorting or deduplicating by media Id would lose entries.
+      const result = await json(`Playlists/${encodeURIComponent(playlistId)}/Items`, {
+        ...art, UserId: userId, StartIndex: start, Limit: limit
+      });
+      if (items(result, 'playlist').some(item => !item.PlaylistItemId)) throw new Error('Jellyfin returned an invalid playlist entry. Try again.');
+      return page(result, start, limit, 'playlist');
     }),
     getMusicGenres: parentId => read(() => allPages(start => json('MusicGenres', { UserId: userId, IncludeItemTypes: 'MusicAlbum',
       ...(parentId ? { ParentId: parentId } : {}), SortBy: 'SortName', SortOrder: 'Ascending', StartIndex: start, Limit: 100,

@@ -253,3 +253,79 @@ test('late Featured startup and a replaced native Home container mount exactly o
   await page.locator('.native-replacement-row button').focus();
   await expect(page.locator('.native-replacement-row button')).toBeFocused();
 });
+
+test('custom rows settle around real Featured while preserving its nodes, geometry and native actions', async ({ page }) => {
+  await page.addInitScript(() => {
+    const key = `jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`;
+    localStorage.setItem(key, JSON.stringify({ version: 1, rows: [
+      { id: 'before-start', kind: 'collections', title: 'First picks', collectionIds: ['collection-coast'], ranked: false, placement: 'start' },
+      { id: 'before-featured', kind: 'collections', title: 'Before Featured', collectionIds: ['collection-wilderness'], ranked: false, placement: 'native:featured:1' },
+      { id: 'after-featured', kind: 'items', title: 'After Featured', collectionIds: ['collection-coast'], ranked: true, placement: 'native:my media:1' }
+    ] }));
+  });
+  await setup(page, { feed: { showPlayButton: true } });
+  await expect(page.locator('#homeTab [data-home-row]')).toHaveCount(3);
+  await start(page); await expect(featured(page)).toHaveCount(1);
+  const placement = () => page.locator('#homeTab').evaluate(home => {
+    const carousel = home.querySelector('.ec-root.ec-ready');
+    const before = home.querySelector('[data-home-row="before-featured"]');
+    const after = home.querySelector('[data-home-row="after-featured"]');
+    const native = home.querySelector('[data-home-section="smalllibrarytiles"] .verticalSection');
+    if (!carousel || !before || !after || !native) return null;
+    return {
+      first: before.previousElementSibling?.getAttribute('data-home-row'),
+      before: before.nextElementSibling === carousel,
+      after: !!(carousel.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING),
+      native: after.nextElementSibling === native
+    };
+  });
+  await expect.poll(placement).toEqual({ first: 'before-start', before: true, after: true, native: true });
+  expect(await featured(page).locator('.ec-viewport').evaluate(element => element.getBoundingClientRect().height)).toBe(430);
+  await page.evaluate(() => {
+    const win = window as any;
+    win.__interleavedCarousel = document.querySelector('#homeTab .ec-root.ec-ready');
+    win.__interleavedNativeRows = [...document.querySelectorAll('#homeTab .verticalSection')];
+    win.__featuredNativeActions = [];
+    const showItem = win.Emby.Page.showItem;
+    // Observe the real plugin's Play bridge without starting a real player.
+    win.Emby.Page.showItem = (id: string) => {
+      win.__featuredNativeActions.push(id);
+      if (win.__navigateFeaturedAction) showItem(id);
+    };
+  });
+  const moves = await page.evaluate(async () => {
+    let moves = 0;
+    const observer = new MutationObserver(records => {
+      for (const record of records) for (const node of [...record.addedNodes, ...record.removedNodes]) {
+        if (node instanceof Element && node.matches('.ec-root, .tvl-home-collection-row')) moves++;
+      }
+    });
+    observer.observe(document.querySelector('#homeTab')!, { childList: true, subtree: true });
+    const unrelated = document.createElement('span'); document.body.append(unrelated); unrelated.remove();
+    for (let index = 0; index < 8; index++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    observer.disconnect(); return moves;
+  });
+  expect(moves).toBe(0);
+
+  await activeSlide(page).focus(); await page.keyboard.press('ArrowRight');
+  await expect(activeSlide(page).getByRole('heading')).toHaveText('Personal pick: A Kind of Blue');
+  await expect(activeSlide(page)).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(activeSlide(page).getByRole('heading')).toHaveText('Personal pick: After the Tide');
+  await activeSlide(page).locator('.ec-button:not(.ec-button-secondary)').click();
+  expect(await page.evaluate(() => (window as any).__featuredNativeActions)).toEqual(['movie-tide']);
+  expect(await page.evaluate(() => {
+    const win = window as any;
+    return win.__interleavedCarousel === document.querySelector('#homeTab .ec-root.ec-ready')
+      && win.__interleavedNativeRows.every((node: Element) => node.isConnected);
+  })).toBe(true);
+  await expect.poll(placement).toEqual({ first: 'before-start', before: true, after: true, native: true });
+  expect(await featured(page).locator('.ec-viewport').evaluate(element => element.getBoundingClientRect().height)).toBe(430);
+
+  await page.evaluate(() => { (window as any).__navigateFeaturedAction = true; });
+  await activeSlide(page).getByRole('button', { name: 'Explore this title', exact: true }).click();
+  await expect(page).toHaveURL(/#\/details\?id=movie-tide$/);
+  await expect(page.getByRole('dialog', { name: 'After the Tide details', exact: true })).toBeVisible();
+  await page.goBack(); await expect(featured(page)).toHaveCount(1);
+  await expect.poll(placement).toEqual({ first: 'before-start', before: true, after: true, native: true });
+});

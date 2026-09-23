@@ -56,11 +56,14 @@ async function player(page: Page, id = 'browse-episode-2', rating = true) {
     video.srcObject = canvas.captureStream(5); container.append(video); document.body.append(container);
     const osd = document.createElement('div'); osd.id = 'videoOsdPage'; osd.dataset.type = 'video-osd';
     osd.style.cssText = 'position:fixed;inset:0;z-index:1000;pointer-events:none';
+    const bottom = document.createElement('div'); bottom.className = 'videoOsdBottom';
+    bottom.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:7.5em 24px 24px;display:flex;pointer-events:none';
+    const nativeControls = document.createElement('div'); nativeControls.className = 'osdControls'; nativeControls.style.cssText = 'flex:1;min-width:0;pointer-events:auto';
     const controls = document.createElement('div'); controls.className = 'buttons';
-    controls.style.cssText = 'position:absolute;bottom:20px;left:20px;pointer-events:auto';
+    controls.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;pointer-events:auto';
     const button = document.createElement('button'); button.className = 'btnUserRating'; button.textContent = 'Native control';
     if (rating) button.dataset.id = id;
-    controls.append(button); osd.append(controls); document.body.append(osd);
+    controls.append(button); nativeControls.append(controls); bottom.append(nativeControls); osd.append(bottom); document.body.append(osd);
     await video.play(); button.focus(); osd.dispatchEvent(new CustomEvent('viewshow', { bubbles: true }));
   }, { id, rating });
   await expect(page.locator('#tvl-player-browse')).toBeVisible();
@@ -103,6 +106,44 @@ test('Down browses the complete show continuously across seasons and wraps witho
   await expect(page.getByRole('button', { name: 'Native control' })).toBeFocused();
   expect(await page.evaluate(() => (window as any).__browserPlays)).toEqual([]);
   expect(await page.locator('video').evaluate((video: HTMLVideoElement) => video.paused)).toBe(false);
+});
+
+test('the mouse preview trigger stays outside native OSD layout and hides with its controls', async ({ page }) => {
+  await fixture(page); await player(page);
+  const unchangedGeometry = () => page.evaluate(() => {
+    const entry = document.querySelector<HTMLElement>('#tvl-player-browse')!;
+    const parent = entry.parentElement!;
+    const nodes = [document.querySelector('.videoOsdBottom')!, document.querySelector('.osdControls')!, document.querySelector('.buttons')!, document.querySelector('video')!];
+    const bounds = () => nodes.map(node => { const r = node.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; });
+    const present = bounds(); entry.remove(); const absent = bounds(); parent.append(entry);
+    return { present, absent };
+  });
+  for (const paused of [false, true, false]) {
+    await page.locator('video').evaluate(async (video: HTMLVideoElement, paused) => { if (paused) video.pause(); else await video.play(); }, paused);
+    await page.mouse.move(1000, 650);
+    const geometry = await unchangedGeometry(); expect(geometry.present).toEqual(geometry.absent);
+  }
+  const entry = page.getByRole('button', { name: 'Episodes & seasons', exact: true });
+  await expect(entry).toHaveText('');
+  await expect(entry).toHaveCSS('position', 'absolute');
+  expect(await entry.evaluate(element => element.closest('.buttons'))).toBeNull();
+  await page.screenshot({ path: test.info().outputPath('mouse-preview-icon.png') });
+  await page.locator('.videoOsdBottom').evaluate(element => element.classList.add('videoOsdBottom-hidden'));
+  await expect(entry).toBeHidden();
+  await page.keyboard.press('ArrowDown'); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await page.locator('.videoOsdBottom').evaluate(element => element.classList.remove('videoOsdBottom-hidden'));
+  await entry.click(); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+});
+
+test('an unfamiliar native OSD keeps Down browsing without injecting a layout-dependent trigger', async ({ page }) => {
+  await fixture(page); await player(page);
+  await page.locator('.videoOsdBottom').evaluate(element => element.classList.remove('videoOsdBottom'));
+  await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
+  await page.keyboard.press('ArrowDown');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await expect(page.getByRole('button', { name: 'Native control' })).toBeFocused();
 });
 
 test('visible browse action returns to currently playing item and held Back never exits the native player', async ({ page }) => {

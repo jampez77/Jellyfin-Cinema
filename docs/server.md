@@ -2,6 +2,8 @@
 
 Jellyfin Cinema, formerly TV Item Layout, is an independent server plugin that loads the bundled client into **Jellyfin Web**. The layout follows the web client's TV display mode. Native clients that do not load the server's Jellyfin Web assets cannot use this plugin.
 
+This source tree is preparing **0.2.1**; it has not been published or deployed to a live Jellyfin server or physical TV. The catalogue and manual download instructions below refer to the published **0.2.0** prerelease. The collection editor, music and recordings refinements described later require the new source build.
+
 The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). It has a separate name, assembly, API route, and plugin ID (`1a06b74f-7609-4af9-899d-430c9b5a52b1`), so it can be installed alongside that plugin. The inherited MIT notice is included in every archive.
 
 The 0.2.0 release retains TV Item Layout’s plugin ID, `Jellyfin.Plugin.TvItemLayout.dll`, API endpoints, script and archive filenames. Its new public repository is [jampez77/Jellyfin-Cinema](https://github.com/jampez77/Jellyfin-Cinema). Existing users must replace the old catalogue repository entry with the new URL below, then update normally without uninstalling the plugin. The new catalogue starts at 0.2.0; historical releases are not included in this catalogue.
@@ -54,7 +56,7 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. This source tree builds the target-specific `0.2.0` plugin versions above. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. This source tree builds `0.2.1.1` for Jellyfin 10.10.7, `0.2.1.2` for 10.11.x and `0.2.1.3` for 12.x. These are local builds, separate from the published 0.2.0 versions above. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
@@ -104,14 +106,22 @@ Home styles Jellyfin’s existing sections in place, with titles and subtitles s
 
 If [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) is installed, its carousel remains in the native Home container. Jellyfin Cinema matches its colours and typography to the rest of the layout. Its display settings, height and layout, personalization, trailers and input handling remain under Featured’s control. Keep Featured enabled.
 
-In 0.2.0, **Customize collection rows** on Home adds your own rows below the native sections. A **Collections row** contains selected collections in your chosen order; a **collection items row** shows the members of one collection. Add multiple item rows for different collections, choose titles, reorder rows, and save. Optional **Ranked artwork** displays outlined SVG number images to the left of posters. These positions follow Jellyfin’s returned collection order, including its configured display order; they are not popularity scores.
+In 0.2.1, open **Collections → Customize collection rows**. The launcher has moved from Home to the Collections page. Select a row from the row list and use its **Content**, **Item order** and **Home position** tabs in the adjacent workspace. Add a Collections row for several selected collections, or separate collection items rows for individual collections. Choose titles and optional **Ranked artwork**, then choose **Save rows**.
 
-Custom row settings use browser local storage, separated by server and signed-in account. They belong to this device/browser, do not sync between clients, and are removed if that storage is cleared. Limits are 12 rows, 40 selected collections per Collections row, and 60 displayed members per item row, followed by **View full collection** when more members are available. Native Home settings and Featured preferences remain separate.
+**Item order** can retain Jellyfin’s collection order, sort by title or year, or use a manual order. The change is local to that Home row and does not edit the server’s collection metadata. Number images beside posters follow this chosen order, not a popularity calculation. **Home position** places custom rows among native sections, including Featured and each library’s Latest row, while Jellyfin and Featured keep control of their own sections. Visit Home once to make its sections available in the editor. If a chosen section is hidden or unavailable, its custom row appears at the end.
+
+Custom row settings use browser local storage, separated by server and signed-in account. They belong to this device/browser, do not sync between clients, and are removed if that storage is cleared. Existing version-1 settings are preserved: rows keep collection order and end-of-Home placement until edited. Limits are 12 rows, 40 selected collections per Collections row, 2,000 saved item IDs per manual order, and 60 displayed members per item row, followed by **View full collection** when more members are available. Native Home settings and Featured preferences remain separate.
 
 Use **Add to collection** on a media detail page to choose an existing collection or create one. This writes to Jellyfin and requires your account’s collection-management permission. Existing memberships are marked to avoid duplicate additions; successful saves refresh the item’s collection links.
 
+## Music and recordings refinements in 0.2.1
+
+Choose **Music → Playlists** to browse your account’s playlists, search or filter them, and open their track rows. **Play playlist** starts the complete playlist; selecting a track starts the complete queue at that entry. The saved order and repeated tracks are preserved through Jellyfin’s authenticated APIs and native playback. More tracks load through **Show more**, and Back restores the selected card and filters. Album Play buttons have extra room for their focus highlight.
+
+Jellyfin’s native music player and Now playing queue receive matching colours and focus styling; their queue actions, playback state and permissions remain native. Recordings’ **Schedule**, **Series recordings**, details and DVR dialogs also receive the cinematic theme while retaining Jellyfin’s scheduling, editing and permission checks.
+
 ## Integrated player features
 
-In TV display mode, press Down during video playback or choose the Browse control to open the episode/film/channel browser. The season selector previews that season’s first available episode without changing playback; Play/Resume starts the selected episode. Version 0.2.0 fixes Down opening the integrated preview when a standalone preview script is present but failed to initialise. Pause video to show its artwork and synopsis. Working standalone preview controls retain priority. The standalone PauseScreen plugin retains priority over the integrated pause treatment.
+In TV display mode, press Down during video playback or choose the Browse icon to open the episode/film/channel browser. In 0.2.1 the mouse control is a compact icon with a tooltip and accessible label, without changing the native player bar’s sizing. The season selector previews that season’s first available episode without changing playback; Play/Resume starts the selected episode. Version 0.2.0 fixes Down opening the integrated preview when a standalone preview script is present but failed to initialise. Pause video to show its artwork and synopsis. Working standalone preview controls retain priority. The standalone PauseScreen plugin retains priority over the integrated pause treatment.
 
 `TvItemLayout/PlaybackContext` is an authenticated, uncached read endpoint. It resolves only the request’s current user and device and returns playing identity and queue, without credentials or unrelated session data. It supports cinema intro resolution; browsing can still use the native player’s identity if this endpoint is unavailable. Native playback and user media permissions remain controlled by Jellyfin.
