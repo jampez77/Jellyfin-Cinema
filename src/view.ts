@@ -2,9 +2,8 @@ import type { Item, MediaApi } from './types';
 import { el, icon, button, picture, replace } from './dom';
 import { runtime, progress, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
 import { attachRemote } from './remote';
-import { HorizontalGuide } from './guide';
 
-type Pane = 'overview' | 'episodes' | 'similar' | 'guide';
+type Pane = 'overview' | 'episodes' | 'similar';
 export class DetailView {
   readonly element = el('section', 'tvl-root tvl-keyboard');
   private content = el('div', 'tvl-content');
@@ -15,7 +14,6 @@ export class DetailView {
   private selectedSeason?: Item;
   private episodes = new Map<string, Item[]>();
   private similar: Item[] = [];
-  private guide: HorizontalGuide | null = null;
   private pane: Pane = 'overview';
   private disposed = false;
   private revision = 0;
@@ -27,7 +25,8 @@ export class DetailView {
   private favoritePending = false;
   private restoreId = '';
 
-  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void }) {
+  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; focusId?: string }) {
+    this.restoreId = options.focusId || '';
     this.element.id = 'tv-layout';
     this.element.setAttribute('role', 'dialog');
     this.element.setAttribute('aria-modal', 'true');
@@ -35,7 +34,7 @@ export class DetailView {
     this.status.setAttribute('role','status');
     this.status.setAttribute('aria-live','polite');
     this.element.append(this.content, this.status);
-    this.removeRemote = attachRemote(this.element, () => this.back(), direction=>this.guide?.move(direction)||this.moveBetweenSeasons(direction));
+    this.removeRemote = attachRemote(this.element, () => this.back(), direction=>this.moveBetweenSeasons(direction));
   }
   async load(): Promise<void> {
     this.content.append(this.header(), el('div', 'tvl-loading', 'Loading your library…'));
@@ -87,9 +86,8 @@ export class DetailView {
       if (this.disposed) return;
       replace(this.content,this.header());
       const error = el('div','tvl-empty');
-      error.append(el('h1','','Unable to load this title'), el('p','','Check your connection, or use Jellyfin’s original detail page.'),
-        button('Try again','', 'tvl-primary', () => { replace(this.content); void this.load(); }),
-        button('Use Jellyfin layout','back','',this.options.close));
+      error.append(el('h1','','Unable to load this title'), el('p','','Check your connection and try again.'),
+        button('Try again','', 'tvl-primary', () => { replace(this.content); void this.load(); }));
       this.content.append(error); this.focusFirst();
     }
   }
@@ -103,7 +101,6 @@ export class DetailView {
       else if(this.pane === 'overview') this.element.querySelectorAll<HTMLElement>('[data-live-progress]').forEach(node => {
         node.style.width = `${programmeProgress(this.item.CurrentProgram || this.item)}%`;
       });
-      if(this.pane === 'guide') await this.guide?.refresh();
     } catch { /* Keep the guide visible during a temporary disconnect. */ }
   }
   private setBackdrop(): void {
@@ -115,7 +112,7 @@ export class DetailView {
   private header(): HTMLElement {
     const header = el('header','tvl-header');
     const back = button(this.pane === 'overview' ? 'Back' : 'Overview','back','tvl-back', () => this.back());
-    header.append(back, button('Jellyfin layout','','tvl-original',this.options.close));
+    header.append(back);
     return header;
   }
   private title(compact = false): HTMLElement {
@@ -142,13 +139,11 @@ export class DetailView {
   private render(): void {
     if (this.disposed) return;
     this.revision++;
-    this.guide?.destroy();this.guide=null;
     this.element.dataset.pane = this.pane;
     this.element.dataset.kind = this.item.Type;
     replace(this.content,this.header());
     if (this.pane === 'episodes') void this.renderEpisodes();
     else if (this.pane === 'similar') void this.renderSimilar();
-    else if (this.pane === 'guide') void this.renderGuide();
     else this.renderOverview();
   }
   private renderOverview(): void {
@@ -156,10 +151,12 @@ export class DetailView {
     const live = this.item.Type === 'TvChannel';
     const hero = el('main',`tvl-hero${movie ? ' tvl-movie-hero' : ''}`);
     const body = el('div','tvl-hero-copy');
-    const eyebrow = el('div','tvl-eyebrow');
-    if (live) { eyebrow.append(el('span','tvl-live-dot'), el('span','','LIVE TV'), el('span','tvl-eyebrow-divider','/'), el('span','',this.item.ChannelNumber || this.item.Number || 'ON AIR')); }
-    else eyebrow.append(el('span','tvl-kicker-mark','J'),el('span','', movie ? 'FILM' : 'SERIES'));
-    body.append(eyebrow, this.title());
+    if (live) {
+      const eyebrow = el('div','tvl-eyebrow');
+      eyebrow.append(el('span','tvl-live-dot'), el('span','','LIVE TV'), el('span','tvl-eyebrow-divider','/'), el('span','',this.item.ChannelNumber || this.item.Number || 'ON AIR'));
+      body.append(eyebrow);
+    }
+    body.append(this.title());
     const programme = this.item.CurrentProgram;
     if (live) {
       body.append(el('h2','tvl-episode-name', programme?.Name || 'Live on this channel'));
@@ -186,7 +183,7 @@ export class DetailView {
       episodes.dataset.focusId = 'episodes'; actions.append(episodes);
     }
     if (live) {
-      const guide=button('Channels & guide','live','',() => this.open('guide'));
+      const guide=button('Channels & guide','live','',this.options.openGuide);
       guide.dataset.focusId='guide';actions.append(guide);
     }
     else {
@@ -373,17 +370,6 @@ export class DetailView {
       if(focus)this.focusFirst();
     }
   }
-  private async renderGuide(): Promise<void> {
-    const revision=this.revision;
-    this.guide=new HorizontalGuide(this.api,{
-      currentChannel:this.item,
-      onPlay:channel=>void this.play(channel),
-      onStatus:message=>this.announce(message),
-      isCurrent:()=>!this.disposed&&this.pane==='guide'&&revision===this.revision
-    });
-    this.content.append(this.guide.element);
-    await this.guide.load();
-  }
   private async toggleFavorite(): Promise<void> {
     if(this.favoritePending)return;this.favoritePending=true;
     const value=!this.item.UserData?.IsFavorite;
@@ -412,7 +398,7 @@ export class DetailView {
     try{
       await request();
       if(this.disposed)return;
-      this.launchTimer=window.setTimeout(()=>finish('Playback has not started. Try again, or use Jellyfin layout.'),15_000);
+      this.launchTimer=window.setTimeout(()=>finish('Playback has not started. Please try again.'),15_000);
     }catch(error){finish(error instanceof Error?error.message:'Could not start playback. Please try again.');}
   }
   private empty(title: string, description: string, retry?: () => void): HTMLElement {
@@ -425,5 +411,5 @@ export class DetailView {
       ||within.querySelector<HTMLElement>('.tvl-primary:not(:disabled), .tvl-film-card, .tvl-season')||within.querySelector<HTMLElement>('button:not(:disabled)');
     node?.focus({preventScroll:true});
   }
-  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.guide?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearInterval(this.liveTimer);this.element.remove();}
+  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.removeRemote();window.clearTimeout(this.launchTimer);window.clearInterval(this.liveTimer);this.element.remove();}
 }

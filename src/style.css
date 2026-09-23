@@ -23,11 +23,9 @@ body.tvl-open { overflow: hidden !important; }
 .tvl-keyboard .tvl-primary:focus { outline: 2px solid white; outline-offset: 4px; border-color: #fff; background: #fff; }
 .tvl-back { font-size: .88em; padding-left: 0; border-radius: 2px; color: #e1e3e2; }
 .tvl-back svg { width: 1.4em; }
-.tvl-original { font-size: .7em; text-transform: uppercase; letter-spacing: .15em; color: #c4c8c7; }
 .tvl-hero { min-height: calc(100% - 10.5vw); min-height: calc(100% - max(6vw, 70px) - 4.5vw); display: flex; align-items: center; padding: 2vw 5.5vw 4.5vw; }
 .tvl-hero-copy { width: 47vw; max-width: 840px; }
 .tvl-eyebrow { display: flex; align-items: center; font-size: .65em; font-weight: 600; letter-spacing: .24em; color: #cbd6d2; text-transform: uppercase; margin-bottom: 1.3em; }
-.tvl-kicker-mark { display: inline-block; margin-right: .6em; color: #e4f0e9; font-size: 1.8em; font-weight: 800; font-style: italic; line-height: 1; }
 .tvl-title-wrap { margin: .3em 0 1.4em; }
 .tvl-title { font-family: 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; font-size: 5vw; font-size: clamp(42px, 5vw, 96px); line-height: .99; letter-spacing: -.025em; font-weight: 900; text-transform: uppercase; max-width: 10.5em; text-wrap: balance; overflow-wrap: break-word; }
 .tvl-logo { max-width: 100%; max-height: 20vh; object-fit: contain; object-position: left; }
@@ -178,7 +176,6 @@ body.tvl-open { overflow: hidden !important; }
 }
 @media (max-width:550px) {
   .tvl-header { padding:12px 5vw; }
-  .tvl-original { font-size:.55em; }
   .tvl-backdrop::after { background:linear-gradient(90deg,#0b1115ed,#0b11156b),linear-gradient(0deg,#101112,transparent); }
   .tvl-hero-copy { width:90%; }
   .tvl-title { font-size:11vw; }

@@ -5,7 +5,7 @@ import { GUIDE_DURATION, GUIDE_MINUTE, guideSlots, nearestGuideSlot, type GuideS
 
 type GuideRow = { channel: Item; programs: Item[]; state: 'loading' | 'ready' | 'error'; request: number };
 type Selection = { channelId: string; programId?: string };
-type GuideOptions = { currentChannel: Item; onPlay: (channel: Item) => void; onStatus: (message: string) => void; isCurrent: () => boolean };
+type GuideOptions = { currentChannel?: Item; onPlay: (channel: Item) => void; onStatus: (message: string) => void; isCurrent: () => boolean };
 const BATCH_SIZE = 16;
 const WORKERS = 4;
 
@@ -26,7 +26,7 @@ export class HorizontalGuide {
   private resize = () => this.setWidth();
 
   constructor(private api: MediaApi, private options: GuideOptions) {
-    this.selection = {channelId: options.currentChannel.Id};
+    this.selection = {channelId: options.currentChannel?.Id || ''};
     this.element.setAttribute('aria-label', 'Live TV programme guide');
     this.detail.setAttribute('aria-label', 'Selected programme');
     this.scroll.setAttribute('aria-label', 'Channels and programme schedule');
@@ -45,8 +45,9 @@ export class HorizontalGuide {
       const channels = await this.api.getChannels();
       if (!this.valid(revision)) return;
       this.channels = channels;
-      // Include the title the user opened in the first bounded batch.
-      const current = channels.find(channel => channel.Id === this.options.currentChannel.Id);
+      // An optional channel anchor keeps it in the first bounded batch.
+      // The main guide retains Jellyfin's channel order without an anchor.
+      const current = channels.find(channel => channel.Id === this.options.currentChannel?.Id);
       const first = current ? [current, ...channels.filter(channel => channel.Id !== current.Id)] : channels;
       this.channels = first;
       this.rows = first.slice(0, BATCH_SIZE).map(channel => ({channel, programs: [], state: 'loading', request: 0}));
@@ -135,6 +136,8 @@ export class HorizontalGuide {
     }
     return false;
   }
+
+  focus(): void { if (this.valid()) this.focusSelection(); }
 
   destroy(): void { this.disposed = true; this.revision++; window.removeEventListener('resize', this.resize); }
 

@@ -17,15 +17,17 @@ The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/j
 4. Restart Jellyfin. Check Dashboard → Plugins for **TV Item Layout**. The server log should contain `TV Item Layout registered with File Transformation`.
 5. Reload Jellyfin Web, then select **TV** display mode in your user's display settings. Fully close and reopen a web-based TV app to clear its loaded client. Open a movie, series, or Live TV item.
 
-The [v0.1.0 release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.0) is a first test release. Choose a plugin version that matches your Jellyfin server:
+The [v0.1.1 release](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.1) adds the main Live TV guide. Choose a plugin version that matches your Jellyfin server:
 
 | Jellyfin server | TV Item Layout version |
 | --- | --- |
-| 10.10.7 | `0.1.0.1` |
-| 10.11.x | `0.1.0.2` |
-| 12.x | `0.1.0.3` |
+| 10.10.7 | `0.1.1.1` |
+| 10.11.x | `0.1.1.2` |
+| 12.x | `0.1.1.3` |
 
 The repository lists all three targets and Jellyfin filters them by server compatibility. Physical remotes and real-server playback still need installation testing.
+
+If TV Item Layout is already installed, update it from the catalogue, restart Jellyfin, and fully reopen the client. On Jellyfin 12 the new plugin version is **0.1.1.3**. In TV display mode, **Live TV** now opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Desktop and mobile layouts retain Jellyfin's normal pages.
 
 ## Build a matching archive
 
@@ -48,13 +50,13 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. Release `0.1.0` uses the target-specific plugin versions above. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. Release `0.1.1` uses the target-specific plugin versions above. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
 1. In Dashboard → Plugins → Repositories, add the repository from the [File Transformation installation instructions](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation#installation): `https://www.iamparadox.dev/jellyfin/plugins/manifest.json`.
 2. Install **File Transformation** from the catalogue, choosing a release compatible with your Jellyfin version.
-3. Download the matching archive from the [release assets](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.0). Stop Jellyfin. Create a folder named for the matching plugin version, such as `TV Item Layout_0.1.0.3` for Jellyfin 12, inside your server's configured `plugins` directory and extract the ZIP into it. Keep the DLL directly inside this new folder. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
+3. Download the matching archive from the [release assets](https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/tag/v0.1.1). Stop Jellyfin. Create a folder named for the matching plugin version, such as `TV Item Layout_0.1.1.3` for Jellyfin 12, inside your server's configured `plugins` directory and extract the ZIP into it. Keep the DLL directly inside this new folder. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
 4. Start Jellyfin. Check Dashboard → Plugins for **TV Item Layout**. The server log should contain `TV Item Layout registered with File Transformation`.
 5. Reload Jellyfin Web, then select the TV display mode in your user's display settings. Open a movie, series, or Live TV item.
 
@@ -88,6 +90,6 @@ They do not start a Jellyfin server or establish native client compatibility.
 - If the endpoint returns 404, check the plugin DLL location, installed target version, and startup logs, then restart Jellyfin.
 - If the endpoint works but the layout does not appear, inspect the served web `index.html` for `data-tv-item-layout`. The scheduled task **TV Item Layout startup** can retry registration after File Transformation is available.
 - Clear the browser's stored cache or fully close and reopen the web client after replacing the plugin. For a custom Content Security Policy, allow the script's origin.
-- The plugin changes media detail views in the web TV layout. Native Android TV, Roku, and other clients with their own UI are outside this integration.
+- The plugin changes media detail views and the main Live TV page in the web TV layout. Native Android TV, Roku, and other clients with their own UI are outside this integration.
 
 To uninstall, remove **TV Item Layout** through Dashboard → Plugins and restart, or stop Jellyfin and remove its versioned `TV Item Layout_…` plugin folder manually. Reload the web client and remove any manually inserted script tag. File Transformation can remain installed for other plugins.

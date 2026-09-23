@@ -3,10 +3,34 @@
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "TV Item Layout",
     "overview": "Cinematic TV layouts for movies, series and Live TV.",
-    "description": "Netflix-inspired media detail pages for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal Live TV guide with programme artwork. Install File Transformation separately for automatic loading. First test release; native Android TV, Roku and other independent clients are not supported.",
+    "description": "Netflix-inspired media detail pages and a main Live TV guide for Jellyfin Web in TV display mode. Browse episodes across seasons, launch movie trailers, and explore a horizontal programme guide with highlighted show artwork. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "versions": [
+      {
+        "version": "0.1.1.3",
+        "changelog": "The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.1/TvItemLayout_0.1.1.3_jellyfin-12.0.0.zip",
+        "checksum": "fd9f6d640b86f337e9f3f419465eb6d3",
+        "timestamp": "2026-09-23T08:04:43Z"
+      },
+      {
+        "version": "0.1.1.2",
+        "changelog": "The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.1/TvItemLayout_0.1.1.2_jellyfin-10.11.0.zip",
+        "checksum": "4b7c5289e4fbafffec819142b4d3db70",
+        "timestamp": "2026-09-23T08:04:43Z"
+      },
+      {
+        "version": "0.1.1.1",
+        "changelog": "The main Live TV page now opens the horizontal programme guide, and channel detail guide buttons link to that page. Removed the Jellyfin layout switch and the J Film / J Series labels. Preserves remote navigation, programme artwork and explicit live playback. Requires File Transformation and Jellyfin Web in TV display mode.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-TV-Item-Layout/releases/download/v0.1.1/TvItemLayout_0.1.1.1_jellyfin-10.10.7.zip",
+        "checksum": "4912bf217acc67093efc53019764cbe5",
+        "timestamp": "2026-09-23T08:04:43Z"
+      },
       {
         "version": "0.1.0.3",
         "changelog": "First test release. Cinematic movie details with trailers, TV episode browsing with season boundary navigation, and a horizontal Live TV guide with artwork for the highlighted programme. Requires File Transformation and Jellyfin Web in TV display mode.",

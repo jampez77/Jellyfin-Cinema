@@ -168,7 +168,7 @@ test('Live TV guide switches channels and plays only through its explicit live a
   await root.locator('[data-program="channel-outside-program-2"]').click();
   await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toHaveCount(0);
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/#\/details\?id=channel-field$/);
+  await expect(page).toHaveURL(/#\/livetv\?collectionType=livetv$/);
   await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
   await page.keyboard.press('ArrowLeft');
   await expect(root.locator('[data-program="channel-outside-program-1"]')).toBeFocused();
@@ -179,10 +179,11 @@ test('Live TV guide switches channels and plays only through its explicit live a
   await expect(player).toContainText('The live channel would begin playing.');
   await expect(root).toHaveCount(0);
   await page.keyboard.press('Escape');
-  await expect(root.getByRole('heading', { name: 'Field Notes', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/livetv\?collectionType=livetv$/);
+  await expect(root.getByRole('heading', { name: 'Live TV', exact: true })).toBeVisible();
 });
 
-test('item loading failures retry and allow the original Jellyfin layout', async ({ page }) => {
+test('item loading failures offer retry and Back', async ({ page }) => {
   await open(page, 'series-north', 'error');
   const root = detail(page);
   await expect(root.getByRole('heading', { name: 'Unable to load this title' })).toBeVisible();
@@ -190,7 +191,7 @@ test('item loading failures retry and allow the original Jellyfin layout', async
   await root.getByRole('button', { name: 'Try again', exact: true }).click();
   await expect(root.getByText('Loading your library…', { exact: true })).toBeVisible();
   await expect(root.getByRole('heading', { name: 'Unable to load this title' })).toBeVisible();
-  await root.getByRole('button', { name: 'Use Jellyfin layout', exact: true }).click();
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(root).toHaveCount(0);
   await expect(page.locator('.itemDetailPage')).not.toHaveAttribute('aria-hidden', 'true');
 });
@@ -235,7 +236,7 @@ test('an empty channel list explains the problem and leaves the current channel 
   await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
   await expect(root.getByRole('heading', { name: 'No channels available' })).toBeVisible();
   await expect(root.locator('button[data-channel]')).toHaveCount(0);
-  await root.getByRole('button', { name: 'Overview', exact: true }).click();
+  await root.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(root.getByRole('button', { name: 'Watch live', exact: true })).toBeEnabled();
   await root.getByRole('button', { name: 'Watch live', exact: true }).click();
   await expect(page.getByRole('main', { name: 'Demo playback' }).getByRole('heading')).toHaveText('Field Notes');
@@ -463,7 +464,6 @@ test('detail rendering remains functional without post-Chromium-79 replaceChildr
   await root.getByRole('button', { name: /After the Tide/ }).click();
   await expect(root.getByRole('heading', { name: 'After the Tide', exact: true, level: 1 })).toBeVisible();
   await page.getByRole('navigation', { name: 'Preview media type' }).getByRole('link', { name: 'Live TV', exact: true }).click();
-  await root.getByRole('button', { name: 'Channels & guide', exact: true }).click();
   await expect(root.getByRole('heading', { name: 'The Secret Life of Forests', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

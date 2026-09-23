@@ -181,7 +181,7 @@ function closePlayer() {
 function returnToDetails() { location.hash = lastDetailHash; }
 function showPlayer(item: Item, ticks: number) {
   closePlayer();
-  if (location.hash.startsWith('#/details')) lastDetailHash = location.hash;
+  if (/^#\/(details|livetv)(\?|$)/.test(location.hash)) lastDetailHash = location.hash;
   player = document.createElement('main');
   player.className = 'demo-player';
   player.setAttribute('aria-label', 'Demo playback');
@@ -201,6 +201,7 @@ function showPlayer(item: Item, ticks: number) {
     : ticks > 0 ? ` Playback would resume at ${resumeTime}.` : ' Playback would start from the beginning.';
   content.querySelector('.demo-player-info')!.textContent = `This is a simulated player. No actual stream is playing.${playbackNote}`;
   const back = content.querySelector('button')!;
+  if(lastDetailHash.startsWith('#/livetv'))back.textContent='Back to guide';
   back.addEventListener('click', returnToDetails);
   player.append(art, content);
   document.body.append(player);
@@ -237,9 +238,10 @@ const api: MediaApi = {
 function syncRoute() {
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const current = library.get(params.get('id') || 'series-north');
-  const type = current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
+  const guide = location.hash.startsWith('#/livetv');
+  const type = guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
-    if (link.dataset.demoType === type && location.hash.startsWith('#/details')) link.setAttribute('aria-current', 'page');
+    if (link.dataset.demoType === type && (guide || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();

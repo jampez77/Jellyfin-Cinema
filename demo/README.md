@@ -8,7 +8,9 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 - **Movies:** After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
 - **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and the banner shows the highlighted programme’s artwork and details, including future programmes. The schedule is calculated when the page loads.
 
-Arrow keys, Enter and Escape exercise remote navigation. Clicking works too. Playback opens a clearly labelled simulation; **Back to details** or Escape returns to the previous item. Favorites remain set while the page stays open.
+The Live TV preview opens the main guide at `/#/livetv?collectionType=livetv`. Channel details remain available at `/#/details?id=channel-field`; their **Channels & guide** button links to the main guide.
+
+Arrow keys, Enter and Escape exercise remote navigation. Clicking works too. Playback opens a clearly labelled simulation; **Back to details**, **Back to guide** or Escape returns to the previous page. Favorites remain set while the page stays open.
 
 Use the address bar to open an item directly:
 
