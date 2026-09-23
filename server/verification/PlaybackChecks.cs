@@ -7,12 +7,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
+#if JELLYFIN_1010
+using ServerUser = Jellyfin.Data.Entities.User;
+#else
+using ServerUser = Jellyfin.Database.Implementations.Entities.User;
+#endif
 
 public static class PlaybackChecks
 {
     public static async Task Run(Action<bool, string> assert)
     {
-        var auth = new AuthorizationInfo { Token = "test-token", DeviceId = "this-device", User = new Jellyfin.Database.Implementations.Entities.User("test-user", "provider", "reset") { Id = Guid.NewGuid() } };
+        var auth = new AuthorizationInfo { Token = "test-token", DeviceId = "this-device", User = new ServerUser("test-user", "provider", "reset") { Id = Guid.NewGuid() } };
         SessionInfo? session = null;
         var calls = 0;
         var authorization = InterfaceStub.Create<IAuthorizationContext>((method, args) => Task.FromResult(auth));

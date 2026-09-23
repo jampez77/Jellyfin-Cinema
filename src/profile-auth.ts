@@ -1,10 +1,12 @@
-export type PublicProfile = { Id: string; Name: string; HasPassword: boolean; PrimaryImageTag?: string };
+export type PublicProfile = { Id: string; Name: string; CanSwitchDirectly: boolean; PrimaryImageTag?: string };
+type NativePublicProfile = Pick<PublicProfile, 'Id' | 'Name' | 'PrimaryImageTag'>;
 type AuthenticationResult = { User?: { Id?: string }; AccessToken?: string; ServerId?: string };
 type NativeAuthClient = {
   getCurrentUserId(): string; serverId(): string;
-  getPublicUsers(): Promise<PublicProfile[]>;
+  getPublicUsers(): Promise<NativePublicProfile[]>;
   getUserImageUrl?(id: string, options: Record<string, string | number>): string;
   getUrl(path: string): string;
+  getJSON?(url: string): Promise<unknown>;
   ajax(request: { type: 'POST'; url: string; data: string; dataType: 'json'; contentType: 'application/json' }): Promise<AuthenticationResult>;
   onAuthenticated?: (client: NativeAuthClient, result: AuthenticationResult) => Promise<unknown>;
 };
@@ -51,13 +53,27 @@ export function sameProfileSession(session: ProfileSession): boolean {
 function check(session: ProfileSession, signal?: AbortSignal): void {
   if (signal?.aborted || !sameProfileSession(session)) throw abort();
 }
+async function directProfileIds(session: ProfileSession): Promise<Set<string>> {
+  try {
+    // Jellyfin 12's public UserDto password flags are intentionally not an
+    // eligibility signal. Only Cinema's authenticated server check may permit
+    // the empty-password path; never probe an account to discover its policy.
+    const response = await session.client.getJSON?.(session.client.getUrl('TvItemLayout/ProfileSwitchEligibility'));
+    if (!response || typeof response !== 'object' || Array.isArray(response)) return new Set();
+    const ids = (response as { ProfileIds?: unknown }).ProfileIds;
+    if (!Array.isArray(ids) || !ids.every(id => typeof id === 'string' && !!id && id.trim() === id)) return new Set();
+    return new Set(ids.map(identity));
+  } catch { return new Set(); }
+}
 export async function publicProfiles(session: ProfileSession, signal?: AbortSignal): Promise<PublicProfile[]> {
   check(session, signal);
   const users = await session.client.getPublicUsers();
   check(session, signal);
   if (!Array.isArray(users)) throw new Error('Jellyfin could not load its public profiles. Try again.');
+  const eligible = await directProfileIds(session);
+  check(session, signal);
   return users.filter(user => typeof user?.Id === 'string' && !!user.Id && typeof user.Name === 'string' && !!user.Name)
-    .map(user => ({ Id: user.Id, Name: user.Name, HasPassword: user.HasPassword !== false,
+    .map(user => ({ Id: user.Id, Name: user.Name, CanSwitchDirectly: eligible.has(identity(user.Id)),
       ...(typeof user.PrimaryImageTag === 'string' ? { PrimaryImageTag: user.PrimaryImageTag } : {}) }));
 }
 export function profileImage(session: ProfileSession, profile: PublicProfile): string | undefined {
@@ -108,10 +124,12 @@ async function performSwitch(session: ProfileSession, profileId: string, signal:
   phase: (value: ProfileSwitchPhase) => void): Promise<void> {
   const start = window.location.hash;
   phase('checking');
+  // Re-read the signed-in server eligibility immediately before logout. A
+  // profile shown as eligible in an older chooser must not authorize a switch.
   const users = await publicProfiles(session, signal);
   if (window.location.hash !== start) throw abort();
   const profile = users.find(user => identity(user.Id) === identity(profileId));
-  if (!profile || profile.HasPassword) throw new ProfileLoginRequired('That profile needs Jellyfin’s login screen. Its password and access rules still apply.');
+  if (!profile?.CanSwitchDirectly) throw new ProfileLoginRequired('That profile needs Jellyfin’s login screen. Its password and access rules still apply.');
   if (identity(profile.Id) === identity(session.userId)) return;
   check(session, signal);
   phase('signing-out');
