@@ -40,7 +40,7 @@ test('music playlists use cinematic listing and ordered track rows, preserve rep
   await expect(page.locator('body')).toHaveAttribute('data-playlist-playback', JSON.stringify({ id: 'playlist-quiet', entryId: null }));
   await quiet(page).locator('[data-playlist-entry="quiet-entry-3"]').click();
   await expect(page.locator('body')).toHaveAttribute('data-playlist-playback', JSON.stringify({ id: 'playlist-quiet', entryId: 'quiet-entry-3' }));
-  await expect(quiet(page).getByRole('status')).toHaveText('Playback requested. Open Now playing for controls.');
+  await expect(quiet(page).getByRole('status')).toHaveText('Playback requested.');
   await page.screenshot({ path: test.info().outputPath('playlist-tracks.png') });
   await page.keyboard.press('Escape'); await expect(card).toBeFocused(); await expect(search).toHaveValue('Quiet');
   await expect(music(page).getByRole('button', { name: 'Playlists', exact: true })).toHaveAttribute('aria-pressed', 'true');

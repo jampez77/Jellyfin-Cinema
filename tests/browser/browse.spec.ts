@@ -33,7 +33,7 @@ test('Artist and album details stay styled; album and individual track actions d
   await expect(page.locator('body')).toHaveAttribute('data-played',JSON.stringify({id:'album-tidelight',type:'MusicAlbum',ticks:0}));
   await album.getByRole('button',{name:'Play First Light',exact:true}).click();
   await expect(page.locator('body')).toHaveAttribute('data-played',JSON.stringify({id:'song-tidelight-1',type:'Audio',ticks:0}));
-  await expect(album.getByRole('status')).toHaveText('Playback requested. Open Now playing for controls.');
+  await expect(album.getByRole('status')).toHaveText('Playback requested.');
   await page.keyboard.press('Escape');await expect(artist.getByRole('button',{name:'Tidelight',exact:true})).toBeFocused();
 });
 
@@ -41,7 +41,7 @@ test('Audio details recover from playback errors and support favourites without 
   await patch(page,`let first=true;api.play=async()=>{if(first){first=false;throw new Error('Audio output unavailable.');}};`);
   await page.goto('/#/details?id=song-tidelight-1');const song=root(page,'First Light details');
   await song.getByRole('button',{name:'Play',exact:true}).click();await expect(song.getByRole('status')).toHaveText('Audio output unavailable.');
-  await song.getByRole('button',{name:'Play',exact:true}).click();await expect(song.getByRole('status')).toHaveText('Playback requested. Open Now playing for controls.');
+  await song.getByRole('button',{name:'Play',exact:true}).click();await expect(song.getByRole('status')).toHaveText('Playback requested.');
   await expect(page).toHaveURL(/#\/details\?id=song-tidelight-1$/);
   await song.getByRole('button',{name:'Add to favourites',exact:true}).click();
   await expect(song.getByRole('button',{name:'Remove from favourites',exact:true})).toBeFocused();

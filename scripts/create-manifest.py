@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
+        'changelog': "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

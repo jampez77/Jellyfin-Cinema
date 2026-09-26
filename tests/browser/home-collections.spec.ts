@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { useDesktopLayout } from './layout-fixture';
 
 const coast = 'collection-coast';
 const rowConfig = { version: 1, rows: [
@@ -27,6 +28,7 @@ async function goHome(page: Page) {
   await expect(home(page)).toBeVisible();
 }
 async function openEditor(page: Page) {
+  await useDesktopLayout(page);
   const customize = page.getByRole('button', { name: 'Customize collection rows', exact: true });
   if (!await customize.isVisible()) await page.evaluate(() => { location.hash = '/list?parentId=library-collections'; });
   await customize.click();

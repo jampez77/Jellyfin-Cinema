@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
+import { useDesktopLayout } from './layout-fixture';
 import { parseHomeCollections, homeCollectionKey } from '../../src/home-collection-settings';
 
 const original = () => parseHomeCollections({ version: 1, rows: [{ id: 'platform', kind: 'items', title: 'Weekend picks', collectionIds: ['collection-coast'], ranked: true, placement: 'start',
@@ -72,6 +73,7 @@ async function device(browser: Browser, server: RowServer, options: { user?: str
 const row = (page: Page) => page.locator('#homeTab [data-home-row="platform"]');
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
 async function openEditor(page: Page) {
+  await useDesktopLayout(page);
   await page.evaluate(() => { location.hash = '/list?parentId=library-collections'; });
   await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click();
   await expect(dialog(page).getByRole('button', { name: 'Save rows', exact: true })).toBeEnabled();
@@ -114,11 +116,11 @@ test('concurrent editor rejects lost updates, preserves draft and reloads only o
     await Promise.all([a.page.goto('/?featured=0#/home'), b.page.goto('/?featured=0#/home')]);
     const first = await openEditor(a.page), second = await openEditor(b.page);
     await first.getByLabel('Row title', { exact: true }).fill('Saved on desktop');
-    await second.getByLabel('Row title', { exact: true }).fill('Unsaved on TV');
+    await second.getByLabel('Row title', { exact: true }).fill('Unsaved on second desktop');
     await first.getByRole('button', { name: 'Save rows', exact: true }).click(); await expect(first).toHaveCount(0);
     await second.getByRole('button', { name: 'Save rows', exact: true }).click();
     await expect(second.getByRole('status')).toContainText('changed on another device');
-    await expect(second.getByLabel('Row title', { exact: true })).toHaveValue('Unsaved on TV');
+    await expect(second.getByLabel('Row title', { exact: true })).toHaveValue('Unsaved on second desktop');
     await expect(second.getByRole('button', { name: 'Save rows', exact: true })).toBeDisabled();
     expect((await cached(b.page)).rows[0].title).toBe('Weekend picks');
     await second.getByRole('button', { name: 'Reload saved rows', exact: true }).click();

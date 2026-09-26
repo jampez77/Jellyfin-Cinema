@@ -12,9 +12,12 @@ test('TV overview opens episodes, marks progress, and switches seasons', async (
   const root = detail(page);
   await expect(root.getByRole('heading', { name: 'North of Nowhere', exact: true })).toBeVisible();
   await expect(root.getByText('3 seasons', { exact: true })).toBeVisible();
+  await expect(root.locator('.tvl-remote-hint')).toHaveCount(0);
+  await expect(root).not.toContainText('Navigate    OK Select');
   await expect(root.getByRole('button', { name: 'Resume S1 · E2', exact: true })).toBeFocused();
   await root.getByRole('button', { name: 'Episodes & seasons', exact: true }).click();
   const seasons = root.getByRole('navigation', { name: 'Seasons' });
+  await expect(root.getByText('SELECT AN EPISODE', { exact: true })).toHaveCount(0);
   await expect(seasons.getByRole('button')).toHaveCount(3);
   await expect(root.getByRole('button', { name: /^S1 · E\d/ })).toHaveCount(6);
   await expect(root.getByRole('button', { name: 'S1 · E1 The Long Way Home, watched' })).toContainText('Watched');
@@ -67,6 +70,35 @@ test('episode playback resumes the selected episode and returns to its details',
   await player.getByRole('button', { name: 'Back to details' }).click();
   await expect(page).toHaveURL(/#\/details\?id=series-north$/);
   await expect(detail(page).getByRole('button', { name: 'Resume S1 · E2', exact: true })).toBeFocused();
+});
+
+for (const layout of ['tv', 'desktop']) test(`${layout} episode details offer Resume and Play from beginning with separate positions`, async ({ page }) => {
+  await page.addInitScript(layout => { window.addEventListener('DOMContentLoaded', () => {
+    document.body.classList.remove('layout-tv', 'layout-desktop'); document.body.classList.add('layout-' + layout);
+  }); }, layout);
+  await open(page, 'episode-north-1-2');
+  const root = detail(page);
+  const resume = root.getByRole('button', { name: 'Resume S1 · E2', exact: true });
+  const restart = root.getByRole('button', { name: 'Play from beginning', exact: true });
+  await expect(resume).toBeFocused(); await expect(restart).toBeVisible();
+  const a = await resume.boundingBox(), b = await restart.boundingBox();
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(1);
+  await page.screenshot({ path: test.info().outputPath(`episode-resume-${layout}.png`) });
+  await page.keyboard.press('ArrowRight'); await expect(restart).toBeFocused();
+  await page.keyboard.press('Enter');
+  const player = page.getByRole('main', { name: 'Demo playback' });
+  await expect(player).toContainText('Playback would start from the beginning.');
+  await player.getByRole('button', { name: 'Back to details' }).click();
+  await expect(restart).toBeVisible(); await resume.click();
+  await expect(player).toContainText('Playback would resume at 18:30.');
+});
+
+test('unstarted and watched episodes do not offer a duplicate start-over action', async ({ page }) => {
+  for (const id of ['episode-north-1-1', 'episode-north-1-3']) {
+    await open(page, id);
+    await expect(detail(page).getByRole('button', { name: 'Play from beginning', exact: true })).toHaveCount(0);
+    await expect(detail(page).locator('[data-focus-id="play"]')).toHaveText(/^Play S1/);
+  }
 });
 
 test('movie metadata, recommendations and favourite state survive navigation', async ({ page }) => {

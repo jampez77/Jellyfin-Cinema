@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { useDesktopLayout } from './layout-fixture';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -96,6 +97,7 @@ test('editor preview keeps the shared thumbnail/rank proportions and scrolls wit
     return {art:art.width/art.height,rank:rank.width/art.width};
   });
   await page.evaluate(()=>{location.hash='/list?parentId=library-collections';});
+  await useDesktopLayout(page);
   await page.getByRole('button',{name:'Customize collection rows',exact:true}).click();
   const editor=page.getByRole('dialog',{name:'Customize collection rows',exact:true});
   await editor.locator('.tvl-home-row-choice').filter({hasText:'Trending films'}).click();

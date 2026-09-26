@@ -25,7 +25,7 @@ test('popstate masks a cached incoming detail page without the deferred refresh 
 
 test('returning to a verified Collections library mounts Cinema before a cached native page can paint', async ({ page }) => {
   await page.goto('/?featured=0#/list?parentId=library-collections');
-  await expect(page.getByRole('button', { name: 'Customize collection rows', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Collections', exact: true })).toBeVisible();
   await page.evaluate(() => { location.hash = '/home'; });
   await expect(page.locator('body')).toHaveClass(/tvl-home/);
   const result = await page.evaluate(() => {

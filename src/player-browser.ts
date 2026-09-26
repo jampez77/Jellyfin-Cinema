@@ -43,7 +43,7 @@ export class PlayerBrowser {
     this.entry.id = 'tvl-player-browse';
     this.entry.lastElementChild?.remove();
     this.entry.setAttribute('aria-label', 'Browse');
-    this.entry.title = 'Browse (Down)';
+    this.entry.title = 'Browse';
     this.entry.setAttribute('aria-haspopup', 'dialog');
     this.seasonNav.setAttribute('aria-label', 'Seasons');
     this.status.setAttribute('role', 'status');
@@ -107,7 +107,7 @@ export class PlayerBrowser {
     if (bar && this.entry.parentElement !== bar) bar.append(this.entry);
     else if (!bar) this.entry.remove();
     const label = current.item?.Type === 'Episode' ? 'Episodes & seasons' : current.item?.Type === 'TvChannel' || current.item?.Type === 'Program' ? 'Channels' : current.item?.Type === 'Movie' ? 'More like this' : 'Browse';
-    this.entry.setAttribute('aria-label', label); this.entry.title = `${label} (Down)`;
+    this.entry.setAttribute('aria-label', label); this.entry.title = label;
     if (this.element) {
       if (this.dialog() || (this.state !== 'playing' && this.current && (this.current.key !== current.key
         || !sameMediaId(this.current.playingItemId, current.playingItemId)
@@ -318,7 +318,7 @@ export class PlayerBrowser {
         }
         await timeout(100);
       }
-      if (this.isCurrent(revision)) throw new Error('Playback did not start. Try again or close to return to the player.');
+      if (this.isCurrent(revision)) throw new Error('Playback did not start. Try again.');
     } catch (error) {
       if (!this.isCurrent(revision)) return;
       this.state = 'ready'; this.render();
@@ -335,10 +335,32 @@ export class PlayerBrowser {
     this.current = null;
   }
   private consume(event: Event): void { event.preventDefault(); event.stopImmediatePropagation(); }
+  private canBrowseDown(current: ActivePlayback): boolean {
+    const focused = document.activeElement;
+    if (!(focused instanceof HTMLElement) || focused === document.body || focused === current.video) return true;
+    if (focused.closest('input, textarea, select, [contenteditable="true"]')) return false;
+    // Jellyfin's player header lives outside videoOsdPage. Its Down action
+    // must reach the seek/play controls before browsing can take over.
+    if (focused.closest('.osdHeader, .skinHeader')) return false;
+    if (!current.osd.contains(focused)) return false;
+    if (focused === this.entry || !visible(focused) || focused.closest('.videoOsdBottom-hidden')) return true;
+    const rect = focused.getBoundingClientRect();
+    // Compare actual rows so wrapped controls and unfamiliar OSD layouts keep
+    // their native navigation. Ignore our own floating mouse shortcut.
+    return !Array.from(current.osd.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex], .focusable'))
+      .some(control => {
+        if (control === focused || control === this.entry || control.contains(focused)
+          || control.matches(':disabled, [aria-disabled="true"], [tabindex="-1"]') || !visible(control)
+          || control.closest('.videoOsdBottom-hidden')) return false;
+        const next = control.getBoundingClientRect();
+        return next.top > rect.top + 1 && next.bottom > rect.bottom + 1 && next.top < innerHeight && next.bottom > 0;
+      });
+  }
   private handle(command: string, repeat = false): boolean {
-    if (!this.active() || this.standalone() || this.dialog()) return false;
+    const current = this.active();
+    if (!current || this.standalone() || this.dialog()) return false;
     if (!this.element) {
-      if (command !== 'down' || (document.activeElement as HTMLElement)?.closest('input, textarea, select, [contenteditable="true"]')) return false;
+      if (command !== 'down' || !this.canBrowseDown(current)) return false;
       if (this.standaloneScript()) {
         if (!repeat) this.openAfterStandalone();
         return false;

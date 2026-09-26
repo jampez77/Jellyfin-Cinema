@@ -249,7 +249,7 @@ test('pending native logout blocks Cancel and repeat actions until cleanup finis
 test('failed passwordless authentication leaves an explicit usable native-login action', async ({ page }) => {
   await setupSwitch(page, { rejectAuth: true }); await choose(page);
   await chooser(page).getByRole('button', { name: 'Kids, switch profile', exact: true }).click();
-  await expect(switching(page).getByRole('status')).toHaveText('Could not sign in to that profile. Continue with Jellyfin’s login screen.');
+  await expect(switching(page).getByRole('status')).toHaveText('Could not sign in to that profile.');
   await switching(page).getByRole('button', { name: 'Continue to login', exact: true }).click();
   await expect(switching(page)).toHaveCount(0); await expect(page).toHaveURL(/#\/login\?serverid=demo$/);
   expect(await page.evaluate(() => { const s = (window as any).__profileState; return [s.logout, s.auth, s.adopted]; })).toEqual([1, 1, 0]);
@@ -335,13 +335,13 @@ test('empty or failed profile lists keep usable Back, Settings and native-login 
   await setupSwitch(page);
   await page.evaluate(() => { (window as any).__profileState.profiles.length = 0; });
   await choose(page);
-  await expect(chooser(page).getByRole('status')).toHaveText('No public profiles are available. Use the login screen for a hidden account.');
+  await expect(chooser(page).getByRole('status')).toHaveText('No public profiles are available.');
   await expect(chooser(page).getByRole('button', { name: 'Use login screen', exact: true })).toBeFocused();
   await expect(chooser(page).getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   await remote(page, 'back'); await expect(avatar(page)).toBeFocused();
   await page.evaluate(() => { (window as any).ApiClient.getPublicUsers = async () => { throw new Error('offline'); }; });
   await choose(page);
-  await expect(chooser(page).getByRole('status')).toHaveText('Could not load profiles. Use the login screen or go back and try again.');
+  await expect(chooser(page).getByRole('status')).toHaveText('Could not load profiles. Try again.');
   await expect(chooser(page).getByRole('button', { name: 'Back', exact: true })).toBeFocused();
   await chooser(page).getByRole('button', { name: 'Use login screen', exact: true }).click();
   await expect(page).toHaveURL(/#\/login$/);

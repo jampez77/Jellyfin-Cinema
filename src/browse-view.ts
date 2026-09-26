@@ -277,7 +277,7 @@ export class BrowseView {
       else await this.api.play(item,item.UserData?.Played?0:item.UserData?.PlaybackPositionTicks||0,current);
       // Audio remains on this page. Dispatch is not confirmation of playback;
       // native Now playing exposes the current device's actual playback state.
-      if(['Audio','MusicAlbum','Playlist'].includes(item.Type||''))finish('Playback requested. Open Now playing for controls.');
+      if(['Audio','MusicAlbum','Playlist'].includes(item.Type||''))finish('Playback requested.');
     } catch(error) {finish(error instanceof Error?error.message:'Unable to start playback. Try again.');}
   }
   private async favorite(item: Item): Promise<void> {

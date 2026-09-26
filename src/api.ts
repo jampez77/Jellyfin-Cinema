@@ -38,7 +38,7 @@ function available(item: Item): boolean {
 
 function itemsFrom(result: ItemResult, label: string): Item[] {
   if (!result || !Array.isArray(result.Items)) {
-    throw new Error(`Jellyfin returned an invalid ${label} list. Open the page again to retry.`);
+    throw new Error(`Jellyfin returned an invalid ${label} list.`);
   }
   return result.Items.filter((item): item is Item => !!item && typeof item.Id === 'string' && !!item.Id);
 }
@@ -141,7 +141,7 @@ export function createJellyfinApi(): MediaApi | null {
   const sessionCurrent = () => typeof ApiClient !== 'undefined' && ApiClient === client
     && client.getCurrentUserId() === userId && client.serverId?.() === serverId;
   function assertSession(): void {
-    if (!sessionCurrent()) throw new Error('Your Jellyfin account changed. Open the media page again.');
+    if (!sessionCurrent()) throw new Error('Your Jellyfin account changed.');
   }
   async function read<T>(action: () => Promise<T>): Promise<T> {
     assertSession();
@@ -424,7 +424,7 @@ export function createJellyfinApi(): MediaApi | null {
         if (result.nextStartIndex <= start) throw new Error('The playlist did not finish loading. Please try again.');
         start = result.nextStartIndex;
       }
-      throw new Error('This playlist exceeds the playback browsing limit. Open it in Jellyfin’s native player.');
+      throw new Error('This playlist exceeds the playback browsing limit.');
     }),
     playTrailer: (item, isCurrent) => read(() => dispatchTrailerPlayback(client, userId, item,
       () => isCurrent() && sessionCurrent())),

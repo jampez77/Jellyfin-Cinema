@@ -126,9 +126,9 @@ export class ChannelZapper {
         if (active?.item && active.key !== from.key && !sameMediaId(channelId(active.item), target.Id)) { hop.cancelled = true; return; }
         await delay(100);
       }
-      if (this.current(hop)) this.show('The channel has not started. Try again or choose it from Channels.', true);
+      if (this.current(hop)) this.show('The channel has not started. Try again.', true);
     } catch {
-      if (this.current(hop)) this.show('Unable to change channel. Try again or choose it from Channels.', true);
+      if (this.current(hop)) this.show('Unable to change channel. Try again.', true);
     } finally {
       const stillCurrent = this.current(hop);
       if (this.pending === hop) this.pending = null;

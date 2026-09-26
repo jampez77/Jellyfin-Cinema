@@ -62,7 +62,7 @@ export class HomeCollectionEditor {
     actions.append(cancel, this.saveButton); header.append(title, actions);
     this.status.setAttribute('role', 'status'); this.status.textContent = 'Loading collections…';
     const layout = el('div', 'tvl-home-editor-layout'); layout.append(this.sidebar, this.workspace);
-    panel.append(header, el('p', 'tvl-home-editor-intro', this.store.synced ? 'Choose a row on the left to edit it. Saved rows follow this Jellyfin account across your devices.' : 'Choose a row on the left to edit it. This preview saves choices on this device.'), this.status, layout);
+    panel.append(header, el('p', 'tvl-home-editor-intro', this.store.synced ? 'Saved rows follow this Jellyfin account across your devices.' : 'This preview saves choices on this device.'), this.status, layout);
     this.element.append(panel); document.body.append(this.element);
     this.removeRemote = attachRemote(this.element, () => this.close()); cancel.focus();
     void this.loadCollections();
