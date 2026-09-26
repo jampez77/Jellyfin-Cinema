@@ -1,4 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// Exercise Jellyfin's own OSD template and spatial navigation without bundling
+// its GPL source. Audited jellyfin-web v12.0: 0e83c6a724b31f3e9b5a499244331a288c060a4a.
+const nativeSource = process.env.TVL_JELLYFIN_WEB_SOURCE || '/tmp/tvl-jellyfin-web-12-audit';
+const nativeTemplatePath = resolve(nativeSource, 'src/apps/legacy/controllers/playback/video/index.html');
 
 const records = [
   { Id: 'browse-series', Type: 'Series', Name: 'Northbound' },
@@ -71,6 +78,73 @@ async function player(page: Page, id = 'browse-episode-2', rating = true) {
 async function remote(page: Page, command: string) {
   return page.evaluate(command => document.activeElement!.dispatchEvent(new CustomEvent('command', { bubbles: true, cancelable: true, detail: { command } })), command);
 }
+
+for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches native player controls before opening episode browsing`, async ({ page }) => {
+  test.skip(!existsSync(nativeTemplatePath), 'Set TVL_JELLYFIN_WEB_SOURCE to audited Jellyfin 12 source.');
+  await fixture(page); await player(page);
+  const template = readFileSync(nativeTemplatePath, 'utf8').replace(/\$\{([^}]+)\}/g, '$1');
+  const css = readFileSync(resolve(nativeSource, 'src/styles/videoosd.scss'), 'utf8').replace(/^\s*@(?:use|include)\s+[^;]+;/gm, '');
+  const focusManager = readFileSync(resolve(nativeSource, 'src/components/focusManager.js'), 'utf8')
+    .replace(/^import .+;$/gm, '').replace('export default {', 'window.__nativeFocus = {');
+  await page.evaluate(({ template, css }) => {
+    document.querySelector('#videoOsdPage')!.remove();
+    document.body.insertAdjacentHTML('beforeend', template);
+    const osd = document.querySelector<HTMLElement>('#videoOsdPage')!;
+    osd.style.cssText = 'position:fixed;inset:0;z-index:1000;pointer-events:none';
+    const rating = osd.querySelector<HTMLElement>('.btnUserRating')!;
+    rating.dataset.id = 'browse-episode-2';
+    const seek = osd.querySelector<HTMLInputElement>('.osdPositionSlider')!;
+    seek.classList.add('focusable'); seek.setAttribute('aria-label', 'Native seek');
+    const style = document.createElement('style');
+    style.textContent = css + '.hide,.demo-switcher,.demo-native-page{display:none!important}.flex{display:flex}.flex-grow{flex-grow:1}.align-items-center{align-items:center}.videoOsdBottom button{min-width:48px;height:48px}.osdHeader{position:fixed;top:15px;left:15px;z-index:1200}.osdHeader button{width:48px;height:48px}';
+    document.head.append(style);
+    const header = document.createElement('header'); header.className = 'skinHeader osdHeader';
+    const back = document.createElement('button'); back.className = 'headerBackButton'; back.textContent = 'Native Back';
+    header.append(back); document.body.append(header); back.focus();
+  }, { template, css });
+  await page.addScriptTag({ content: `(() => {
+    const dom = { parentWithClass: (element, name) => element?.closest('.' + name) };
+    const scrollManager = { isEnabled: () => false };
+    ${focusManager}
+    document.addEventListener('command', event => {
+      if (!event.defaultPrevented && event.detail?.command === 'down') window.__nativeFocus.moveDown(event.target);
+    });
+    window.addEventListener('keydown', event => {
+      if (!event.defaultPrevented && event.key === 'ArrowDown') {
+        document.activeElement.dispatchEvent(new CustomEvent('command', {bubbles:true,cancelable:true,detail:{command:'down'}}));
+        event.preventDefault();
+      }
+    });
+  })();` });
+  const down = () => input === 'keyboard' ? page.keyboard.press('ArrowDown') : remote(page, 'down');
+  await down(); await expect(browser(page)).toHaveCount(0);
+  await expect(page.getByRole('slider', { name: 'Native seek', exact: true })).toBeFocused();
+  await down(); await expect(browser(page)).toHaveCount(0);
+  await expect(page.locator('.videoOsdBottom .buttons button:focus')).toHaveCount(1);
+  await down(); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await expect(page.locator('.videoOsdBottom .buttons button:focus')).toHaveCount(1);
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+});
+
+test('Down passes through wrapped playback controls and ignores hidden or disabled rows', async ({ page }) => {
+  await fixture(page); await player(page);
+  await page.evaluate(() => {
+    const button = document.createElement('button'); button.id = 'native-lower-control'; button.textContent = 'Lower native control';
+    button.style.cssText = 'position:fixed;bottom:2px;left:24px';
+    document.querySelector('#videoOsdPage')!.append(button);
+  });
+  expect(await remote(page, 'down')).toBe(true);
+  await expect(browser(page)).toHaveCount(0);
+  await page.locator('#native-lower-control').focus();
+  await remote(page, 'down'); await expect(browser(page)).toBeVisible();
+  await remote(page, 'back');
+  for (const hidden of [false, true]) {
+    await page.locator('#native-lower-control').evaluate((control: HTMLButtonElement, hidden) => { control.hidden = hidden; control.disabled = !hidden; }, hidden);
+    await page.getByRole('button', { name: 'Native control', exact: true }).focus();
+    await remote(page, 'down'); await expect(browser(page)).toBeVisible(); await remote(page, 'back');
+  }
+});
 async function transition(page: Page, id: string) {
   await page.evaluate(async id => {
     const video = document.querySelector<HTMLVideoElement>('video.htmlvideoplayer')!;
@@ -119,6 +193,7 @@ test('desktop mouse browsing preserves native player controls, sliders and layou
 
 test('Down browses the complete show continuously across seasons and wraps without interrupting playback', async ({ page }) => {
   await fixture(page); await player(page);
+  await expect(page.locator('#tvl-player-browse')).toHaveAttribute('title', 'Episodes & seasons');
   await page.keyboard.press('ArrowDown');
   await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
   await expect(browser(page).getByRole('button', { name: 'Return to playback', exact: true })).toBeFocused();

@@ -57,7 +57,7 @@ export async function dispatchTrailerPlayback(client: PlaybackClient, userId: st
   if (clickNativeButton(currentMoviePage(item), '.btnPlayTrailer')) return;
 
   const hasRemote = !!item.RemoteTrailers?.length;
-  const unsupported = 'Trailer playback is unavailable in this client. Open Jellyfin’s original details and use its Trailer button.';
+  const unsupported = 'Trailer playback is unavailable in this client.';
   async function nativeRemoteTrailer(): Promise<void> {
     // Native viewshow can finish after the custom detail page. Give its trailer
     // control a bounded chance to catch up without dispatching on a stale page.
@@ -81,7 +81,7 @@ export async function dispatchTrailerPlayback(client: PlaybackClient, userId: st
   // Official ApiClient signature, also declared in jellyfin-web's apiclient.d.ts.
   const trailers = await client.getLocalTrailers(userId, item.Id);
   if (!isCurrent()) throw new DOMException('This media page has closed.', 'AbortError');
-  if (!Array.isArray(trailers)) throw new Error('Jellyfin returned an invalid trailer list. Open the page again to retry.');
+  if (!Array.isArray(trailers)) throw new Error('Jellyfin returned an invalid trailer list.');
   const trailer = trailers.find(candidate => candidate && typeof candidate.Id === 'string' && candidate.Id
     && !sameId(candidate.Id, item.Id) && candidate.Type === 'Trailer' && candidate.PlayAccess !== 'None'
     && candidate.LocationType !== 'Virtual' && !candidate.IsMissing && !candidate.IsVirtualItem && !candidate.IsPlaceHolder);
@@ -93,7 +93,7 @@ export async function dispatchTrailerPlayback(client: PlaybackClient, userId: st
     await dispatchPlayback(client, trailer, 0, isCurrent);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
-    throw new Error('Trailer playback could not start in this client. Open Jellyfin’s original details and use its Trailer button.');
+    throw new Error('Trailer playback could not start in this client.');
   }
 }
 
@@ -120,13 +120,13 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     const start = Date.parse(item.StartDate || '');
     const end = Date.parse(item.EndDate || '');
     if (!item.ChannelId || !Number.isFinite(start) || !Number.isFinite(end) || Date.now() < start || Date.now() >= end) {
-      throw new Error('This programme is not currently live. Open its channel to watch what is on now.');
+      throw new Error('This programme is not currently live.');
     }
     id = item.ChannelId;
     type = 'TvChannel';
   }
   if (!['Movie', 'Episode', 'TvChannel', 'Trailer', 'Audio', 'MusicAlbum', 'Video', 'Playlist'].includes(type || '')) {
-    throw new Error('Choose an available video, album, song, or live channel to play.');
+    throw new Error('This item does not support playback.');
   }
   const position = type === 'TvChannel' || !Number.isFinite(ticks) ? 0 : Math.max(0, Math.trunc(ticks));
   if (!playlist && clickCurrentMovie(item, position)) return;
@@ -141,8 +141,10 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     if (!serverId || !document.body) throw new Error('No active Jellyfin server is available.');
     // Jellyfin's v0 webcomponents polyfill expects a string extension name.
     const create = document.createElement as unknown as (tag: string, extension: string) => ItemsContainer;
-    container = create.call(document, 'div', 'emby-itemscontainer');
+    try { container = create.call(document, 'div', 'emby-itemscontainer'); }
+    catch { container = document.createElement('div'); }
     container.setAttribute('is', 'emby-itemscontainer');
+    container.setAttribute('data-tvl-playback-bridge', 'true');
     container.hidden = true;
     container.setAttribute('aria-hidden', 'true');
     container.setAttribute('data-contextmenu', 'false');
@@ -177,20 +179,44 @@ export async function dispatchPlayback(client: PlaybackClient, item: Item, ticks
     // Allow the polyfill's MutationObserver to attach Jellyfin's command handler.
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     if (!isCurrent()) throw new DOMException('This media page has closed.', 'AbortError');
-    if (!container.isConnected || typeof container.attachedCallback !== 'function') {
-      throw new Error('The Jellyfin playback action is unavailable.');
-    }
+    if (!container.isConnected) throw new Error('The Jellyfin playback action is unavailable.');
     const eventType = playlist ? 'click' : 'command';
-    container.addEventListener(eventType, event => event.stopPropagation());
-    // playallfromhere is a native card click action, not an input command.
-    const command = playlist ? new MouseEvent('click', { bubbles: true, cancelable: true }) : new CustomEvent('command', {
-      detail: { command: 'play' }, bubbles: true, cancelable: true
-    });
-    card!.dispatchEvent(command);
-    if (!command.defaultPrevented) throw new Error('Jellyfin did not handle the playback action.');
+    const dispatch = () => {
+      // playallfromhere is a native card click action, not an input command.
+      const command = playlist ? new MouseEvent('click', { bubbles: true, cancelable: true }) : new CustomEvent('command', {
+        detail: { command: 'play' }, bubbles: true, cancelable: true
+      });
+      card!.dispatchEvent(command);
+      return command.defaultPrevented;
+    };
+    if (typeof container.attachedCallback === 'function') {
+      container.addEventListener(eventType, event => event.stopPropagation());
+      if (!dispatch()) throw new Error('Jellyfin did not handle the playback action.');
+    } else {
+      // Jellyfin 12's React-only pages do not necessarily load/register the
+      // legacy custom element. Their native ItemsContainer binds the same
+      // shortcuts handlers. Borrow that event boundary without replacing its
+      // children, callbacks or fetchData; the hidden bridge owns its own queue.
+      const hosts = Array.from(document.querySelectorAll<HTMLElement>('.itemsContainer')).filter(host =>
+        host !== container && !host.closest('#tv-layout, .tvl-home-collection-row, .tvl-home-editor, [data-tvl-playback-bridge]')
+        && Array.from(host.querySelectorAll<HTMLElement>('[data-id][data-serverid]')).some(node =>
+          !node.closest('[data-tvl-playback-bridge]') && sameId(node.dataset.serverid, serverId)));
+      let handled = false;
+      for (const host of hosts) {
+        if (!isCurrent()) throw new DOMException('This media page has closed.', 'AbortError');
+        if (!host.isConnected) continue;
+        host.appendChild(container);
+        const stop = (event: Event) => event.stopPropagation();
+        host.addEventListener(eventType, stop);
+        try { handled = dispatch(); }
+        finally { host.removeEventListener(eventType, stop); }
+        if (handled) break;
+      }
+      if (!handled) throw new Error('Jellyfin did not handle the playback action.');
+    }
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
-    throw new Error('Playback could not start in this client. Open Jellyfin’s original details and use its Play button.');
+    throw new Error('Playback could not start in this client.');
   } finally {
     // Jellyfin's detachedCallback removes the bridge's session/shortcut listeners.
     container?.remove();

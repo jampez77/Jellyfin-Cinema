@@ -55,14 +55,14 @@ NOW uses **NOW Cinema** for Movies and **NOW** for Shows. Paramount+ uses the UK
 
 ## Add the Home rows
 
-1. In Jellyfin Web's TV display mode, open **Collections → Customize collection rows** and add a collection items row.
+1. In Jellyfin Web's desktop display mode, open **Collections → Customize collection rows** and add a collection items row.
 2. Name the row after the platform, for example **Trending on Netflix**.
 3. Choose **Add collection tabs**. The initial labels are **Movies** and **Shows**; select each tab and choose its corresponding SmartLists collection. Change **Tab label** if you want different names.
 4. In **Item order**, choose **Collection order** for each tab. This keeps the order supplied by SmartLists. Choosing a title/year sort or manual order instead changes only that tab's Home display.
 5. Enable **Ranked artwork** if you want numbered posters. Review each tab in **Home preview** and place the row in **Home position**.
 6. Choose **Save rows**. Repeat for the other five platforms.
 
-Use **Add tab**, **Remove tab**, **Move tab left** and **Move tab right** to arrange up to six tabs. The first tab opens by default. Removing tabs until one remains returns the row to its single-collection form. Home settings belong to the current server/account/browser and do not sync to other clients; the source collections are maintained on the Jellyfin server.
+Use **Add tab**, **Remove tab**, **Move tab left** and **Move tab right** to arrange up to six tabs. The first tab opens by default. Removing tabs until one remains returns the row to its single-collection form. Saved Home settings follow the current Jellyfin account across devices. Configure them in desktop display mode; TV displays the saved rows without an editing button. Source collections are maintained on the Jellyfin server. Cinema checks loaded collection contents every minute while Home is visible and when the client regains focus. A library scan alone does not refresh these SmartLists collections: wait for their scheduled refresh or refresh the relevant list individually while SmartLists is idle.
 
 ## What the numbers mean
 

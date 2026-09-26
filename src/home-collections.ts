@@ -9,6 +9,7 @@ import { HomeReadiness } from './home-readiness';
 
 type RenderedRow = { row: HomeCollectionRow; element: HTMLElement; reconcileSource: () => Promise<void> };
 type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement };
+type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string };
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
 export class HomeCollections {
@@ -30,7 +31,8 @@ export class HomeCollections {
   private disposed = false;
   private revision = 0;
   private inputRevision = 0;
-  private items = new Map<string, Promise<Item[]>>();
+  private renderRetry = false;
+  private items = new Map<string, CollectionItems>();
 
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
@@ -57,15 +59,50 @@ export class HomeCollections {
     this.syncing = true; this.lastSync = Date.now();
     try {
       const settings = await this.store.load(); if (this.disposed) return;
-      if (JSON.stringify(settings) !== JSON.stringify(this.settings)) {
+      const settingsChanged = JSON.stringify(settings) !== JSON.stringify(this.settings);
+      this.settings = settings;
+      const membersChanged = await this.refreshItems();
+      if (this.disposed || !this.api.homeCollections?.isCurrent()) return;
+      if (settingsChanged || membersChanged || this.renderRetry) {
         const active = document.activeElement as HTMLElement | null;
         if (this.owns(active)) this.restoreFocus = active?.dataset.focusId;
-        this.settings = settings; await this.render();
+        await this.render();
       }
     } catch {
       // Background sync stays quiet on Home and preserves the last loaded rows.
       // The editor still reports load/save failures so unsaved edits are clear.
     } finally { this.syncing = false; }
+  }
+
+  private collectionItems(id: string): Promise<Item[]> {
+    let cached = this.items.get(id);
+    if (!cached) {
+      const entry: CollectionItems = { promise: this.api.getCollectionItems(id).then(items => {
+        entry.fingerprint = JSON.stringify(items); return items;
+      }).catch(error => { if (this.items.get(id) === entry) this.items.delete(id); throw error; }) };
+      this.items.set(id, entry); cached = entry;
+    }
+    return cached.promise;
+  }
+
+  private async refreshItems(): Promise<boolean> {
+    // Membership and source order can change without a settings revision (for
+    // example after SmartLists refreshes). Revalidate visited sources quietly;
+    // keep successful data during failures and leave unchanged DOM/focus alone.
+    const sources = new Set(this.settings.rows.filter(row => row.kind === 'items').flatMap(row => homeCollectionTabs(row).map(tab => tab.collectionId)));
+    let changed = false;
+    await Promise.all(Array.from(this.items, async ([id, entry]) => {
+      if (!sources.has(id)) { this.items.delete(id); return; }
+      if (entry.fingerprint === undefined) return;
+      try {
+        const items = await this.api.getCollectionItems(id);
+        if (this.disposed || !this.api.homeCollections?.isCurrent() || this.items.get(id) !== entry) return;
+        const fingerprint = JSON.stringify(items);
+        if (fingerprint === entry.fingerprint) return;
+        this.items.set(id, { promise: Promise.resolve(items), fingerprint }); changed = true;
+      } catch { /* Keep the last successfully loaded members until a later poll. */ }
+    }));
+    return changed;
   }
 
   private attach(): void {
@@ -87,8 +124,14 @@ export class HomeCollections {
         focusId = this.owns(active) ? active?.dataset.focusId : staged.inputRevision === this.inputRevision ? this.restoreFocus : undefined;
         if (this.owns(active)) focusRow = active?.closest<HTMLElement>('[data-home-row]')?.dataset.homeRow;
         this.restoreFocus = undefined;
+        const positions = new Map(this.sections.map(section => [section.row.id, section.element.querySelector<HTMLElement>('.tvl-home-row-cards')?.scrollLeft || 0]));
         this.sections.forEach(section => section.element.remove());
         this.sections = staged.sections; this.displayedRevision = staged.revision;
+        this.renderRetry = false;
+        for (const section of this.sections) {
+          const cards = section.element.querySelector<HTMLElement>('.tvl-home-row-cards');
+          if (cards) cards.dataset.restoreScroll = String(positions.get(section.row.id) || 0);
+        }
         const ids = new Set(this.sections.map(section => section.row.id));
         for (const id of this.selectedSources.keys()) if (!ids.has(id)) this.selectedSources.delete(id);
       }
@@ -120,11 +163,16 @@ export class HomeCollections {
         parent.append(element);
       }
       nextAt.set(point, element);
+      const cards = element.querySelector<HTMLElement>('.tvl-home-row-cards');
+      if (cards?.dataset.restoreScroll !== undefined) { cards.scrollLeft = Number(cards.dataset.restoreScroll); delete cards.dataset.restoreScroll; }
     }
     if (focusId || focusRow) {
       const target = this.sections.flatMap(section => Array.from(section.element.querySelectorAll<HTMLElement>('[data-focus-id]'))).find(node => node.dataset.focusId === focusId);
       const retainedRow = this.sections.find(section => section.row.id === focusRow)?.element;
-      this.focus(target || retainedRow?.querySelector<HTMLElement>('[aria-selected="true"]') || retainedRow?.querySelector<HTMLElement>('button') || undefined);
+      const nearby = Array.from(host.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]'))
+        .filter(node => !node.closest('.hide, [hidden]') && node.getClientRects().length > 0);
+      this.focus(target || retainedRow?.querySelector<HTMLElement>('[aria-selected="true"]') || retainedRow?.querySelector<HTMLElement>('button')
+        || nearby.find(node => !retainedRow || !!(retainedRow.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) || nearby[nearby.length - 1]);
     }
     else if (movedFocus?.isConnected) this.focus(movedFocus);
   }
@@ -207,6 +255,7 @@ export class HomeCollections {
       this.staged = { revision, inputRevision, sections: rendered }; this.attach();
     } catch {
       if (this.disposed || revision !== this.revision) return;
+      this.renderRetry = true;
       const error = el('div', 'tvl-home-row-status'); error.setAttribute('role', 'status');
       error.append(el('p', '', 'Your collection rows could not be loaded.'), button('Retry collection rows', '', '', () => { void this.render(); }));
       this.staged = { revision, inputRevision, error }; this.attach();
@@ -251,16 +300,12 @@ export class HomeCollections {
       replace(cards); cards.scrollLeft = 0; cards.removeAttribute('aria-busy');
       if (tabbed) panel.setAttribute('aria-labelledby', `${prefix}-tab-${encodeURIComponent(source.id)}`);
       if (row.kind === 'items' ? !collection : !chosen.length) {
-        cards.append(el('p', 'tvl-home-row-status', 'No accessible collections selected. Choose a collection from Customize collection rows on the Collections page.')); return;
+        cards.append(el('p', 'tvl-home-row-status', 'No accessible collections selected.')); return;
       }
       cards.setAttribute('aria-busy', 'true');
       cards.append(el('p', 'tvl-home-row-status', 'Loading collection…'));
       try {
-        if (row.kind === 'items' && !this.items.has(collection!.Id)) {
-          const id = collection!.Id;
-          this.items.set(id, this.api.getCollectionItems(id).catch(error => { this.items.delete(id); throw error; }));
-        }
-        const items = row.kind === 'items' ? orderHomeItems(await this.items.get(collection!.Id)!, source) : chosen;
+        const items = row.kind === 'items' ? orderHomeItems(await this.collectionItems(collection!.Id), source) : chosen;
         if (!this.current(revision) || currentSource !== sourceRevision) return;
         replace(cards);
       for (const [index, item] of items.slice(0, 60).entries()) {

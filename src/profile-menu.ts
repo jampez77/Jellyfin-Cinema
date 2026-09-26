@@ -90,7 +90,7 @@ export class ProfileMenu {
     back.focus({ preventScroll: true });
     void this.addDashboard(panel, overlay, login, status);
     if (session) void this.chooseProfile(grid, overlay, session, status, login, back);
-    else status.textContent = 'Use Jellyfin’s login screen to choose a profile.';
+    else status.textContent = 'Profile switching is unavailable.';
     return true;
   }
 
@@ -138,7 +138,7 @@ export class ProfileMenu {
     try {
       const profiles = await publicProfiles(session);
       if (!current()) return;
-      status.textContent = profiles.length ? '' : 'No public profiles are available. Use the login screen for a hidden account.';
+      status.textContent = profiles.length ? '' : 'No public profiles are available.';
       for (const profile of profiles) {
         const selected = profile.Id.replace(/-/g, '').toLowerCase() === session.userId.replace(/-/g, '').toLowerCase();
         const control = button('', '', 'tvl-profile-card', () => {
@@ -160,7 +160,7 @@ export class ProfileMenu {
       }
       if (document.activeElement === back) (grid.querySelector<HTMLElement>('[aria-current="true"]') || grid.querySelector<HTMLElement>('button') || login).focus({ preventScroll: true });
     } catch {
-      if (current()) status.textContent = 'Could not load profiles. Use the login screen or go back and try again.';
+      if (current()) status.textContent = 'Could not load profiles. Try again.';
     } finally { grid.removeAttribute('aria-busy'); }
   }
 
@@ -200,7 +200,7 @@ export class ProfileMenu {
       const needsLogin = error instanceof ProfileLoginRequired || !session.client.getCurrentUserId();
       const failedUser = session.client.getCurrentUserId();
       status.textContent = error instanceof ProfileLoginRequired ? error.message
-        : needsLogin ? 'Could not sign in to that profile. Continue with Jellyfin’s login screen.' : 'Could not switch profile. Your current session is still open.';
+        : needsLogin ? 'Could not sign in to that profile.' : 'Could not switch profile. Your current session is still open.';
       const action = button(needsLogin ? 'Continue to login' : 'Close', '', 'tvl-primary', () => {
         remove();
         if (needsLogin && sameProfileServer(session) && session.client.getCurrentUserId() === failedUser) {

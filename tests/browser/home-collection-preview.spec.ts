@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { useDesktopLayout } from './layout-fixture';
 
 const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
 const preview = (page: Page) => editor(page).getByRole('complementary', { name: 'Home row preview', exact: true });
@@ -6,6 +7,7 @@ const cards = (page: Page) => preview(page).locator('.tvl-home-row-card');
 
 test('missing collection and item thumbnails stay contained and do not cover editor controls', async ({ page }) => {
   await page.goto('/?featured=0#/list?parentId=library-collections');
+  await useDesktopLayout(page);
   await expect(page.getByRole('button', { name: 'Customize collection rows', exact: true })).toBeVisible();
   await page.evaluate(() => { window.TvItemLayoutDemo!.api.image = () => null; });
   await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click();
@@ -32,6 +34,7 @@ test('missing collection and item thumbnails stay contained and do not cover edi
 
 async function openEditor(page: Page, visitHome = true) {
   await page.goto(visitHome ? '/?featured=0#/home' : '/?featured=0#/list?parentId=library-collections');
+  await useDesktopLayout(page);
   if (visitHome) {
     await expect(page.locator('#homeTab')).toBeVisible();
     await page.evaluate(() => { location.hash = '/list?parentId=library-collections'; });

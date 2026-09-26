@@ -189,7 +189,12 @@ export class DetailView {
     const actions = el('div',`tvl-actions${movie ? ' tvl-actions-movie' : ''}`);
     const play = button(this.playLabel(), 'play', 'tvl-primary', () => { if(this.target) void this.play(this.target); });
     play.dataset.focusId = 'play'; play.disabled = !this.target || !playable(this.target);
-    actions.append(play);
+    if (this.target?.Type === 'Episode' && this.canResume()) {
+      const playback = el('div', 'tvl-playback-actions');
+      const restart = button('Play from beginning', '', 'tvl-restart', () => { if(this.target) void this.play(this.target, 0); });
+      restart.dataset.focusId = 'restart'; restart.disabled = play.disabled;
+      playback.append(play, restart); actions.append(playback);
+    } else actions.append(play);
     if (movie) {
       const trailer=button('Trailer','trailer','tvl-trailer',()=>void this.playTrailer());
       trailer.setAttribute('aria-label','Watch trailer');trailer.dataset.focusId='trailer';
@@ -222,7 +227,7 @@ export class DetailView {
       this.content.append(hero, this.filmDetails());
     } else {
       const footer = el('footer','tvl-footer');
-      footer.append(el('span','tvl-footer-kind',live ? 'YOUR LIVE CHANNELS' : 'DISCOVER MORE'), el('span','tvl-remote-hint','↑ ↓ Navigate    OK Select    Back Return'));
+      footer.append(el('span','tvl-footer-kind',live ? 'YOUR LIVE CHANNELS' : 'DISCOVER MORE'));
       this.content.append(hero, footer);
     }
     let collections:HTMLElement|undefined;
@@ -287,9 +292,11 @@ export class DetailView {
   private playLabel(): string {
     if (this.item.Type === 'TvChannel') return 'Watch live';
     if (!this.target) return 'No episodes available';
-    const resume = (this.target.UserData?.PlaybackPositionTicks || 0) > 0 && !this.target.UserData?.Played;
     const code = this.item.Type === 'Series' ? episodeCode(this.target) : '';
-    return `${resume ? 'Resume' : 'Play'}${code ? ` ${code}` : ''}`;
+    return `${this.canResume() ? 'Resume' : 'Play'}${code ? ` ${code}` : ''}`;
+  }
+  private canResume(): boolean {
+    return !!this.target && (this.target.UserData?.PlaybackPositionTicks || 0) > 0 && !this.target.UserData?.Played;
   }
   private open(pane: Pane): void {
     this.restoreId = (document.activeElement as HTMLElement)?.dataset.focusId || '';
@@ -354,7 +361,7 @@ export class DetailView {
     // Keep focus on an existing control while the old episode list is replaced.
     // Only move it into the new list if the user has not navigated elsewhere.
     anchor?.focus({preventScroll:true});
-    const heading = el('div','tvl-browser-heading');heading.append(el('h2','',seasonName(season)),el('span','tvl-browser-subtitle','SELECT AN EPISODE'));
+    const heading = el('div','tvl-browser-heading');heading.append(el('h2','',seasonName(season)));
     area.setAttribute('aria-busy','true');
     replace(area,heading,el('div','tvl-loading','Loading episodes…'));
     try {
@@ -506,10 +513,10 @@ export class DetailView {
     this.removeRemote = attachRemote(this.element, () => this.back(), direction => this.moveBetweenSeasons(direction));
     this.focusFirst('add-collection');
   }
-  private async play(item: Item): Promise<void> {
+  private async play(item: Item, startTicks?: number): Promise<void> {
     if(this.launching||!playable(item))return;
     await this.launch(
-      ()=>this.api.play(item,item.Type==='TvChannel'||item.UserData?.Played ? 0 : item.UserData?.PlaybackPositionTicks||0,()=>!this.disposed),
+      ()=>this.api.play(item,startTicks ?? (item.Type==='TvChannel'||item.UserData?.Played ? 0 : item.UserData?.PlaybackPositionTicks||0),()=>!this.disposed),
       item.Type==='TvChannel'?'Tuning channel…':`Starting ${item.Name}…`
     );
   }

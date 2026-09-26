@@ -671,7 +671,7 @@ test('stale native details, another route, and unavailable native buttons cannot
   for (const scenario of [{ id: 'previous' }, { id: 'movie', routeId: 'other' }, { id: 'movie', hiddenButton: true }]) {
     const clicks = nativePage(scenario.id, scenario);
     const api = client();
-    await assert.rejects(api.play(movie, 0, () => true), /original details/i);
+    await assert.rejects(api.play(movie, 0, () => true), /Playback could not start in this client/i);
     assert.equal(clicks(), 0);
   }
 });
@@ -789,7 +789,7 @@ test('remote metadata never dispatches the local-only playtrailer shortcut or op
   let externalOpens = 0;
   global('window', { open: () => { externalOpens++; } });
   const api = client({ getLocalTrailers: async () => { throw new Error('Known remote-only movie must not fetch local trailers'); } });
-  await assert.rejects(api.playTrailer({ ...movie, LocalTrailerCount: 0, RemoteTrailers: [{ Url: 'javascript:alert(1)' }] }, () => true), /original details.*Trailer button/i);
+  await assert.rejects(api.playTrailer({ ...movie, LocalTrailerCount: 0, RemoteTrailers: [{ Url: 'javascript:alert(1)' }] }, () => true), /Trailer playback is unavailable in this client/i);
   assert.equal(bridge.commands.length, 0);
   assert.equal(externalOpens, 0);
 });
@@ -798,7 +798,7 @@ test('trailer dispatch does not succeed when the registered playback bridge is u
   for (const options of [{ registered: false }, { handled: false }]) {
     const bridge = bridgePage(options);
     const api = client({ getLocalTrailers: async () => [{ Id: 'trailer', Type: 'Trailer' }] });
-    await assert.rejects(api.playTrailer(movie, () => true), /original details/i);
+    await assert.rejects(api.playTrailer(movie, () => true), /Trailer playback could not start in this client/i);
     assert.ok(bridge.containers.every(container => container.removed));
   }
 });

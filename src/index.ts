@@ -174,7 +174,14 @@ function refresh():void{
   if(!api){close(false);return;}
   const scope=scopeOf(api);
   const key=`${scope}:${route.kind}:${location.hash}`;
-  if(activeKey===key&&(view||route.kind==='home')){if(view)hideNativeHost(route);return;}
+  if(activeKey===key&&(view||route.kind==='home')){
+    if(view)hideNativeHost(route);
+    // Native Home stays mounted across refreshes. Reassert our route marker if
+    // a native/extension class update replaced it, without rebuilding rows or
+    // disturbing the native page's focus and handlers.
+    else if(!document.body.classList.contains('tvl-home'))document.body.classList.add('tvl-home');
+    return;
+  }
   if(route.kind==='collections'&&route.verifyParent){
     const verified=verifiedLibraries.get(route.parentId!);
     if(verified){

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { useDesktopLayout } from './layout-fixture';
 
 const config = { version: 1, rows: [{ id: 'platform', kind: 'items', title: 'Trending on Netflix', collectionIds: ['collection-coast'], ranked: true, placement: 'start', itemSort: 'collection', itemOrder: [], tabs: [
   { id: 'movies', label: 'Movies', collectionId: 'collection-coast', itemSort: 'collection', itemOrder: [] },
@@ -12,6 +13,7 @@ async function seed(page: Page) {
   await page.addInitScript(config => localStorage.setItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`,JSON.stringify(config)),config);
 }
 async function openEditor(page: Page) {
+  await useDesktopLayout(page);
   await page.evaluate(()=>{location.hash='/list?parentId=library-collections';});
   await page.getByRole('button',{name:'Customize collection rows',exact:true}).click();
   await expect(dialog(page).getByRole('button',{name:'Save rows',exact:true})).toBeEnabled();

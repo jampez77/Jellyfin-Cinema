@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.12.3",
+        "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.12/TvItemLayout_0.2.12.3_jellyfin-12.0.0.zip",
+        "checksum": "810f7c830c6502aee49ba84185a7b07c",
+        "timestamp": "2026-09-26T19:22:42Z"
+      },
+      {
+        "version": "0.2.12.2",
+        "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.12/TvItemLayout_0.2.12.2_jellyfin-10.11.0.zip",
+        "checksum": "6aac84e7672faef36335a22152acaf7d",
+        "timestamp": "2026-09-26T19:22:42Z"
+      },
+      {
+        "version": "0.2.12.1",
+        "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.12/TvItemLayout_0.2.12.1_jellyfin-10.10.7.zip",
+        "checksum": "05daf741adbc3ae60aac500637e96877",
+        "timestamp": "2026-09-26T19:22:42Z"
+      },
+      {
         "version": "0.2.11.3",
         "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
