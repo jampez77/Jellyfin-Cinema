@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 // its GPL source. Audited jellyfin-web v12.0: 0e83c6a724b31f3e9b5a499244331a288c060a4a.
 const nativeSource = process.env.TVL_JELLYFIN_WEB_SOURCE || '/tmp/tvl-jellyfin-web-12-audit';
 const nativeTemplatePath = resolve(nativeSource, 'src/apps/legacy/controllers/playback/video/index.html');
+const elegantSource = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
 
 const records = [
   { Id: 'browse-series', Type: 'Series', Name: 'Northbound' },
@@ -79,14 +80,17 @@ async function remote(page: Page, command: string) {
   return page.evaluate(command => document.activeElement!.dispatchEvent(new CustomEvent('command', { bubbles: true, cancelable: true, detail: { command } })), command);
 }
 
-for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches native player controls before opening episode browsing`, async ({ page }) => {
-  test.skip(!existsSync(nativeTemplatePath), 'Set TVL_JELLYFIN_WEB_SOURCE to audited Jellyfin 12 source.');
-  await fixture(page); await player(page);
+async function nativePlayer(page: Page, elegant = false, tv = true) {
   const template = readFileSync(nativeTemplatePath, 'utf8').replace(/\$\{([^}]+)\}/g, '$1');
-  const css = readFileSync(resolve(nativeSource, 'src/styles/videoosd.scss'), 'utf8').replace(/^\s*@(?:use|include)\s+[^;]+;/gm, '');
+  const css = [
+    'src/styles/videoosd.scss', 'src/elements/emby-button/emby-button.scss', 'src/elements/emby-slider/emby-slider.scss',
+  ].map(path => readFileSync(resolve(nativeSource, path), 'utf8')
+    .replace(/@include conditional-max\(padding-bottom[^;]+;/g, 'padding-bottom:1.75em;')
+    .replace(/^\s*@(?:use|include)\s+[^;]+;/gm, '')).join('\n')
+    + (elegant ? readFileSync(elegantSource, 'utf8') : '');
   const focusManager = readFileSync(resolve(nativeSource, 'src/components/focusManager.js'), 'utf8')
     .replace(/^import .+;$/gm, '').replace('export default {', 'window.__nativeFocus = {');
-  await page.evaluate(({ template, css }) => {
+  await page.evaluate(({ template, css, tv }) => {
     document.querySelector('#videoOsdPage')!.remove();
     document.body.insertAdjacentHTML('beforeend', template);
     const osd = document.querySelector<HTMLElement>('#videoOsdPage')!;
@@ -94,14 +98,20 @@ for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches
     const rating = osd.querySelector<HTMLElement>('.btnUserRating')!;
     rating.dataset.id = 'browse-episode-2';
     const seek = osd.querySelector<HTMLInputElement>('.osdPositionSlider')!;
-    seek.classList.add('focusable'); seek.setAttribute('aria-label', 'Native seek');
+    if (tv) seek.classList.add('focusable'); seek.setAttribute('aria-label', 'Native seek');
     const style = document.createElement('style');
-    style.textContent = css + '.hide,.demo-switcher,.demo-native-page{display:none!important}.flex{display:flex}.flex-grow{flex-grow:1}.align-items-center{align-items:center}.videoOsdBottom button{min-width:48px;height:48px}.osdHeader{position:fixed;top:15px;left:15px;z-index:1200}.osdHeader button{width:48px;height:48px}';
+    style.textContent = css + '.hide,.demo-switcher,.demo-native-page{display:none!important}.flex{display:flex}.flex-grow{flex-grow:1}.align-items-center{align-items:center}.osdHeader{position:fixed;top:15px;left:15px;z-index:1200}.material-icons{line-height:1;width:1em;height:1em;display:inline-block}';
+    // Match the native custom elements' classes without replacing their sizes.
+    osd.querySelectorAll('button[is="paper-icon-button-light"]').forEach(control => { control.classList.add('paper-icon-button-light'); if (tv) control.classList.add('show-focus'); });
+    osd.querySelectorAll('input[is="emby-slider"]').forEach(control => {
+      control.classList.add('mdl-slider', 'mdl-js-slider', 'show-focus');
+      control.parentElement!.classList.add('mdl-slider-container');
+    });
     document.head.append(style);
     const header = document.createElement('header'); header.className = 'skinHeader osdHeader';
     const back = document.createElement('button'); back.className = 'headerBackButton'; back.textContent = 'Native Back';
     header.append(back); document.body.append(header); back.focus();
-  }, { template, css });
+  }, { template, css, tv });
   await page.addScriptTag({ content: `(() => {
     const dom = { parentWithClass: (element, name) => element?.closest('.' + name) };
     const scrollManager = { isEnabled: () => false };
@@ -110,12 +120,18 @@ for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches
       if (!event.defaultPrevented && event.detail?.command === 'down') window.__nativeFocus.moveDown(event.target);
     });
     window.addEventListener('keydown', event => {
-      if (!event.defaultPrevented && event.key === 'ArrowDown') {
+      if (${tv} && !event.defaultPrevented && event.key === 'ArrowDown') {
         document.activeElement.dispatchEvent(new CustomEvent('command', {bubbles:true,cancelable:true,detail:{command:'down'}}));
         event.preventDefault();
       }
     });
   })();` });
+}
+
+for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches native player controls before opening episode browsing`, async ({ page }) => {
+  test.skip(!existsSync(nativeTemplatePath), 'Set TVL_JELLYFIN_WEB_SOURCE to audited Jellyfin 12 source.');
+  await fixture(page); await player(page);
+  await nativePlayer(page);
   const down = () => input === 'keyboard' ? page.keyboard.press('ArrowDown') : remote(page, 'down');
   await down(); await expect(browser(page)).toHaveCount(0);
   await expect(page.getByRole('slider', { name: 'Native seek', exact: true })).toBeFocused();
@@ -125,6 +141,59 @@ for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches
   await remote(page, 'back');
   await expect(page.locator('.videoOsdBottom .buttons button:focus')).toHaveCount(1);
   await expect(page.locator('video')).toHaveJSProperty('paused', false);
+});
+
+for (const input of ['keyboard', 'remote'] as const) test(`${input} Down opens episode browsing below ElegantFin's native seek slider`, async ({ page }) => {
+  test.skip(!existsSync(nativeTemplatePath) || !existsSync(elegantSource), 'Set TVL_JELLYFIN_WEB_SOURCE and TVL_ELEGANTFIN_CSS to the audited upstream sources.');
+  await fixture(page); await player(page); await nativePlayer(page, true);
+  const seek = page.getByRole('slider', { name: 'Native seek', exact: true });
+  const down = () => input === 'keyboard' ? page.keyboard.press('ArrowDown') : remote(page, 'down');
+  const pauseBox = await page.locator('.btnPause').boundingBox(), seekBox = await seek.boundingBox();
+  // ElegantFin reverses the native OSD rows: buttons first, then the seek bar.
+  expect(seekBox!.y).toBeGreaterThan(pauseBox!.y + pauseBox!.height);
+  await down(); await expect(browser(page)).toHaveCount(0);
+  await expect(page.locator('.videoOsdBottom .buttons button:focus')).toHaveCount(1);
+  await down(); await expect(browser(page)).toHaveCount(0); await expect(seek).toBeFocused();
+  await seek.evaluate((slider: HTMLInputElement) => { slider.value = '25'; });
+  await page.keyboard.press('ArrowLeft'); await expect(seek).toHaveValue('24.99');
+  await page.keyboard.press('ArrowRight'); await expect(seek).toHaveValue('25');
+  await down(); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back'); await expect(seek).toBeFocused();
+  await expect(seek).toHaveValue('25'); await expect(page.locator('video')).toHaveJSProperty('paused', false);
+  // A stale focus left in the hidden header must not disable browsing either.
+  await page.getByRole('button', { name: 'Native Back', exact: true }).focus();
+  await page.locator('.osdHeader').evaluate(element => element.classList.add('osdHeader-hidden'));
+  await down(); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  if (input === 'keyboard') await page.screenshot({ path: test.info().outputPath('elegantfin-episode-browser.png') });
+});
+
+test('desktop Down browses below buttons while mouse seek and volume keep native editing', async ({ page }) => {
+  test.skip(!existsSync(nativeTemplatePath) || !existsSync(elegantSource), 'Set TVL_JELLYFIN_WEB_SOURCE and TVL_ELEGANTFIN_CSS to the audited upstream sources.');
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`);
+  await player(page); await nativePlayer(page, true, false);
+  const seek = page.getByRole('slider', { name: 'Native seek', exact: true });
+  await expect(seek).not.toHaveClass(/focusable/);
+  await page.locator('.btnPause').focus();
+  await page.keyboard.press('ArrowDown'); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await seek.evaluate((slider: HTMLInputElement) => { slider.value = '25'; }); await seek.focus(); await page.keyboard.press('ArrowDown');
+  await expect(seek).toHaveValue('24.99'); await expect(browser(page)).toHaveCount(0);
+  const volume = page.locator('.osdVolumeSlider');
+  await volume.evaluate((slider: HTMLInputElement) => { slider.value = '25'; }); await volume.focus(); await page.keyboard.press('ArrowDown');
+  await expect(volume).toHaveValue('24'); await expect(browser(page)).toHaveCount(0);
+});
+
+test('mouse-only ranges and tabindex wrappers below the player do not block remote browsing', async ({ page }) => {
+  await fixture(page); await player(page);
+  await page.evaluate(() => {
+    const osd = document.querySelector('#videoOsdPage')!;
+    const volume = document.createElement('input'); volume.type = 'range'; volume.setAttribute('aria-label', 'Mouse-only volume');
+    volume.style.cssText = 'position:fixed;bottom:0;left:100px';
+    const wrapper = document.createElement('div'); wrapper.tabIndex = 0;
+    wrapper.style.cssText = 'position:fixed;bottom:0;left:0;width:50px;height:10px';
+    osd.append(volume, wrapper);
+  });
+  await remote(page, 'down'); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
 });
 
 test('Down passes through wrapped playback controls and ignores hidden or disabled rows', async ({ page }) => {

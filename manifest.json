@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.13.3",
+        "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.13/TvItemLayout_0.2.13.3_jellyfin-12.0.0.zip",
+        "checksum": "68fdd8bcdc8fb4f3fc422fab3558ff32",
+        "timestamp": "2026-09-26T20:26:46Z"
+      },
+      {
+        "version": "0.2.13.2",
+        "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.13/TvItemLayout_0.2.13.2_jellyfin-10.11.0.zip",
+        "checksum": "259aa66bb5edf1ac28a93cd05bf0aca4",
+        "timestamp": "2026-09-26T20:26:46Z"
+      },
+      {
+        "version": "0.2.13.1",
+        "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.13/TvItemLayout_0.2.13.1_jellyfin-10.10.7.zip",
+        "checksum": "755950a3ab31bba1f820b1fc78ae1f63",
+        "timestamp": "2026-09-26T20:26:46Z"
+      },
+      {
         "version": "0.2.12.3",
         "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
