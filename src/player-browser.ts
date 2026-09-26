@@ -338,16 +338,20 @@ export class PlayerBrowser {
   private canBrowseDown(current: ActivePlayback): boolean {
     const focused = document.activeElement;
     if (!(focused instanceof HTMLElement) || focused === document.body || focused === current.video) return true;
-    if (focused.closest('input, textarea, select, [contenteditable="true"]')) return false;
+    // Jellyfin makes only its TV seek slider part of remote navigation. Some
+    // themes put it below the buttons, so Down must be able to leave it while
+    // ordinary form fields and mouse-only volume sliders keep their editing.
+    if (focused.closest('input, textarea, select, [contenteditable="true"]')
+      && !focused.matches('input.osdPositionSlider[type="range"].focusable')) return false;
     // Jellyfin's player header lives outside videoOsdPage. Its Down action
     // must reach the seek/play controls before browsing can take over.
-    if (focused.closest('.osdHeader, .skinHeader')) return false;
+    if (focused.closest('.osdHeader, .skinHeader')) return !visible(focused) || !!focused.closest('.osdHeader-hidden');
     if (!current.osd.contains(focused)) return false;
     if (focused === this.entry || !visible(focused) || focused.closest('.videoOsdBottom-hidden')) return true;
     const rect = focused.getBoundingClientRect();
     // Compare actual rows so wrapped controls and unfamiliar OSD layouts keep
     // their native navigation. Ignore our own floating mouse shortcut.
-    return !Array.from(current.osd.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex], .focusable'))
+    return !Array.from(current.osd.querySelectorAll<HTMLElement>('button, a[href], input:not([type="range"]):not([type="file"]), select, textarea, .focusable'))
       .some(control => {
         if (control === focused || control === this.entry || control.contains(focused)
           || control.matches(':disabled, [aria-disabled="true"], [tabindex="-1"]') || !visible(control)
