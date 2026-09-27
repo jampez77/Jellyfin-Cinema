@@ -34,6 +34,11 @@ async function nativeSettings(page: Page) {
 async function noEditingButtons(locator: Locator) {
   await expect(locator.getByRole('button', { name: /customi[sz]e|edit|save changes|add row|settings/i })).toHaveCount(0);
 }
+async function noDataSourceReferences(locator: Locator) {
+  await expect(locator).not.toContainText(/JustWatch|MDBList|TMDB|The Movie Database/i);
+  await expect(locator.locator('a[href*="justwatch.com"],a[href*="mdblist.com"],a[href*="themoviedb.org"]')).toHaveCount(0);
+  await expect(locator.locator('.tvl-provider-row-source,.tvl-provider-credit')).toHaveCount(0);
+}
 async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 }
@@ -64,7 +69,7 @@ for (const layout of ['desktop', 'tv']) {
       await expect(providerRow(page, 'trending-movies').locator('.tvl-home-rank')).toHaveCount(trending.length);
       await expect(providerRow(page, 'movies').locator('.tvl-home-rank')).toHaveCount(0);
       await expect(providerHome(page).locator('.tvl-provider-feature-title')).toBeVisible();
-      await noEditingButtons(providerHome(page)); await noPageOverflow(page);
+      await noEditingButtons(providerHome(page)); await noDataSourceReferences(providerHome(page)); await noPageOverflow(page);
       if (brand.id === 'netflix') await page.screenshot({ path: info.outputPath(`provider-home-${layout}.png`) });
       await page.keyboard.press('Escape'); await expect(selected).toBeFocused();
     }
@@ -133,6 +138,7 @@ test('View all paginates a full catalogue and returns from native details to the
   await expect(cards(page, 'movies')).toHaveCount(60); await providerHome(page).getByRole('button', { name: 'Load more', exact: true }).click();
   await expect(cards(page, 'movies')).toHaveCount(120); await providerHome(page).getByRole('button', { name: 'Load more', exact: true }).click();
   await expect(cards(page, 'movies')).toHaveCount(125); await expect(providerHome(page).getByRole('button', { name: 'Load more', exact: true })).toBeHidden();
+  await noDataSourceReferences(providerHome(page));
   const selected = cards(page, 'movies').last(); await selected.click();
   await expect(page.getByRole('dialog', { name: 'Provider film 125 details', exact: true })).toBeVisible();
   await page.keyboard.press('Escape'); await expect(cards(page, 'movies')).toHaveCount(125); await expect(selected).toBeFocused();
@@ -298,6 +304,7 @@ test('saved provider preferences sync from desktop to a fresh TV while another a
     await kids.page.goto(previewUrl()); await expect(services(kids.page)).toHaveAttribute('aria-label', 'Streaming services'); await expect(services(kids.page).locator('.tvl-provider-tile')).toHaveCount(9);
     await services(kids.page).getByRole('button', { name: 'Netflix', exact: true }).click(); await expect(providerRow(kids.page, 'movies')).toContainText('No matching titles');
     await expect(cards(kids.page, 'movies')).toHaveCount(0); await expect(providerRow(kids.page, 'trending-movies')).toContainText('unavailable for this account');
+    await noDataSourceReferences(providerHome(kids.page));
     expect(server.snapshot('kids').Settings).toBeNull(); expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(1);
     await services(tv.page).getByRole('button', { name: 'Prime Video', exact: true }).click(); await expect(cards(tv.page, 'movies')).toHaveCount(1);
   } finally { await Promise.all([desktop.context.close(), tv.context.close(), kids.context.close()]); }
@@ -345,7 +352,7 @@ test('an already-open TV provider page adopts desktop edits while preserving its
     await expect(providerHome(tv.page).locator('.tvl-provider-hero')).toBeHidden();
     await expect(selected).toBeFocused();
     await expect(providerHome(tv.page).locator('.tvl-provider-nav')).toHaveCount(1);
-    await expect(providerHome(tv.page).locator('.tvl-provider-credit')).toHaveCount(1);
+    await noDataSourceReferences(providerHome(tv.page));
     await expect(providerHome(tv.page).locator('.tvl-provider-row-status').filter({ hasText: 'Loading…' })).toHaveCount(0);
 
     // A later device edit can turn the current provider off without a route change.
@@ -393,7 +400,7 @@ test('provider refresh ignores other-service edits and quietly survives settings
     await expect(cards(page, 'shows').first()).toBeFocused();
     await expect(providerHome(page).getByText(/could not sync|retry.*sync|changes have not been saved/i)).toHaveCount(0);
     await expect(providerHome(page).locator('.tvl-provider-nav')).toHaveCount(1);
-    await expect(providerHome(page).locator('.tvl-provider-credit')).toHaveCount(1);
+    await noDataSourceReferences(providerHome(page));
 
     server.failGet = false; settings.providers[0].hero = false;
     server.copies.set('parents', { Revision: 'netflix-update', Settings: settings });
@@ -432,7 +439,7 @@ test('a late catalogue page cannot repopulate a row after another device changes
     await expect(cards(page, 'movies')).toHaveCount(2);
     await expect(providerHome(page).getByRole('button', { name: 'Load more', exact: true })).toBeHidden();
     await expect(providerHome(page).getByRole('button', { name: 'Back', exact: true })).toBeFocused();
-    await expect(providerRow(page, 'movies')).toContainText('Selected Jellyfin collection');
+    await noDataSourceReferences(providerHome(page));
     await expect(providerHome(page).getByText(/could not be loaded|could not refresh/)).toHaveCount(0);
   } finally { release(); await client.context.close(); }
 });

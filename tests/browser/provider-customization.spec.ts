@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { defaultProviderConfig, defaultProviderHomes, type ProviderHomesSettings } from '../../src/provider-settings';
+import { defaultCustomProvider, defaultProviderConfig, defaultProviderHomes, type ProviderHomesSettings } from '../../src/provider-settings';
 
 const editor = (page: Page) => page.locator('.tvl-provider-settings');
 const sidebar = (page: Page) => editor(page).locator('.tvl-provider-settings-sidebar');
@@ -28,16 +28,21 @@ async function sourceOptions(page: Page) {
 test('custom services save collection rows, artwork and ranking and open their own Home after reload', async ({ page }, info) => {
   await setup(page); await sidebar(page).getByRole('button', { name: 'Add service', exact: true }).click();
   await expect(editor(page).getByLabel('Service name', { exact: true })).toHaveValue('New service');
-  await expect(editor(page)).toContainText('This provider page has no rows.');
+  const collection = editor(page).getByRole('combobox', { name: 'Collection', exact: true });
+  await expect(collection).toBeVisible(); await expect(collection).toHaveValue('');
+  expect((await collection.boundingBox())!.y).toBeLessThan((await editor(page).getByLabel('Logo URL', { exact: true }).boundingBox())!.y);
+  await page.screenshot({ path: info.outputPath('new-service-collection-chooser.png') });
   await editor(page).getByLabel('Service name', { exact: true }).fill('Family cinema');
+  await collection.selectOption('collection-coast');
+  await expect(editor(page).getByLabel('Row title', { exact: true })).toHaveValue('Coastal Stories');
+  const rowPreview = editor(page).getByRole('complementary', { name: 'Provider Home row preview', exact: true });
+  await expect(rowPreview.locator('.tvl-home-row-caption')).toHaveText(['After the Tide', 'A Kind of Blue']);
   const image = new URL('/demo/assets/forest.jpg', page.url()).href;
   await editor(page).getByLabel('Logo URL', { exact: true }).fill(image);
   await editor(page).getByLabel('Accent colour', { exact: true }).fill('#aabbcc');
   await expect(sidebar(page).getByRole('button', { name: 'Family cinema', exact: true })).toBeVisible();
   await expect(servicePreview(page).getByRole('button', { name: 'Family cinema', exact: true })).toBeVisible();
-  await editor(page).getByRole('button', { name: 'Add row', exact: true }).click();
   await expect(editor(page).getByRole('combobox', { name: 'Content', exact: true })).toHaveValue('collection');
-  await editor(page).getByRole('combobox', { name: 'Collection', exact: true }).selectOption('collection-coast');
   await editor(page).getByLabel('Row title', { exact: true }).fill('Family films');
   await editor(page).getByRole('combobox', { name: 'Item order', exact: true }).selectOption('title');
   await editor(page).getByLabel('Show rank artwork', { exact: true }).check();
@@ -45,6 +50,8 @@ test('custom services save collection rows, artwork and ranking and open their o
   expect(stored).toMatchObject({ logoUrl: image, accent: '#aabbcc', movieProviderIds: [], showProviderIds: [], rows: [{ title: 'Family films', source: 'collection', collectionId: 'collection-coast', ranked: true, itemSort: 'title' }] });
   await page.reload(); await sidebar(page).getByRole('button', { name: 'Family cinema', exact: true }).click();
   await expect(editor(page).getByLabel('Logo URL', { exact: true })).toHaveValue(image);
+  await expect(rowPreview.locator('.tvl-home-row-card')).toHaveCount(2);
+  await collection.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('custom-service-editor.png') });
   await page.evaluate(() => { location.hash = '/home'; });
   await page.locator('#homeTab .tvl-home-provider-row').getByRole('button', { name: 'Family cinema', exact: true }).click();
@@ -262,7 +269,7 @@ test('custom artwork falls back to initials and the editor remains usable at TV 
 
 test('new enabled collection rows require a collection while empty disabled draft rows can be saved', async ({ page }) => {
   await setup(page); await sidebar(page).getByRole('button', { name: 'Add service', exact: true }).click();
-  await editor(page).getByRole('button', { name: 'Add row', exact: true }).click();
+  await editor(page).getByRole('button', { name: 'Add collection row', exact: true }).click();
   await editor(page).getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(editor(page).getByRole('combobox', { name: 'Collection', exact: true })).toBeFocused();
   await expect(editor(page).getByRole('status')).toHaveText('Choose a collection for “Collection” before saving.');
@@ -292,4 +299,126 @@ test('an eighty-character service name wraps without overflowing its tile or obs
     await page.screenshot({ path: info.outputPath(`long-service-name-${width}.png`) });
     await back.click(); await expect(tile).toBeFocused();
   }
+});
+
+test('an existing empty service offers a collection directly and stays empty until a collection is chosen', async ({ page }) => {
+  const settings=defaultProviderHomes(), custom=defaultCustomProvider('custom-existing-empty');custom.name='My archive';settings.providers.push(custom);
+  await page.addInitScript(settings=>localStorage.setItem(`jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:demo`,JSON.stringify(settings)),settings);
+  await setup(page);await sidebar(page).getByRole('button',{name:'My archive',exact:true}).click();
+  const collection=editor(page).getByRole('combobox',{name:'Collection',exact:true});
+  await expect(collection).toBeVisible();await expect(collection).toHaveValue('');
+  await save(page);expect((await saved(page)).providers.find(provider=>provider.id===custom.id)).toEqual(custom);
+  await collection.selectOption('collection-wilderness');
+  await expect(editor(page).getByLabel('Row title',{exact:true})).toHaveValue('Into the Wilderness');
+  await expect(editor(page).getByRole('complementary',{name:'Provider Home row preview',exact:true}).locator('.tvl-home-row-card')).toHaveCount(3);
+  expect((await saved(page)).providers.find(provider=>provider.id===custom.id)!.rows).toEqual([]);
+  await save(page);expect((await saved(page)).providers.find(provider=>provider.id===custom.id)!.rows).toMatchObject([
+    {title:'Into the Wilderness',source:'collection',collectionId:'collection-wilderness',enabled:true}
+  ]);
+});
+
+test('additional collection rows start at the collection chooser and preserve a title edited by the user', async ({ page }) => {
+  await setup(page);await sidebar(page).getByRole('button',{name:'Add service',exact:true}).click();
+  await editor(page).getByRole('combobox',{name:'Collection',exact:true}).selectOption('collection-coast');
+  await editor(page).getByRole('button',{name:'Add collection row',exact:true}).click();
+  const collection=editor(page).getByRole('combobox',{name:'Collection',exact:true});
+  await expect(collection).toBeFocused();await expect(collection).toHaveValue('');
+  await collection.selectOption('collection-wilderness');
+  const title=editor(page).getByLabel('Row title',{exact:true});await expect(title).toHaveValue('Into the Wilderness');
+  await title.fill('Family adventures');await collection.selectOption('collection-coast');
+  await expect(title).toHaveValue('Family adventures');await save(page);
+  const rows=(await saved(page)).providers.find(provider=>provider.id.startsWith('custom-'))!.rows;
+  expect(rows).toHaveLength(2);expect(rows[0]).toMatchObject({title:'Coastal Stories',collectionId:'collection-coast'});
+  expect(rows[1]).toMatchObject({title:'Family adventures',collectionId:'collection-coast'});
+});
+
+test('opening and saving a configured custom service preserves its automatic rows, collection choices and advanced IDs', async ({ page }) => {
+  const settings=defaultProviderHomes(), custom=defaultCustomProvider('custom-configured');
+  custom.name='Configured service';custom.movieProviderIds=[8,9];custom.showProviderIds=[337];custom.offerTypes=['free','ads'];
+  custom.rows=[
+    {id:'automatic',title:'Automatic films',source:'movies',collectionId:'',enabled:true,ranked:false,itemSort:'newest'},
+    {id:'hand-picked',title:'Hand picked',source:'collection',collectionId:'collection-coast',enabled:true,ranked:true,itemSort:'title'}
+  ];settings.providers.push(custom);
+  await page.addInitScript(settings=>localStorage.setItem(`jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:demo`,JSON.stringify(settings)),settings);
+  await setup(page);await sidebar(page).getByRole('button',{name:'Configured service',exact:true}).click();
+  await expect(editor(page).getByRole('combobox',{name:'Content',exact:true})).toHaveValue('movies');
+  await sourceOptions(page);await expect(editor(page).getByLabel('Film provider IDs',{exact:true})).toHaveValue('8, 9');
+  await expect(editor(page).getByLabel('TV provider IDs',{exact:true})).toHaveValue('337');
+  await editor(page).getByRole('button',{name:'Hand picked',exact:true}).click();
+  await expect(editor(page).getByRole('combobox',{name:'Collection',exact:true})).toHaveValue('collection-coast');
+  await expect(editor(page).getByRole('combobox',{name:'Item order',exact:true})).toHaveValue('title');
+  await save(page);expect((await saved(page)).providers.find(provider=>provider.id===custom.id)).toEqual(custom);
+});
+
+for(const failure of [false,true])test(`collection choices recover from ${failure?'a failed request':'an empty library'} without discarding a custom service draft`,async({page})=>{
+  await page.route('**/dist/demo.js',async route=>{
+    const response=await route.fetch();await route.fulfill({response,body:`${await response.text()}\n(()=>{
+      const api=window.TvItemLayoutDemo.api,original=api.getCollectionList,state=window.__collectionChoices={ready:false};
+      api.getCollectionList=async()=>{if(state.ready)return original();if(${failure})throw new Error('Collection choices unavailable');return [];};
+    })();`});
+  });
+  await setup(page);await sidebar(page).getByRole('button',{name:'Add service',exact:true}).click();
+  await editor(page).getByLabel('Service name',{exact:true}).fill('Unfinished service');
+  const collection=editor(page).getByRole('combobox',{name:'Collection',exact:true});
+  await expect(collection.locator('option[value="collection-coast"]')).toHaveCount(0);
+  await page.evaluate(()=>{(window as any).__collectionChoices.ready=true;});
+  await editor(page).getByRole('button',{name:'Refresh collections',exact:true}).click();
+  await expect(collection.locator('option[value="collection-coast"]')).toHaveCount(1);
+  await expect(editor(page).getByLabel('Service name',{exact:true})).toHaveValue('Unfinished service');
+  await collection.selectOption('collection-coast');
+  await expect(editor(page).getByRole('complementary',{name:'Provider Home row preview',exact:true}).locator('.tvl-home-row-card')).toHaveCount(2);
+  expect((await saved(page)).providers.some(provider=>provider.name==='Unfinished service')).toBe(false);
+});
+
+async function heldCollectionRefresh(page: Page) {
+  await page.route('**/dist/demo.js',async route=>{
+    const response=await route.fetch();await route.fulfill({response,body:`${await response.text()}\n(()=>{
+      const api=window.TvItemLayoutDemo.api,collections=api.getCollectionList;
+      const state=window.__heldCollectionRefresh={holdCollections:false,holdSave:false,pendingCollections:[],saveCalls:0,
+        snapshot:{Revision:'initial',Settings:${JSON.stringify(defaultProviderHomes())}},
+        releaseCollections(){this.holdCollections=false;this.pendingCollections.splice(0).forEach(resolve=>resolve());}};
+      api.getCollectionList=async()=>{if(state.holdCollections)await new Promise(resolve=>state.pendingCollections.push(resolve));return collections();};
+      api.providerHomes={isCurrent:()=>true,load:async()=>JSON.parse(JSON.stringify(state.snapshot)),save:async Settings=>{
+        state.saveCalls++;if(state.holdSave)await new Promise(resolve=>{state.releaseSave=resolve;});
+        state.snapshot={Revision:'saved',Settings};return JSON.parse(JSON.stringify(state.snapshot));
+      }};
+    })();`});
+  });
+  await setup(page);await sidebar(page).getByRole('button',{name:'Netflix',exact:true}).click();
+}
+
+test('finishing a collection refresh during Save keeps the rebuilt form disabled until the save is confirmed',async({page})=>{
+  await heldCollectionRefresh(page);const baseline=await saved(page);
+  await editor(page).getByLabel('Service name',{exact:true}).fill('Changed during refresh');
+  await page.evaluate(()=>{const state=(window as any).__heldCollectionRefresh;state.holdCollections=true;state.holdSave=true;});
+  await editor(page).getByRole('button',{name:'Refresh collections',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).__heldCollectionRefresh.pendingCollections.length)).toBeGreaterThan(0);
+  await editor(page).getByRole('button',{name:'Save changes',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>typeof (window as any).__heldCollectionRefresh.releaseSave)).toBe('function');
+  const controls=editor(page).locator('.tvl-provider-settings-workspace input,.tvl-provider-settings-workspace select,.tvl-provider-settings-workspace button,.tvl-provider-settings-sidebar button');
+  expect(await controls.evaluateAll(nodes=>nodes.length>0&&nodes.every(node=>(node as HTMLInputElement).disabled))).toBe(true);
+  expect(await saved(page)).toEqual(baseline);
+  await page.evaluate(()=>(window as any).__heldCollectionRefresh.releaseCollections());
+  await expect(editor(page).getByRole('button',{name:'Refresh collections',exact:true})).toBeDisabled();
+  await expect(editor(page).getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();
+  await expect(editor(page).getByRole('button',{name:'Cancel changes',exact:true})).toBeDisabled();
+  expect(await controls.evaluateAll(nodes=>nodes.length>0&&nodes.every(node=>(node as HTMLInputElement).disabled))).toBe(true);
+  expect(await saved(page)).toEqual(baseline);
+  await page.evaluate(()=>(window as any).__heldCollectionRefresh.releaseSave());
+  await expect(editor(page).getByRole('status')).toHaveText('Saved to your Jellyfin account.');
+  await expect(editor(page).getByLabel('Service name',{exact:true})).toBeEnabled();
+  await expect(editor(page).getByRole('button',{name:'Save changes',exact:true})).toBeEnabled();
+  expect((await saved(page)).providers[0].name).toBe('Changed during refresh');
+});
+
+test('finishing a collection refresh preserves the field being edited and its unsaved service draft',async({page})=>{
+  await heldCollectionRefresh(page);const baseline=await saved(page);
+  await page.evaluate(()=>{(window as any).__heldCollectionRefresh.holdCollections=true;});
+  await editor(page).getByRole('button',{name:'Refresh collections',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>(window as any).__heldCollectionRefresh.pendingCollections.length)).toBeGreaterThan(0);
+  const name=editor(page).getByLabel('Service name',{exact:true});await name.fill('Still editing this service');await expect(name).toBeFocused();
+  await page.evaluate(()=>(window as any).__heldCollectionRefresh.releaseCollections());
+  await expect(editor(page).getByRole('button',{name:'Refresh collections',exact:true})).toBeEnabled();
+  await expect(name).toBeFocused();await expect(name).toHaveValue('Still editing this service');
+  expect(await saved(page)).toEqual(baseline);
 });

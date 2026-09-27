@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

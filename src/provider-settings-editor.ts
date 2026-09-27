@@ -4,7 +4,6 @@ import { providerBrand, providerBrands } from './provider-brands';
 import { cloneProviderHomes, defaultProviderConfig, defaultCustomProvider, maxProviders, maxProviderRows, type ProviderId, type ProviderHomeConfig, type ProviderHomesSettings, type ProviderRow, type ProviderRowSource, type ProviderItemSort } from './provider-settings';
 import { providerAppearance, providerLogo } from './provider-appearance';
 import { providerHomeRow } from './provider-home';
-import { providerCredits } from './provider-attribution';
 import { createProviderHomesStore, ProviderHomesSyncError, type ProviderHomesStore } from './provider-settings-store';
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
 import { homeCollectionKey } from './home-collection-settings';
@@ -31,6 +30,8 @@ export class ProviderSettingsEditor {
   private selectedRows = new Map<ProviderId, string>();
   private providerIdInputs = new Map<string, string>();
   private collections: Item[] = [];
+  private collectionsFailed = false;
+  private collectionsLoading = false;
   private anchors: HomeAnchor[] = [];
   private previewItems = new Map<string, Item[]>();
   private previewPending = new Map<string, Promise<Item[]>>();
@@ -65,7 +66,7 @@ export class ProviderSettingsEditor {
     this.reloadButton = this.control('Reload saved settings', 'reload', () => { void this.load(); }); this.reloadButton.hidden = true;
     const message = el('div', 'tvl-provider-settings-message'); message.append(this.status, this.reloadButton);
     const layout = el('div', 'tvl-provider-settings-layout'); layout.append(this.sidebar, this.workspace);
-    panel.append(header, el('p', 'tvl-provider-settings-intro', this.store.synced ? 'Your choices follow this Jellyfin account across your devices.' : 'This preview saves choices on this device.'), message, layout, providerCredits());
+    panel.append(header, el('p', 'tvl-provider-settings-intro', this.store.synced ? 'Your choices follow this Jellyfin account across your devices.' : 'This preview saves choices on this device.'), message, layout);
     this.element.append(panel);
     // Native selects need their Up/Down and Enter behaviour. Register before the
     // shared remote listener so choosing an option cannot leave the field.
@@ -114,6 +115,7 @@ export class ProviderSettingsEditor {
   async load(): Promise<void> {
     if (this.disposed || this.loading || this.saving) return;
     const generation = ++this.generation; this.previewGeneration++;
+    this.collectionsLoading = false;
     this.loading = true; this.ready = false; this.saveButton.disabled = true; this.cancelButton.disabled = true; this.reloadButton.hidden = true;
     this.status.textContent = 'Loading saved streaming services…';
     this.setControlsDisabled(true);
@@ -123,6 +125,7 @@ export class ProviderSettingsEditor {
       if (settings.status === 'rejected') throw settings.reason;
       this.draft = settings.value; this.saved = cloneProviderHomes(this.draft); this.providerIdInputs.clear(); this.ready = true;
       this.collections = collections.status === 'fulfilled' ? collections.value : [];
+      this.collectionsFailed = collections.status === 'rejected';
       this.status.textContent = collections.status === 'rejected' ? 'Collection choices could not load. Automatic film and TV rows are still available.' : '';
       if (this.selected !== 'home' && !this.draft.providers.some(provider => provider.id === this.selected)) this.selected = 'home';
       this.previewItems.clear(); this.render();
@@ -157,6 +160,9 @@ export class ProviderSettingsEditor {
       const provider = this.draft.providers.find(provider => provider.id === this.selected);
       if (provider) this.renderProvider(provider);
     }
+    // A collection-choice refresh can finish during Save. New controls must
+    // inherit the pending operation's disabled state too.
+    this.setControlsDisabled(this.loading || this.saving || !this.ready);
     this.restoreFocus(restore);
   }
   private renderSidebar(): void {
@@ -234,17 +240,19 @@ export class ProviderSettingsEditor {
   private renderProvider(provider: ProviderHomeConfig): void {
     const brand = providerAppearance(provider), header = el('div', 'tvl-provider-editor-brand');
     header.style.setProperty('--provider-accent', brand.accent); header.append(providerLogo(provider), el('h2', '', `${brand.name} Home`)); this.workspace.append(header);
+    this.workspace.append(this.serviceField(provider, 'Service name', 'name', provider.name, value => { provider.name = value; this.updateAppearance(provider); }, value => value.trim() ? '' : 'Enter a service name.'));
     const options = el('div', 'tvl-provider-page-options');
     options.append(this.checkbox(`Show ${brand.name} on Home`, 'provider:enabled', provider.enabled, value => { provider.enabled = value; this.render('provider:enabled'); }),
       this.checkbox('Show featured artwork', 'provider:hero', provider.hero, value => { provider.hero = value; })); this.workspace.append(options);
+    this.renderContent(provider);
+    this.workspace.append(el('h3', '', 'Service artwork'));
     const appearance = el('div', 'tvl-provider-appearance'), fields = el('div');
-    fields.append(this.serviceField(provider, 'Service name', 'name', provider.name, value => { provider.name = value; this.updateAppearance(provider); }, value => value.trim() ? '' : 'Enter a service name.'));
     fields.append(this.serviceField(provider, 'Logo URL', 'logo', provider.logoUrl, value => { provider.logoUrl = value.trim(); this.updateAppearance(provider); }, value => this.logoError(value), 2048));
     fields.append(el('p', 'tvl-provider-help', providerBrand(provider.id) ? 'Leave the logo URL empty to use the original service logo.' : 'Use an HTTP or HTTPS image URL, or leave it empty for an initial badge.'));
     fields.append(this.serviceField(provider, 'Accent colour', 'accent', provider.accent, value => { provider.accent = value; this.updateAppearance(provider); }, value => /^#[\da-f]{6}$/i.test(value) ? '' : 'Use a six-digit colour such as #9fb8a8.', 7));
     const tilePreview = el('aside', 'tvl-provider-appearance-preview'); tilePreview.setAttribute('aria-label', 'Service tile preview');
     appearance.append(fields, tilePreview); this.workspace.append(appearance); this.updateAppearance(provider);
-    const advanced = el('details', 'tvl-provider-advanced'), summary = el('summary', '', 'Catalogue sources'); summary.tabIndex = 0;
+    const advanced = el('details', 'tvl-provider-advanced'), summary = el('summary', '', 'Automatic catalogue matching'); summary.tabIndex = 0;
     const sourceHelp = el('p', 'tvl-provider-help', 'Optional provider IDs match titles in your Jellyfin library to this service’s UK catalogue. Collection rows work without these IDs. Separate multiple IDs with commas.');
     advanced.append(summary, sourceHelp);
     for (const [key, label] of [['movieProviderIds', 'Film provider IDs'], ['showProviderIds', 'TV provider IDs']] as const) {
@@ -264,24 +272,6 @@ export class ProviderSettingsEditor {
       }));
     }
     const offerError = el('p', 'tvl-provider-field-error', provider.offerTypes.length ? '' : 'Choose at least one availability type.'); offerError.hidden = !!provider.offerTypes.length; offers.append(offerError); advanced.append(offers); this.workspace.append(advanced);
-    const rowList = el('div', 'tvl-provider-row-list'); rowList.setAttribute('aria-label', `${brand.name} rows`);
-    let selected = provider.rows.find(row => row.id === this.selectedRows.get(provider.id)) || provider.rows[0];
-    if (selected) this.selectedRows.set(provider.id, selected.id);
-    for (const [index, row] of provider.rows.entries()) {
-      const entry = el('div', 'tvl-provider-row-choice');
-      const choose = this.control(row.title || sources.find(([source]) => source === row.source)![1], `row:${row.id}`, () => { this.selectedRows.set(provider.id, row.id); this.render(`row:${row.id}`); });
-      choose.setAttribute('aria-pressed', String(row === selected)); if (!row.enabled) choose.append(el('small', '', 'Hidden'));
-      const up = this.control(`Move ${row.title || 'row'} up`, `up:${row.id}`, () => this.moveRow(provider, row, -1), '', 'tvl-provider-order-button'); up.disabled = index === 0;
-      const down = this.control(`Move ${row.title || 'row'} down`, `down:${row.id}`, () => this.moveRow(provider, row, 1), '', 'tvl-provider-order-button'); down.disabled = index === provider.rows.length - 1;
-      const arrows = el('div', 'tvl-provider-order-actions'); arrows.append(up, down); entry.append(choose, arrows); rowList.append(entry);
-    }
-    const add = this.control('Add row', 'add-row', () => {
-      const row: ProviderRow = { id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title: 'Collection', source: 'collection', collectionId: '', enabled: true, ranked: false, itemSort: 'collection' };
-      provider.rows.push(row); this.selectedRows.set(provider.id, row.id); this.changed(); this.render('row:title');
-    }); add.disabled = provider.rows.length >= maxProviderRows;
-    this.workspace.append(el('h3', '', 'Page rows'), rowList, add);
-    if (selected) this.renderRow(provider, selected);
-    else this.workspace.append(el('p', 'tvl-provider-help', 'This provider page has no rows.'));
     const manage = el('div', 'tvl-provider-manage');
     const builtin = providerBrand(provider.id);
     if (builtin) manage.append(this.control('Restore defaults', 'provider:restore', () => {
@@ -293,6 +283,63 @@ export class ProviderSettingsEditor {
       this.selected = 'home'; this.changed(); this.render('page:home');
     }, '', 'tvl-provider-remove'));
     this.workspace.append(manage);
+  }
+  private renderContent(provider: ProviderHomeConfig): void {
+    const brand = providerAppearance(provider);
+    this.workspace.append(el('h3', '', 'Content rows'), el('p', 'tvl-provider-help', provider.rows.length
+      ? 'Each collection row shows the titles in a Jellyfin collection and follows changes to that collection.'
+      : 'Choose a Jellyfin collection to add your first row and preview its films and shows.'));
+    const rowList = el('div', 'tvl-provider-row-list'); rowList.setAttribute('aria-label', `${brand.name} rows`);
+    const selected = provider.rows.find(row => row.id === this.selectedRows.get(provider.id)) || provider.rows[0];
+    if (selected) this.selectedRows.set(provider.id, selected.id);
+    for (const [index, row] of provider.rows.entries()) {
+      const entry = el('div', 'tvl-provider-row-choice');
+      const choose = this.control(row.title || sources.find(([source]) => source === row.source)![1], `row:${row.id}`, () => { this.selectedRows.set(provider.id, row.id); this.render(`row:${row.id}`); });
+      choose.setAttribute('aria-pressed', String(row === selected)); if (!row.enabled) choose.append(el('small', '', 'Hidden'));
+      const up = this.control(`Move ${row.title || 'row'} up`, `up:${row.id}`, () => this.moveRow(provider, row, -1), '', 'tvl-provider-order-button'); up.disabled = index === 0;
+      const down = this.control(`Move ${row.title || 'row'} down`, `down:${row.id}`, () => this.moveRow(provider, row, 1), '', 'tvl-provider-order-button'); down.disabled = index === provider.rows.length - 1;
+      const arrows = el('div', 'tvl-provider-order-actions'); arrows.append(up, down); entry.append(choose, arrows); rowList.append(entry);
+    }
+    if (!selected) {
+      const choices: [string, string][] = [['', 'Choose a collection'], ...this.collections.map(item => [item.Id, item.Name] as [string, string])];
+      this.workspace.append(this.select('Collection', 'row:collection', '', choices, value => {
+        if (value) this.addCollectionRow(provider, value);
+      }));
+    }
+    this.workspace.append(rowList);
+    const add = this.control('Add collection row', 'add-row', () => this.addCollectionRow(provider));
+    add.disabled = provider.rows.length >= maxProviderRows;
+    this.workspace.append(add);
+    if (selected) this.renderRow(provider, selected);
+    this.workspace.append(el('p', 'tvl-provider-help', 'To choose individual films or shows, use “Add to collection” on a title, then select that collection here.'));
+    if (this.collectionsFailed) this.workspace.append(el('p', 'tvl-provider-field-error', 'Collections could not be loaded. Your service settings are unchanged.'));
+    else if (!this.collections.length) this.workspace.append(el('p', 'tvl-provider-help', 'No collections are available to this account yet.'));
+    const reload = this.control(this.collectionsLoading ? 'Refreshing collections…' : 'Refresh collections', 'refresh-collections', () => { void this.refreshCollections(); });
+    reload.disabled = this.collectionsLoading; this.workspace.append(reload);
+  }
+  private addCollectionRow(provider: ProviderHomeConfig, collectionId = ''): void {
+    if (provider.rows.length >= maxProviderRows) return;
+    const title = this.collections.find(item => item.Id === collectionId)?.Name || 'Collection';
+    const row: ProviderRow = { id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title: title.slice(0, 80), source: 'collection', collectionId, enabled: true, ranked: false, itemSort: 'collection' };
+    provider.rows.push(row); this.selectedRows.set(provider.id, row.id); this.changed(); this.render(collectionId ? 'row:title' : 'row:collection');
+  }
+  private async refreshCollections(): Promise<void> {
+    if (this.disposed || this.loading || this.saving || this.collectionsLoading) return;
+    const generation = this.generation; this.collectionsLoading = true; this.render('refresh-collections');
+    try {
+      const collections = await this.api.getCollectionList();
+      if (this.disposed || generation !== this.generation) return;
+      this.collections = collections; this.collectionsFailed = false; this.previewItems.clear();
+    } catch {
+      if (this.disposed || generation !== this.generation) return;
+      this.collectionsFailed = true;
+    } finally {
+      if (!this.disposed && generation === this.generation) {
+        this.collectionsLoading = false;
+        const active = document.activeElement as HTMLElement | null;
+        this.render(active?.dataset.providerSettingsFocus || 'refresh-collections');
+      }
+    }
   }
   private serviceField(provider: ProviderHomeConfig, label: string, focus: string, value: string, change: (value: string) => void, validate: (value: string) => string, max = 80): HTMLElement {
     const wrap = this.field(label, `provider:${focus}`, value, change, max), input = wrap.querySelector('input')!;
@@ -374,10 +421,16 @@ export class ProviderSettingsEditor {
     this.select('Content', 'row:source', row.source, sources, value => { row.source = value as ProviderRowSource; row.collectionId = ''; this.render('row:source'); }));
     const collections: [string, string][] = [[ '', row.source === 'collection' ? 'Choose a collection' : 'Automatic' ], ...this.collections.map(item => [item.Id, item.Name] as [string, string])];
     if (row.collectionId && !collections.some(([id]) => id === row.collectionId)) collections.push([row.collectionId, 'Saved collection (currently unavailable)']);
-    fields.append(this.select(row.source === 'collection' ? 'Collection' : 'Collection override', 'row:collection', row.collectionId, collections, value => {
+    const collection = this.select(row.source === 'collection' ? 'Collection' : 'Collection override', 'row:collection', row.collectionId, collections, value => {
+      if (!row.collectionId && row.title === 'Collection') {
+        row.title = (this.collections.find(item => item.Id === value)?.Name || row.title).slice(0, 80);
+        const title = fields.querySelector<HTMLInputElement>('[data-provider-settings-focus="row:title"]'); if (title) title.value = row.title;
+        this.updateRowSummary(row);
+      }
       row.collectionId = value; fields.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid'); refresh();
-    }),
-      this.select('Item order', 'row:sort', row.itemSort, sorts, value => { row.itemSort = value as ProviderItemSort; refresh(); }),
+    });
+    fields.prepend(collection);
+    fields.append(this.select('Item order', 'row:sort', row.itemSort, sorts, value => { row.itemSort = value as ProviderItemSort; refresh(); }),
       this.checkbox('Show rank artwork', 'row:ranked', row.ranked, value => { row.ranked = value; refresh(); }),
       this.control('Remove row', 'remove-row', () => {
         const index = provider.rows.indexOf(row); provider.rows.splice(index, 1); this.selectedRows.set(provider.id, provider.rows[Math.min(index, provider.rows.length - 1)]?.id || '');
@@ -423,7 +476,7 @@ export class ProviderSettingsEditor {
       const invalid = this.providerError(provider);
       if (invalid) {
         this.selected = provider.id; this.render();
-        if (invalid.focus.endsWith('ProviderIds') || invalid.focus.startsWith('offer-')) this.workspace.querySelector('details')!.open = true;
+        if (invalid.focus.endsWith('ProviderIds') || invalid.focus.startsWith('offer-')) this.workspace.querySelector<HTMLDetailsElement>('.tvl-provider-advanced')!.open = true;
         this.restoreFocus(`provider:${invalid.focus}`); this.status.textContent = invalid.message; return;
       }
       const row = provider.rows.find(row => row.enabled && row.source === 'collection' && !row.collectionId);

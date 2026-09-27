@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.22.3",
+        "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.22/TvItemLayout_0.2.22.3_jellyfin-12.0.0.zip",
+        "checksum": "111e773df43cea3e4ac8a6b70123f0e8",
+        "timestamp": "2026-09-27T14:53:04Z"
+      },
+      {
+        "version": "0.2.22.2",
+        "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.22/TvItemLayout_0.2.22.2_jellyfin-10.11.0.zip",
+        "checksum": "7ba951e920146b279c92ffb087512272",
+        "timestamp": "2026-09-27T14:53:04Z"
+      },
+      {
+        "version": "0.2.22.1",
+        "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.22/TvItemLayout_0.2.22.1_jellyfin-10.10.7.zip",
+        "checksum": "f8822bd4379b92773e3cf8c156acc98e",
+        "timestamp": "2026-09-27T14:53:04Z"
+      },
+      {
         "version": "0.2.21.3",
         "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
