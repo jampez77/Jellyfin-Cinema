@@ -1,6 +1,7 @@
 import type { Item, MediaApi, LibraryQuery, SuggestionSection } from './types';
 import { button, el, icon, picture, replace } from './dom';
 import { attachRemote } from './remote';
+import { progress, resumePosition } from './utils';
 
 export type LibraryTab = 'all' | 'suggestions' | 'favorites' | 'genres';
 export type LibraryBrowseState = {
@@ -306,6 +307,14 @@ export class LibraryView {
       const placeholder = el('span', 'tvl-library-placeholder'); placeholder.setAttribute('aria-hidden', 'true');
       placeholder.append(icon('grid')); art.append(placeholder);
       if (item.UserData?.IsFavorite) { const favorite = el('span', 'tvl-library-favorite'); favorite.setAttribute('aria-label', 'Favourite'); favorite.append(icon('heart')); art.append(favorite); }
+      if (resumePosition(item) > 0 && progress(item) > 0) {
+        const value = progress(item);
+        const track = el('span', 'tvl-library-progress');
+        track.setAttribute('role', 'progressbar'); track.setAttribute('aria-label', 'Playback progress');
+        track.setAttribute('aria-valuemin', '0'); track.setAttribute('aria-valuemax', '100');
+        track.setAttribute('aria-valuenow', String(Math.round(value)));
+        const fill = el('span'); fill.style.width = `${value}%`; track.append(fill); art.append(track);
+      }
       const caption = el('div', 'tvl-library-caption'); caption.append(el('h3', '', title));
       if (episode) caption.append(el('p', 'tvl-library-episode', episodeLabel));
       const meta = [item.ProductionYear ? String(item.ProductionYear) : '', item.OfficialRating || ''].filter(Boolean);

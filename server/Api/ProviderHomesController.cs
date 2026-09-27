@@ -57,9 +57,17 @@ public sealed class ProviderHomesController(
 
     private static async Task<ProviderHomesResponse> Read(string path, CancellationToken cancellationToken)
     {
-        if (!System.IO.File.Exists(path)) return new(null, null);
-        if (new FileInfo(path).Length > MaximumBytes + 1024) throw new InvalidDataException("Saved Provider Homes exceed the size limit.");
-        var data = await System.IO.File.ReadAllTextAsync(path, cancellationToken);
+        // File.Exists also returns false for access errors. Report only actual
+        // missing files as first use, so a storage failure cannot erase the
+        // client's last confirmed settings by masquerading as an empty store.
+        FileStream stream;
+        try { stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan); }
+        catch (FileNotFoundException) { return new(null, null); }
+        catch (DirectoryNotFoundException) { return new(null, null); }
+        await using var file = stream;
+        if (file.Length > MaximumBytes + 1024) throw new InvalidDataException("Saved Provider Homes exceed the size limit.");
+        using var reader = new StreamReader(file);
+        var data = await reader.ReadToEndAsync(cancellationToken);
         var saved = JsonSerializer.Deserialize<ProviderHomesResponse>(data);
         if (saved?.Revision is null || !Guid.TryParseExact(saved.Revision, "N", out _)
             || saved.Settings is not JsonElement settings || !ProviderHomesSchema.ValidSettings(settings))

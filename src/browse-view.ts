@@ -2,7 +2,7 @@ import type { Item, ItemPage, MediaApi, SuggestionSection } from './types';
 import type { MusicKind } from './browse-api';
 import { button, el, icon, picture, replace } from './dom';
 import { attachRemote } from './remote';
-import { plainText, runtime } from './utils';
+import { plainText, resumePosition, runtime } from './utils';
 
 export type BrowseTab = MusicKind | 'suggestions' | 'genres' | 'all' | 'active' | 'completed';
 export type BrowseState = { tab: BrowseTab; search: string; letter: string; genreId?: string; genreName?: string;
@@ -255,7 +255,7 @@ export class BrowseView {
       if(meta.length)copy.append(el('p','tvl-browse-meta',meta.join(' · ')));
       const overview=plainText(item.Overview);if(overview)copy.append(el('p','tvl-browse-overview',overview));
       const actions=el('div','tvl-browse-actions');
-      if(playable(item)){const play=button(item.Type==='Playlist'?'Play playlist':item.UserData?.PlaybackPositionTicks?'Resume':item.Type==='MusicAlbum'?'Play album':'Play','play','tvl-primary',()=>{void this.play(item);});play.dataset.focusId='play';actions.append(play);}
+      if(playable(item)){const play=button(item.Type==='Playlist'?'Play playlist':resumePosition(item)?'Resume':item.Type==='MusicAlbum'?'Play album':'Play','play','tvl-primary',()=>{void this.play(item);});play.dataset.focusId='play';actions.append(play);}
       if(!this.options.item){const details=button('Details','info','',()=>this.options.navigate(item.Id));details.dataset.focusId='details';actions.append(details);}
       if(this.options.item && this.options.kind==='music'){
         const favorite=button(item.UserData?.IsFavorite?'Remove from favourites':'Add to favourites','heart','',()=>{void this.favorite(item);});favorite.dataset.focusId='favorite-item';actions.append(favorite);
@@ -274,7 +274,7 @@ export class BrowseView {
     this.launchTimer=window.setTimeout(()=>finish('Playback has not started. Please try again.'),15_000);
     try {
       if(item.Type==='Playlist')await this.api.playPlaylist(item,entryId,current);
-      else await this.api.play(item,item.UserData?.Played?0:item.UserData?.PlaybackPositionTicks||0,current);
+      else await this.api.play(item,resumePosition(item),current);
       // Audio remains on this page. Dispatch is not confirmation of playback;
       // native Now playing exposes the current device's actual playback state.
       if(['Audio','MusicAlbum','Playlist'].includes(item.Type||''))finish('Playback requested.');

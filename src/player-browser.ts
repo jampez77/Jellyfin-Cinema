@@ -1,6 +1,6 @@
 import { button, el, replace } from './dom';
 import { isCinemaLayout } from './layout';
-import { plainText } from './utils';
+import { isWatched, plainText, progress, resumePosition } from './utils';
 import type { Item, MediaApi } from './types';
 import { isIntro, queuedFeature, sameMediaId, visible, type ActivePlayback, type PlayerContext } from './player-context';
 
@@ -220,7 +220,7 @@ export class PlayerBrowser {
     this.previous.hidden = this.items.length < 2; this.next.hidden = this.items.length < 2;
     this.previous.disabled = false; this.next.disabled = false;
     const label = playing && !upcoming ? 'Return to playback' : item.Type === 'TvChannel' ? 'Watch channel'
-      : !item.UserData?.Played && (item.UserData?.PlaybackPositionTicks || 0) > 0 ? 'Resume' : 'Play';
+      : resumePosition(item) > 0 ? 'Resume' : 'Play';
     this.play.lastElementChild!.textContent = label;
     const media = el('div', 'tvl-player-media');
     const fallback = el('span', 'tvl-player-image-fallback', item.Type === 'TvChannel' ? item.Name : 'No image available');
@@ -236,9 +236,8 @@ export class PlayerBrowser {
     if (source) { image.src = source; fallback.hidden = true; } else image.hidden = true;
     media.append(image, fallback);
     if (playing) media.append(el('span', 'tvl-player-playing', upcoming ? 'Up next after intro' : 'Currently playing'));
-    const progress = Math.min(100, Math.max(0, item.UserData?.Played ? 100 : item.UserData?.PlayedPercentage ||
-      (item.RunTimeTicks ? (item.UserData?.PlaybackPositionTicks || 0) / item.RunTimeTicks * 100 : 0)));
-    if (progress) { const track = el('div', 'tvl-player-progress'); const fill = el('div'); fill.style.width = `${progress}%`; track.append(fill); media.append(track); }
+    const percent = progress(item);
+    if (percent) { const track = el('div', 'tvl-player-progress'); const fill = el('div'); fill.style.width = `${percent}%`; track.append(fill); media.append(track); }
     const details = el('div', 'tvl-player-details');
     const position = item.Type === 'Episode' ? `${item.ParentIndexNumber === 0 ? 'Specials' : `Season ${item.ParentIndexNumber ?? '?'}`} · Episode ${item.IndexNumber ?? '?'}`
       : item.Type === 'TvChannel' ? [item.Number || item.ChannelNumber, item.Name].filter(Boolean).join(' · ') : [item.ProductionYear, item.OfficialRating].filter(Boolean).join(' · ');
@@ -248,7 +247,7 @@ export class PlayerBrowser {
       details.append(el('p', 'tvl-player-time', `Live now · ${format(programme.StartDate)}–${format(programme.EndDate)}`));
     } else if (item.Type !== 'TvChannel') {
       const runtime = item.RunTimeTicks ? `${Math.round(item.RunTimeTicks / 600000000)} min` : '';
-      details.append(el('p', 'tvl-player-meta', [runtime, item.UserData?.Played ? 'Watched' : '', item.Genres?.slice(0, 3).join(' · ')].filter(Boolean).join(' · ')));
+      details.append(el('p', 'tvl-player-meta', [runtime, isWatched(item) ? 'Watched' : '', item.Genres?.slice(0, 3).join(' · ')].filter(Boolean).join(' · ')));
     }
     details.append(el('p', 'tvl-player-description', plainText(programme?.Overview || item.Overview)));
     replace(this.content, media, details);
@@ -282,7 +281,7 @@ export class PlayerBrowser {
     this.previous.disabled = true; this.next.disabled = true; this.seasonNav.querySelectorAll('button').forEach(button => button.disabled = true);
     this.status.textContent = item.Type === 'TvChannel' ? 'Tuning channel…' : 'Starting playback…';
     try {
-      await api.play(item, item.Type === 'TvChannel' || item.UserData?.Played ? 0 : item.UserData?.PlaybackPositionTicks || 0, () => this.isCurrent(revision));
+      await api.play(item, item.Type === 'TvChannel' ? 0 : resumePosition(item), () => this.isCurrent(revision));
       if (!this.isCurrent(revision)) return;
       const started = Date.now();
       let lastContext = 0;

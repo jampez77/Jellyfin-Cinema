@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
