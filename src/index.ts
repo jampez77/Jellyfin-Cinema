@@ -20,7 +20,7 @@ import { NativeUserPages } from './native-user-pages';
 import nativeUserPageStyles from './native-user-pages.css';
 import homeStyles from './home.css';
 import homeCollectionStyles from './home-collections.css';
-import { HomeCollections } from './home-collections';
+import { HomeCollections, clearHomeSession } from './home-collections';
 import { ProviderHomeView, type ProviderHomeState } from './provider-home';
 import { ProviderSettingsEditor } from './provider-settings-editor';
 import { ProviderData } from './provider-data';
@@ -210,6 +210,7 @@ function updateAccount(api:MediaApi|null):void{
   // Dispose first: views save their final state during destruction. Clear that
   // outgoing account's state afterwards, before mounting any new account view.
   probeRevision++;pendingHash='';close(false);accountScope=scope;dismissed='';previousFocus=null;
+  clearHomeSession();
   returnFocus.clear();libraryStates.clear();browseStates.clear();providerStates.clear();
   recordingOrigins.clear();movieCollectionOrigins.clear();detailOrigins.clear();verifiedLibraries.clear();
   pendingProviderVisit=undefined;
@@ -443,5 +444,5 @@ const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerCo
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();clearHomeSession();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
 refreshNavigation();

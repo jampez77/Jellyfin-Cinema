@@ -69,7 +69,7 @@ test('switching to Favourites hides the loader immediately and returning to pend
   await release(page);await ready(page);
 });
 
-for (const nested of [false,true]) test(`Back restores exact ${nested?'native page':'document'} position and custom row offset after its delayed members arrive`, async ({ page }) => {
+for (const nested of [false,true]) test(`Back restores exact ${nested?'native page':'document'} position and custom row offset before its background members arrive`, async ({ page }) => {
   await page.setViewportSize({width:1080,height:720}); await fixture(page); await page.goto('/?featured=0&layout=tv#/home'); await ready(page);
   if(nested)await page.addStyleTag({content:'#indexPage { height:100vh;box-sizing:border-box;overflow-y:auto; }'});
   const target=page.locator(`${collection} button.tvl-home-row-card`).nth(14); await target.focus();
@@ -81,7 +81,8 @@ for (const nested of [false,true]) test(`Back restores exact ${nested?'native pa
   const saved=await capture(page); expect(saved.horizontal).toBeGreaterThan(1500); expect(nested?saved.nested:saved.document).toBeGreaterThan(500);
   await page.evaluate(()=>{(window as any).__homeLoading.hold=true;});
   await page.keyboard.press('Enter'); await expect(page.getByRole('dialog',{name:'Weekend film 15 details',exact:true})).toBeVisible();
-  await page.keyboard.press('Escape'); await waiting(page); await expect(loader(page)).toBeVisible();
+  await page.keyboard.press('Escape'); await waiting(page); await ready(page); await expect(target).toBeFocused();
+  await expect.poll(()=>capture(page)).toEqual(saved);
   await release(page); await ready(page); await expect(target).toBeFocused();
   await expect.poll(()=>capture(page)).toEqual(saved);
 });
@@ -99,8 +100,9 @@ test('native card Back preserves the focused card, scroll owner and transform-ba
   await page.evaluate(()=>{(window as any).__homeLoading.hold=true;});
   await page.keyboard.press('Enter'); await expect(page.getByRole('dialog', {name:/ details$/})).toBeVisible();
   await target.evaluate(node=>(node.closest('.emby-scroller') as any).scrollToPosition(0));
-  await page.goBack(); await waiting(page); await release(page); await ready(page);
+  await page.goBack(); await waiting(page); await ready(page);
   await expect(target).toBeFocused(); await expect.poll(()=>capture(page)).toEqual(saved);
+  await release(page); await ready(page); await expect(target).toBeFocused(); await expect.poll(()=>capture(page)).toEqual(saved);
   expect(await target.evaluate(node=>(node.closest('.emby-scroller') as any).getScrollPosition())).toBe(-67);
 });
 
@@ -108,7 +110,7 @@ test('fresh header focus while returning takes priority over saved Home position
   await fixture(page); await page.goto('/?featured=0&layout=desktop#/home'); await ready(page);
   const target=page.locator(`${collection} button.tvl-home-row-card`).nth(12); await target.focus();
   await page.evaluate(()=>{(window as any).__homeLoading.hold=true;}); await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog', {name:/ details$/})).toBeVisible(); await page.keyboard.press('Escape'); await waiting(page);
+  await expect(page.getByRole('dialog', {name:/ details$/})).toBeVisible(); await page.keyboard.press('Escape'); await waiting(page); await ready(page);
   const settings=page.locator('.skinHeader').getByRole('link',{name:'Settings',exact:true}); await settings.focus();
   await page.mouse.wheel(0,-500); const before=await capture(page); await release(page); await ready(page);
   await expect(settings).toBeFocused(); expect((await capture(page)).document).toBe(before.document);
@@ -123,8 +125,9 @@ test('returning from a service restores its tile and the exact lower Home positi
   const saved=await capture(page);expect(saved.document).toBeGreaterThan(500);
   await page.evaluate(()=>{(window as any).__homeLoading.hold=true;});await page.keyboard.press('Enter');
   const service=page.getByRole('dialog',{name:'Netflix home',exact:true});await expect(service).toBeVisible();
-  await service.getByRole('button',{name:'Back',exact:true}).click();await waiting(page);await release(page);await ready(page);
+  await service.getByRole('button',{name:'Back',exact:true}).click();await waiting(page);await ready(page);
   await expect(netflix).toBeFocused();await expect.poll(()=>capture(page)).toEqual(saved);
+  await release(page);await ready(page);await expect(netflix).toBeFocused();await expect.poll(()=>capture(page)).toEqual(saved);
 });
 
 test('saved Home position is isolated from another account on the same cached host', async ({ page }) => {

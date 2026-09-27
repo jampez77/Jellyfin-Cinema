@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.19.3",
+        "changelog": "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.19/TvItemLayout_0.2.19.3_jellyfin-12.0.0.zip",
+        "checksum": "4813b64f53b13a61752369ce88a4d77f",
+        "timestamp": "2026-09-27T10:35:20Z"
+      },
+      {
+        "version": "0.2.19.2",
+        "changelog": "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.19/TvItemLayout_0.2.19.2_jellyfin-10.11.0.zip",
+        "checksum": "30ec393706f00fbac32ca54cc190a64f",
+        "timestamp": "2026-09-27T10:35:20Z"
+      },
+      {
+        "version": "0.2.19.1",
+        "changelog": "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.19/TvItemLayout_0.2.19.1_jellyfin-10.10.7.zip",
+        "checksum": "14d4ccaeb2cc78c7712ccb874ca91d8e",
+        "timestamp": "2026-09-27T10:35:20Z"
+      },
+      {
         "version": "0.2.18.3",
         "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

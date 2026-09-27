@@ -6,7 +6,7 @@ Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netf
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB.
 
-**0.2.18 is available as a prerelease** ([release notes](docs/releases/v0.2.18.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It fixes saved streaming-service tile sizes remaining stale on an already-open Home screen. Physical LG webOS testing remains pending.
+**0.2.19 is available as a prerelease** ([release notes](docs/releases/v0.2.19.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It makes return visits to Home reuse loaded collection data immediately, with quiet background updates and no repeat loading animation. Physical LG webOS testing remains pending.
 
 ## The layouts
 
@@ -78,7 +78,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.18 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.18) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.18 release notes](docs/releases/v0.2.18.md) for changes and validation status.
+The [v0.2.19 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.19) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.19 release notes](docs/releases/v0.2.19.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -94,7 +94,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.18.1` for 10.10.7, `0.2.18.2` for 10.11.x and `0.2.18.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.19.1` for 10.10.7, `0.2.19.2` for 10.11.x and `0.2.19.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

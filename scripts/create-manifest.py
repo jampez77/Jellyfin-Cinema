@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

@@ -251,7 +251,7 @@ test('moving the 60th item past the displayed boundary retains focus and persist
 });
 
 for (const intent of ['none', 'arrow', 'command', 'pointer'] as const) {
-  test(`late Home rows after Back respect ${intent === 'none' ? 'the saved selection when there is no new input' : `${intent} input without stealing native focus`}`, async ({ page }) => {
+  test(`background Home refresh after Back respects ${intent === 'none' ? 'the saved selection when there is no new input' : `${intent} input without stealing native focus`}`, async ({ page }) => {
     await seed(page, rowConfig); await page.goto('/?featured=0#/home');
     const previousSelection = row(page, 'Trending Movies').getByRole('button', { name: 'Rank 1: After the Tide', exact: true });
     await previousSelection.click();
@@ -261,12 +261,13 @@ for (const intent of ['none', 'arrow', 'command', 'pointer'] as const) {
       api.getCollectionList = async (...args) => {
         const collections = await original(...args);
         if (location.hash === '#/home') await new Promise<void>(resolve => { (window as any).__releaseHomeRows = resolve; });
-        return collections;
+        return collections.map(item => item.Id === 'collection-coast' ? { ...item, Name: 'Refreshed coast collection' } : item);
       };
     });
     await page.keyboard.press('Escape'); await expect(home(page)).toBeVisible();
     await expect.poll(() => page.evaluate(() => typeof (window as any).__releaseHomeRows)).toBe('function');
-    await expect(previousSelection).toHaveCount(0);
+    await expect(previousSelection).toBeVisible();
+    await expect(previousSelection).toBeFocused();
     const nativeCards = home(page).getByRole('region', { name: 'Continue watching', exact: true }).locator('.card');
     const destination = nativeCards.nth(intent === 'arrow' ? 1 : 0);
     if (intent !== 'none') {
@@ -282,6 +283,7 @@ for (const intent of ['none', 'arrow', 'command', 'pointer'] as const) {
       await expect(destination).toBeFocused();
     }
     await page.evaluate(() => (window as any).__releaseHomeRows());
+    await expect(row(page, 'Collections').getByRole('button', { name: 'Refreshed coast collection', exact: true })).toBeVisible();
     await expect(previousSelection).toBeVisible();
     await expect(intent === 'none' ? previousSelection : destination).toBeFocused();
   });

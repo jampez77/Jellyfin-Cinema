@@ -13,7 +13,12 @@ import { isDesktopLayout } from './layout';
 
 type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void> };
 type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement; retry?: boolean };
-type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string };
+type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string; value?: Item[] };
+type HomeSnapshot = { key: string; collections?: Item[]; items: Map<string, { value: Item[]; fingerprint: string }>; sources: Map<string, string> };
+// Reuse successful data, never DOM handlers or promises owned by a disposed view.
+// Only the last account is retained, in memory, until sign-out/server change.
+let lastHome: HomeSnapshot | undefined;
+export function clearHomeSession(): void { lastHome = undefined; }
 
 // Native Home is DOM-cached. Its controller can attempt Back restoration while
 // the initial row batch is masked, so remember its last native target by account.
@@ -75,6 +80,9 @@ export class HomeCollections {
   private inputRevision = 0;
   private renderRetry = false;
   private items = new Map<string, CollectionItems>();
+  private collections?: Item[];
+  private collectionRequest?: Promise<Item[]>;
+  private warmReturn = false;
   private providers: ProviderHomesSettings;
   private providerStore: ProviderHomesStore;
   private initialSettingsReady = false;
@@ -86,6 +94,7 @@ export class HomeCollections {
   private restoreFrame?: number;
   private captureFrame?: number;
   private positionToRestore?: HomePosition;
+  private nativePositionToRestore?: HomePosition;
   private lastPosition?: HomePosition;
   private accountIdentity: string;
   private providerSyncing = false;
@@ -96,11 +105,20 @@ export class HomeCollections {
     private openProvider?: (id: ProviderId) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
     this.providerStore = createProviderHomesStore(api); this.providers = this.providerStore.cached;
-    this.initialSettingsReady = !this.store.synced && !this.providerStore.synced;
+    const cached = lastHome?.key === this.key ? lastHome : undefined;
+    if (cached) {
+      this.warmReturn = true; this.collections = cached.collections || [];
+      this.selectedSources = new Map(cached.sources);
+      for (const [id, entry] of cached.items) this.items.set(id, { ...entry, promise: Promise.resolve(entry.value) });
+    }
+    this.initialSettingsReady = this.warmReturn || !this.store.synced && !this.providerStore.synced;
     this.accountIdentity = JSON.stringify([api.serverId, api.userId]);
     this.positionToRestore = homePositions.get(this.key);
-    if (showingHome()) document.body.append(this.loadingStatus);
-    this.loadingTimer = window.setTimeout(() => { if (!this.loadingHost) this.loadingStatus.remove(); }, 3_500);
+    if (this.warmReturn) this.nativePositionToRestore = this.positionToRestore;
+    if (!this.warmReturn) {
+      if (showingHome()) document.body.append(this.loadingStatus);
+      this.loadingTimer = window.setTimeout(() => { if (!this.loadingHost) this.loadingStatus.remove(); }, 3_500);
+    }
     window.addEventListener('keydown', this.onKey, true);
     window.addEventListener('command', this.onCommand, true);
     window.addEventListener('pointerdown', this.onPointer, true);
@@ -111,6 +129,7 @@ export class HomeCollections {
     window.addEventListener('storage', this.onProviderStorage);
     window.addEventListener('tvl-provider-settings-changed', this.onProviderSaved);
     window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
+    document.addEventListener('viewshow', this.onNativeShow, true);
     this.observer = new MutationObserver(records => {
       // Native row order can change without replacing a node. Ignore scroller
       // transform updates so animated TV focus does not keep reattaching rows.
@@ -120,8 +139,9 @@ export class HomeCollections {
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style', 'aria-busy'] });
     this.attach(); void this.render();
     if (this.store.synced || this.providerStore.synced) {
-      this.syncTimer = window.setInterval(this.onVisible, 60_000); void this.loadInitialSettings();
+      this.syncTimer = window.setInterval(this.onVisible, 60_000);
     }
+    if (this.warmReturn || this.store.synced || this.providerStore.synced) void this.loadInitialSettings();
   }
 
   /** Fetch both preferences in parallel and publish a single initial row set.
@@ -143,14 +163,15 @@ export class HomeCollections {
       }).catch(() => {}).finally(() => {
         this.providerSyncing = false;
         if (this.providerRefreshPending) return this.refreshProviders(true);
-      }) : Promise.resolve()
+      }) : Promise.resolve(),
+      this.warmReturn ? this.refreshCollectionData().then(changed => { if (changed && !this.disposed) void this.render(); }) : Promise.resolve()
     ]);
     if (this.disposed) return;
     this.initialSettingsReady = true; this.attach();
   }
 
   private holdInitialHome(host: HTMLElement): void {
-    if (this.initialPaint) return;
+    if (this.initialPaint || this.warmReturn) return;
     if (this.loadingHost !== host) {
       this.releaseInitialHome(); this.loadingHost = host; this.previousBusy = host.getAttribute('aria-busy');
       host.setAttribute('aria-busy', 'true');
@@ -244,6 +265,14 @@ export class HomeCollections {
     if (this.captureFrame !== undefined) return;
     this.captureFrame = requestAnimationFrame(() => { this.captureFrame = undefined; this.rememberPosition(); });
   };
+  private onNativeShow = (event: Event): void => {
+    const host = this.root.parentElement, page = event.target;
+    if (!this.nativePositionToRestore || !host || !(page instanceof HTMLElement) || !page.contains(host)) return;
+    const saved = this.nativePositionToRestore; this.nativePositionToRestore = undefined;
+    // Jellyfin unhides its cached view, then auto-focuses it before viewshow.
+    // Restore once after that native step; real input always takes priority.
+    if (!this.inputRevision && showingHome(host)) { this.positionToRestore = saved; this.restorePosition(host); }
+  };
   private onWheel = (): void => { this.inputRevision++; this.positionToRestore = undefined; };
 
   private onVisible = (event?: Event): void => {
@@ -291,7 +320,7 @@ export class HomeCollections {
       if (settingsChanged || membersChanged || this.renderRetry) {
         const active = document.activeElement as HTMLElement | null;
         if (this.owns(active)) this.restoreFocus = active?.dataset.focusId;
-        await this.render();
+        await this.render(true);
       }
     } catch {
       // Background sync stays quiet on Home and preserves the last loaded rows.
@@ -303,11 +332,31 @@ export class HomeCollections {
     let cached = this.items.get(id);
     if (!cached) {
       const entry: CollectionItems = { promise: this.api.getCollectionItems(id).then(items => {
-        entry.fingerprint = JSON.stringify(items); return items;
+        entry.fingerprint = JSON.stringify(items); entry.value = items; return items;
       }).catch(error => { if (this.items.get(id) === entry) this.items.delete(id); throw error; }) };
       this.items.set(id, entry); cached = entry;
     }
     return cached.promise;
+  }
+
+  private collectionList(refresh = false): Promise<Item[]> {
+    if (!refresh && this.collections) return Promise.resolve(this.collections);
+    if (this.collectionRequest) return this.collectionRequest;
+    const request = Promise.resolve().then(() => this.api.getCollectionList()).then(items => {
+      if (!this.disposed) this.collections = items;
+      return items;
+    }).finally(() => { if (this.collectionRequest === request) this.collectionRequest = undefined; });
+    this.collectionRequest = request; return request;
+  }
+  private async refreshCollectionData(): Promise<boolean> {
+    const before = JSON.stringify(this.collections);
+    const [listChanged, membersChanged] = await Promise.all([
+      // A first row may have been added on another device while Home was away.
+      // Fetch alongside preferences even when the old settings had no rows.
+      this.collectionList(true).then(items => JSON.stringify(items) !== before).catch(() => false),
+      this.refreshItems()
+    ]);
+    return listChanged && this.settings.rows.length > 0 || membersChanged;
   }
 
   private async refreshItems(): Promise<boolean> {
@@ -321,10 +370,10 @@ export class HomeCollections {
       if (entry.fingerprint === undefined) return;
       try {
         const items = await this.api.getCollectionItems(id);
-        if (this.disposed || !this.api.homeCollections?.isCurrent() || this.items.get(id) !== entry) return;
+        if (this.disposed || this.api.homeCollections && !this.api.homeCollections.isCurrent() || this.items.get(id) !== entry) return;
         const fingerprint = JSON.stringify(items);
         if (fingerprint === entry.fingerprint) return;
-        this.items.set(id, { promise: Promise.resolve(items), fingerprint }); changed = true;
+        this.items.set(id, { promise: Promise.resolve(items), fingerprint, value: items }); changed = true;
       } catch { /* Keep the last successfully loaded members until a later poll. */ }
     }));
     return changed;
@@ -340,7 +389,7 @@ export class HomeCollections {
       void this.prepare(staged); staged = undefined;
     }
     const initialRowsReady = this.initialSettingsReady && !!staged && staged.revision === this.revision;
-    if (!this.readiness.update(host, this.initialPaint || initialRowsReady)) return;
+    if (this.warmReturn ? !this.initialPaint && !initialRowsReady : !this.readiness.update(host, this.initialPaint || initialRowsReady)) return;
     if (this.root.parentElement !== host) host.append(this.root);
     let focusId: string | undefined;
     let focusRow: string | undefined;
@@ -487,7 +536,7 @@ export class HomeCollections {
   };
   private onPointer = (): void => { this.rememberPosition(); this.inputRevision++; };
   private current(revision: number): boolean { return !this.disposed && (revision === this.revision || revision === this.displayedRevision); }
-  private async render(): Promise<void> {
+  private async render(refreshList = false): Promise<void> {
     const revision = ++this.revision;
     const inputRevision = this.inputRevision;
     this.staged = undefined;
@@ -496,7 +545,7 @@ export class HomeCollections {
       element: providerElement, reconcileSource: async () => {} }] : [];
     if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: providerRows }; this.attach(); return; }
     try {
-      const available = new Map((await this.api.getCollectionList()).map(item => [item.Id, item]));
+      const available = new Map((await this.collectionList(refreshList)).map(item => [item.Id, item]));
       if (this.disposed || revision !== this.revision) return;
       const rendered = await Promise.all(this.settings.rows.map(row => this.section(row, available, revision)));
       if (this.disposed || revision !== this.revision) return;
@@ -505,7 +554,7 @@ export class HomeCollections {
       if (this.disposed || revision !== this.revision) return;
       this.renderRetry = true;
       const error = el('div', 'tvl-home-row-status'); error.setAttribute('role', 'status');
-      error.append(el('p', '', 'Your collection rows could not be loaded.'), button('Retry collection rows', '', '', () => { void this.render(); }));
+      error.append(el('p', '', 'Your collection rows could not be loaded.'), button('Retry collection rows', '', '', () => { void this.render(true); }));
       this.staged = { revision, inputRevision, error, retry: true,
         sections: [...providerRows, ...this.sections.filter(section => !section.element.classList.contains('tvl-home-provider-row'))] }; this.attach();
     }
@@ -584,7 +633,9 @@ export class HomeCollections {
         if (this.current(revision) && currentSource === sourceRevision) cards.removeAttribute('aria-busy');
       }
     };
-    await renderItems();
+    // A newly added source must not block the already-loaded rows on return.
+    const pending = renderItems();
+    if (!this.warmReturn || this.initialPaint || row.kind !== 'items' || this.items.get(selected.collectionId)?.value) await pending;
     return { row, element: section, reconcileSource: async () => {
       const source = tabs.find(tab => tab.id === this.selectedSources.get(row.id)) || tabs[0];
       if (source.id === selected.id) return;
@@ -597,6 +648,12 @@ export class HomeCollections {
   }
 
   destroy(): void {
+    if (this.initialPaint && this.displayedRevision > 0 && JSON.stringify([this.api.serverId, this.api.userId]) === this.accountIdentity
+      && (!this.api.homeCollections || this.api.homeCollections.isCurrent()) && (!this.api.providerHomes || this.api.providerHomes.isCurrent())) {
+      const items: HomeSnapshot['items'] = new Map();
+      for (const [id, entry] of this.items) if (entry.value && entry.fingerprint !== undefined) items.set(id, { value: entry.value, fingerprint: entry.fingerprint });
+      lastHome = { key: this.key, collections: this.collections, items, sources: new Map(this.selectedSources) };
+    }
     this.rememberPosition();
     if (this.lastPosition) {
       homePositions.set(this.key, this.lastPosition);
@@ -607,6 +664,7 @@ export class HomeCollections {
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);
+    document.removeEventListener('viewshow', this.onNativeShow, true);
     window.removeEventListener('storage', this.onProviderStorage);
     window.removeEventListener('tvl-provider-settings-changed', this.onProviderSaved);
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);
