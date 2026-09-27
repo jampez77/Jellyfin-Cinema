@@ -1,5 +1,9 @@
 # Jellyfin Cinema
 
+> **Fully vibe coded — use at your own risk.**
+>
+> This project was built using Codex. I have not read or reviewed the code myself. My involvement has been choosing features, directing the design and testing the interface on my own setup.
+
 ![Jellyfin Cinema](assets/catalogue/jellyfin-cinema.png)
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). Formerly **TV Item Layout**, with the same plugin identity and upgrade path.
