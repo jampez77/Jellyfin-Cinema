@@ -45,4 +45,4 @@ TMDB's [API FAQ](https://developer.themoviedb.org/docs/faq) requires the approve
 
 The logo should remain less prominent than Jellyfin Cinema's own identity and link to [TMDB](https://www.themoviedb.org). Do not imply endorsement or change the logo's colors or aspect ratio.
 
-TMDB's [watch-provider documentation](https://developer.themoviedb.org/reference/movie-watch-providers) separately requires attribution to **JustWatch** as the source of streaming availability data. Cinema's provider-data credits should therefore identify TMDB and JustWatch, and link JustWatch credit to [JustWatch](https://www.justwatch.com/).
+TMDB's [watch-provider documentation](https://developer.themoviedb.org/reference/movie-watch-providers) separately requires attribution to **JustWatch** as the source of streaming availability data. Cinema's **Data credits** section in Streaming services settings identifies TMDB and JustWatch, and link JustWatch credit to [JustWatch](https://www.justwatch.com/).

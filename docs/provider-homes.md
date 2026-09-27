@@ -66,7 +66,7 @@ A fixed cinema projector animation stays visible in the viewport while the initi
 | --- | --- |
 | **Checking UK availability…** | Initial or newly required metadata lookups are queued. The page checks progress automatically; large libraries take longer. |
 | **No matching titles in your library.** | The loaded source has no permitted matches. A streaming service's external catalogue can include many titles you do not own. |
-| **Library titles need TMDB metadata…** | Some movies or series lack usable TMDB IDs. Correct/identify their Jellyfin metadata, then revisit the provider page. |
+| **Library titles need matching metadata…** | Some movies or series lack usable TMDB IDs. Correct/identify their Jellyfin metadata, then revisit the provider page. |
 | **UK availability is temporarily unavailable.** | The server cannot currently provide availability. Check its installed TMDB integration and connectivity; this is not confirmation of an empty catalogue. |
 | **Some availability could not be refreshed…** | Previously known matches remain visible while a refresh is unavailable. Requests retry with backoff. |
 | **The trending collection is unavailable for this account.** | No unique automatic collection match is visible, or the source is unconfigured. Choose a collection override or check the SmartLists source and account access. |
@@ -74,4 +74,4 @@ A fixed cinema projector animation stays visible in the viewport while the initi
 
 The installed server plugin and client bundle must both include provider support. If Settings reports **Update Jellyfin Cinema**, update the matching server package, restart Jellyfin and fully close/reopen the web client. See [server installation and provider troubleshooting](server.md#provider-home-data-and-settings).
 
-Provider marks and the TMDB logo are attributed in [provider asset credits](../assets/providers/README.md). This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability is supplied by JustWatch.
+API attribution is available in **Settings → Cinema → Streaming services → Data credits**, keeping browsing pages and editing hints clear. Provider marks and the TMDB logo are attributed in [provider asset credits](../assets/providers/README.md). This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability is supplied by JustWatch.

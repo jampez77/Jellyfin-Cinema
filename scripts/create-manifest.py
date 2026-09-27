@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

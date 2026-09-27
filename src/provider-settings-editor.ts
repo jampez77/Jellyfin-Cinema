@@ -4,6 +4,7 @@ import { providerBrand, providerBrands } from './provider-brands';
 import { cloneProviderHomes, defaultProviderConfig, defaultCustomProvider, maxProviders, maxProviderRows, type ProviderId, type ProviderHomeConfig, type ProviderHomesSettings, type ProviderRow, type ProviderRowSource, type ProviderItemSort } from './provider-settings';
 import { providerAppearance, providerLogo } from './provider-appearance';
 import { providerHomeRow } from './provider-home';
+import { providerCredits } from './provider-attribution';
 import { createProviderHomesStore, ProviderHomesSyncError, type ProviderHomesStore } from './provider-settings-store';
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
 import { homeCollectionKey } from './home-collection-settings';
@@ -64,7 +65,7 @@ export class ProviderSettingsEditor {
     this.reloadButton = this.control('Reload saved settings', 'reload', () => { void this.load(); }); this.reloadButton.hidden = true;
     const message = el('div', 'tvl-provider-settings-message'); message.append(this.status, this.reloadButton);
     const layout = el('div', 'tvl-provider-settings-layout'); layout.append(this.sidebar, this.workspace);
-    panel.append(header, el('p', 'tvl-provider-settings-intro', this.store.synced ? 'Your choices follow this Jellyfin account across your devices.' : 'This preview saves choices on this device.'), message, layout);
+    panel.append(header, el('p', 'tvl-provider-settings-intro', this.store.synced ? 'Your choices follow this Jellyfin account across your devices.' : 'This preview saves choices on this device.'), message, layout, providerCredits());
     this.element.append(panel);
     // Native selects need their Up/Down and Enter behaviour. Register before the
     // shared remote listener so choosing an option cannot leave the field.
@@ -244,8 +245,7 @@ export class ProviderSettingsEditor {
     const tilePreview = el('aside', 'tvl-provider-appearance-preview'); tilePreview.setAttribute('aria-label', 'Service tile preview');
     appearance.append(fields, tilePreview); this.workspace.append(appearance); this.updateAppearance(provider);
     const advanced = el('details', 'tvl-provider-advanced'), summary = el('summary', '', 'Catalogue sources'); summary.tabIndex = 0;
-    const sourceHelp = el('p', 'tvl-provider-help', 'Optional TMDB provider IDs match titles in your Jellyfin library to this service’s UK catalogue. Collection rows work without these IDs. Separate multiple IDs with commas.');
-    const reference = el('a', '', 'TMDB provider reference'); reference.href = 'https://developer.themoviedb.org/reference/watch-providers-movie-list'; reference.target = '_blank'; reference.rel = 'noopener noreferrer'; sourceHelp.append(document.createTextNode(' '), reference);
+    const sourceHelp = el('p', 'tvl-provider-help', 'Optional provider IDs match titles in your Jellyfin library to this service’s UK catalogue. Collection rows work without these IDs. Separate multiple IDs with commas.');
     advanced.append(summary, sourceHelp);
     for (const [key, label] of [['movieProviderIds', 'Film provider IDs'], ['showProviderIds', 'TV provider IDs']] as const) {
       const value = this.providerIdInputs.get(`${provider.id}:${key}`) ?? provider[key].join(', ');
@@ -282,12 +282,6 @@ export class ProviderSettingsEditor {
     this.workspace.append(el('h3', '', 'Page rows'), rowList, add);
     if (selected) this.renderRow(provider, selected);
     else this.workspace.append(el('p', 'tvl-provider-help', 'This provider page has no rows.'));
-    const credits = el('p', 'tvl-provider-credits'); credits.append(document.createTextNode('UK streaming availability: '));
-    for (const [index, [name, href]] of [['TMDB', 'https://www.themoviedb.org/'], ['JustWatch', 'https://www.justwatch.com/uk']].entries()) {
-      if (index) credits.append(document.createTextNode(' / '));
-      const link = el('a', '', name); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; credits.append(link);
-    }
-    this.workspace.append(credits);
     const manage = el('div', 'tvl-provider-manage');
     const builtin = providerBrand(provider.id);
     if (builtin) manage.append(this.control('Restore defaults', 'provider:restore', () => {

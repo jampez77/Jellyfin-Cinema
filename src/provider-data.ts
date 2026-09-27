@@ -98,7 +98,7 @@ export class ProviderData {
       : row.source === 'shows' || row.source === 'trending-shows' ? 'Series' : undefined;
     const collectionId = row.collectionId.trim();
     if (!collectionId && (row.source === 'movies' || row.source === 'shows')) {
-      const sourceLabel = 'UK streaming availability · JustWatch via TMDB';
+      const sourceLabel = 'UK streaming availability · JustWatch';
       const sourceUrl = 'https://www.justwatch.com/uk';
       if (preview ? !this.api.previewProviderItems : !this.api.getProviderItems) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl };
       const query: ProviderItemsQuery = { type: type!, startIndex: start, limit: size, sort: row.itemSort === 'collection' ? 'title' : row.itemSort };
