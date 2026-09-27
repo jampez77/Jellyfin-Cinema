@@ -171,7 +171,7 @@ export class HomeCollections {
   }
 
   private holdInitialHome(host: HTMLElement): void {
-    if (this.initialPaint || this.warmReturn) return;
+    if (this.initialPaint) return;
     if (this.loadingHost !== host) {
       this.releaseInitialHome(); this.loadingHost = host; this.previousBusy = host.getAttribute('aria-busy');
       host.setAttribute('aria-busy', 'true');
@@ -179,7 +179,7 @@ export class HomeCollections {
     if (!host.classList.contains('tvl-home-initial-loading')) host.classList.add('tvl-home-initial-loading');
     // A native page can be transformed or scrolled. Its fixed descendants are
     // not viewport-fixed, so the animation always belongs directly to body.
-    if (!showingHome(host)) this.loadingStatus.remove();
+    if (this.warmReturn || !showingHome(host)) this.loadingStatus.remove();
     else if (this.loadingStatus.parentElement !== document.body) document.body.append(this.loadingStatus);
   }
   private releaseInitialHome(): void {
@@ -389,7 +389,9 @@ export class HomeCollections {
       void this.prepare(staged); staged = undefined;
     }
     const initialRowsReady = this.initialSettingsReady && !!staged && staged.revision === this.revision;
-    if (this.warmReturn ? !this.initialPaint && !initialRowsReady : !this.readiness.update(host, this.initialPaint || initialRowsReady)) return;
+    // Cached content skips network waits, not native layout settlement: reveal
+    // every row together, even when Jellyfin rebuilds its Home during Back.
+    if (!this.readiness.update(host, this.initialPaint || initialRowsReady)) return;
     if (this.root.parentElement !== host) host.append(this.root);
     let focusId: string | undefined;
     let focusRow: string | undefined;
