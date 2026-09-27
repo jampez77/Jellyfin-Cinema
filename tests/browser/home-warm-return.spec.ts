@@ -47,9 +47,9 @@ async function holdAndLeave(page: Page) {
       records.forEach(record => record.addedNodes.forEach(node => {
         if (node instanceof Element && (node.matches('.tvl-home-loading-status') || node.querySelector('.tvl-home-loading-status'))) state.loaderMounts++;
       }));
-      if (state.returnStarted !== undefined && state.returnReady === undefined
-        && document.querySelector('#homeTab [data-home-row="weekend"] .tvl-home-row-card')?.getClientRects().length)
-        state.returnReady=performance.now()-state.returnStarted;
+      const returned=document.querySelector<HTMLElement>('#homeTab [data-home-row="weekend"] .tvl-home-row-card');
+      if (state.returnStarted !== undefined && state.returnReady === undefined && returned?.getClientRects().length
+        && getComputedStyle(returned).visibility === 'visible') state.returnReady=performance.now()-state.returnStarted;
     }).observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class','hidden','style'] });
   });
   return saved;
@@ -165,4 +165,51 @@ for (const userInput of [false, true]) test(userInput
   }, userInput);
   await expect.poll(() => position(page)).toEqual(expected); await expect(loader(page)).toHaveCount(0);
   await release(page); await expect.poll(() => position(page)).toEqual(expected);
+});
+
+test('warm native rebuild reveals native, streaming and collection rows together without animation or waiting for background data', async ({ page }) => {
+  await fixture(page); await holdAndLeave(page);
+  await page.evaluate(() => {
+    const state=(window as any).__warmHome, host=document.querySelector('#homeTab')!;
+    state.nativeRows=Array.from(host.querySelectorAll<HTMLElement>('.verticalSection'))
+      .filter(node=>!node.matches('.tvl-home-collection-row,.tvl-home-provider-row'));
+    state.nativeRows.forEach((node: HTMLElement)=>{node.hidden=true;});
+    state.nativeBusy=host.querySelector('.sections .itemsContainer')!;
+    state.nativeBusy.setAttribute('aria-busy','true');
+    state.frames=[];
+    const visible=(selector: string)=>{
+      const node=document.querySelector<HTMLElement>(selector);
+      return !!node?.getClientRects().length && getComputedStyle(node).visibility==='visible';
+    };
+    const sample=()=>{
+      state.frames.push(['#homeTab [aria-label="Latest in Movies"] button','#homeTab [data-home-row="weekend"]','#homeTab .tvl-home-provider-row'].map(visible));
+      if(!state.stopFrames)requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await returnHome(page);
+  await expect.poll(() => page.evaluate(() => (window as any).__warmHome.pendingSettings.length)).toBeGreaterThan(0);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))));
+  const pendingFrames=await page.evaluate(() => (window as any).__warmHome.frames as boolean[][]);
+  expect(pendingFrames.length).toBeGreaterThan(0);
+  expect(pendingFrames.filter(frame=>frame.some(Boolean) && !frame.every(Boolean))).toEqual([]);
+  await expect(row(page)).toBeHidden(); await expect(page.locator('#homeTab .tvl-provider-tile').first()).toBeHidden();
+  await expect(loader(page)).toHaveCount(0);
+  await page.evaluate(() => {
+    const state=(window as any).__warmHome;
+    state.nativeRows.forEach((node: HTMLElement)=>{node.hidden=false;});
+    state.nativeBusy.removeAttribute('aria-busy');
+  });
+  await expect(row(page)).toBeVisible(); await expect(cards(page)).toHaveCount(20);
+  await expect(page.locator('#homeTab .tvl-provider-tile').first()).toBeVisible();
+  await expect(page.locator('#homeTab [aria-label="Latest in Movies"] button').first()).toBeVisible();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const observed=await page.evaluate(() => {
+    const state=(window as any).__warmHome;state.stopFrames=true;
+    return {frames:state.frames as boolean[][],settings:state.pendingSettings.length,members:state.pendingMembers.length,loaderMounts:state.loaderMounts};
+  });
+  expect(observed.frames.some(frame=>frame.every(Boolean))).toBe(true);
+  expect(observed.frames.filter(frame=>frame.some(Boolean) && !frame.every(Boolean))).toEqual([]);
+  expect(observed.settings).toBeGreaterThan(0); expect(observed.members).toBeGreaterThan(0); expect(observed.loaderMounts).toBe(0);
+  await expect(loader(page)).toHaveCount(0); await release(page);
 });
