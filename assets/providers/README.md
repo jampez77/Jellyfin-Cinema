@@ -37,7 +37,7 @@ The official [movie provider directory](https://developer.themoviedb.org/referen
 
 ## TMDB data attribution
 
-`tmdb.svg` is TMDB's approved **Alt short (blue)** logo, downloaded unmodified on 27 September 2026 from the official [logos and attribution page](https://www.themoviedb.org/about/logos-attribution). Its [direct SVG source](https://www.themoviedb.org/assets/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg) is embedded verbatim as a data URI in `src/provider-attribution.ts`. The gradient, lettering and aspect ratio are preserved. This proprietary trademark is not covered by the Simple Icons license.
+`tmdb.svg` is TMDB's approved **Alt short (blue)** logo, downloaded unmodified on 27 September 2026 from the official [logos and attribution page](https://www.themoviedb.org/about/logos-attribution). Its [direct SVG source](https://www.themoviedb.org/assets/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg) is retained in `assets/providers/tmdb.svg` for attribution records. The gradient, lettering and aspect ratio are preserved. This proprietary trademark is not covered by the Simple Icons license.
 
 TMDB's [API FAQ](https://developer.themoviedb.org/docs/faq) requires the approved logo and this notice in an application's About or Credits section:
 
@@ -45,4 +45,4 @@ TMDB's [API FAQ](https://developer.themoviedb.org/docs/faq) requires the approve
 
 The logo should remain less prominent than Jellyfin Cinema's own identity and link to [TMDB](https://www.themoviedb.org). Do not imply endorsement or change the logo's colors or aspect ratio.
 
-TMDB's [watch-provider documentation](https://developer.themoviedb.org/reference/movie-watch-providers) separately requires attribution to **JustWatch** as the source of streaming availability data. Cinema's **Data credits** section in Streaming services settings identifies TMDB and JustWatch, and link JustWatch credit to [JustWatch](https://www.justwatch.com/).
+TMDB's [watch-provider documentation](https://developer.themoviedb.org/reference/movie-watch-providers) separately requires attribution to **JustWatch** as the source of streaming availability data. Cinema's source and asset documentation identifies TMDB and [JustWatch](https://www.justwatch.com/). Data-source links and credits are omitted from the TV and desktop frontend.

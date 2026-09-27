@@ -38,7 +38,7 @@ type Options = {
   back(): void; navigate(id: string): void; openRow(id?: string): void;
 };
 type RowState = { config: ProviderRow; element: HTMLElement; cards: HTMLElement; status: HTMLElement;
-  source: HTMLElement; more: HTMLButtonElement; result?: ProviderRowResult; items: Item[]; busy: boolean; fingerprint: string; restoreCount: number; };
+  more: HTMLButtonElement; result?: ProviderRowResult; items: Item[]; busy: boolean; fingerprint: string; restoreCount: number; };
 
 /** Provider pages retain native item routes/playback and only own this view's DOM. */
 export class ProviderHomeView {
@@ -98,7 +98,6 @@ export class ProviderHomeView {
     const previousRows = new Map(preserve ? this.states.map(row => [row.config.id, { count: row.items.length, scroll: row.cards.scrollLeft }]) : []);
     this.focusPending = focusId; this.featureId = undefined; this.states = [];
     this.header.querySelector('.tvl-provider-nav')?.remove();
-    this.content.querySelector('.tvl-provider-credit')?.remove();
     replace(this.hero); replace(this.rowsHost);
     this.config = settings.providers.find(provider => provider.id === this.options.provider && provider.enabled);
     if (!this.config) {
@@ -128,10 +127,6 @@ export class ProviderHomeView {
       const row = this.buildRow(config); row.restoreCount = previousRows.get(config.id)?.count || 0; return row;
     });
     if (!rows.length) this.rowsHost.append(el('p', 'tvl-provider-message', this.options.rowId ? 'This row is unavailable.' : 'No rows are enabled for this provider.'));
-    const credit = el('footer', 'tvl-provider-credit');
-    credit.append(document.createTextNode('UK streaming availability from '),
-      this.creditLink('JustWatch', 'https://www.justwatch.com/uk'), document.createTextNode('. Only titles in your Jellyfin library are shown.'));
-    this.content.append(credit);
     this.focusInitial();
     await Promise.allSettled(this.states.map(row => this.loadRow(row)));
     if (this.disposed || generation !== this.generation) return;
@@ -149,9 +144,6 @@ export class ProviderHomeView {
   private rowTitle(row: ProviderRow): string {
     return ({ movies: 'Films', shows: 'TV shows', 'trending-movies': 'Trending films', 'trending-shows': 'Trending TV shows', collection: 'Collection' })[row.source];
   }
-  private creditLink(label: string, url: string): HTMLAnchorElement {
-    const link = el('a'); link.textContent = label; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; return link;
-  }
   private buildRow(config: ProviderRow): RowState {
     const title = config.title.trim() || this.rowTitle(config);
     const element = el('section', 'tvl-provider-row'); element.dataset.providerRow = config.id; element.setAttribute('aria-label', title);
@@ -162,11 +154,10 @@ export class ProviderHomeView {
     }
     const cards = el('div', this.options.rowId ? `tvl-provider-grid${config.ranked ? ' tvl-provider-ranked-grid' : ''}` : 'tvl-home-row-cards'); cards.setAttribute('role', 'list');
     const status = el('p', 'tvl-provider-row-status'); status.setAttribute('role', 'status'); status.textContent = 'Loading…';
-    const source = el('p', 'tvl-provider-row-source');
     const more = button('Load more', '', 'tvl-provider-more', () => { void this.loadRow(state, true); }); more.hidden = true;
     more.dataset.focusId = `provider-more:${config.id}`;
-    element.append(heading, cards, status, more, source); this.rowsHost.append(element);
-    const state: RowState = { config, element, cards, status, source, more, items: [], busy: false, fingerprint: '', restoreCount: 0 }; return state;
+    element.append(heading, cards, status, more); this.rowsHost.append(element);
+    const state: RowState = { config, element, cards, status, more, items: [], busy: false, fingerprint: '', restoreCount: 0 }; return state;
   }
   private async loadRow(row: RowState, append = false): Promise<void> {
     if (row.busy || this.disposed) return;
@@ -215,8 +206,6 @@ export class ProviderHomeView {
       if (result.missingIds) messages.push(`${result.missingIds} library titles need matching metadata before their availability can be checked.`);
       if (!messages.length && !row.items.length) messages.push('No matching titles in your library.');
       row.status.textContent = messages.join(' ');
-      replace(row.source);
-      if (result.sourceUrl) row.source.append(this.creditLink(result.sourceLabel, result.sourceUrl)); else row.source.textContent = result.sourceLabel;
       if (row === this.states[0]) this.updateHero(items[0]); this.focusInitial();
     } catch {
       if (!current()) return;
