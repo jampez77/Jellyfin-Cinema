@@ -71,7 +71,8 @@ for (const input of ['keyboard', 'command']) {
       if (input === 'keyboard') await page.keyboard.press('ArrowUp');
       else await page.evaluate(() => document.activeElement!.dispatchEvent(new CustomEvent('command', { bubbles: true, cancelable: true, detail: { command: 'up' } })));
     }
-    await expect(page.locator('#homeTab [aria-label="My Media"] button').first()).toBeFocused();
+    // The new provider strip is the first visual row; another Up stays there.
+    await expect(page.locator('#homeTab [aria-label="Streaming services"]').getByRole('button', { name: 'Netflix', exact: true })).toBeFocused();
     expect(await page.evaluate(() => (window as any).__homeActivations)).toBe(0);
     await expect(page.locator('#homeTab .tvl-home-source-tab[aria-selected="true"]')).toHaveText(Array(6).fill('Movies'));
   });
@@ -90,7 +91,7 @@ test('navigation follows visual native order and moving an anchor keeps its coll
   await expect(trending).toHaveCSS('order', '-1');
   const visibleOrder = await page.locator('.homeSectionsContainer > section').evaluateAll(nodes => [...nodes]
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map(node => node.getAttribute('aria-label')));
-  expect(visibleOrder.slice(0, 3)).toEqual(['Trending Movies', 'Latest in Movies', 'My Media']);
+  expect(visibleOrder.slice(0, 4)).toEqual(['Streaming services', 'Trending Movies', 'Latest in Movies', 'My Media']);
   const anchors = await page.evaluate(() => JSON.parse(localStorage.getItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo:positions`)!));
   expect(anchors[0].key).toBe('native:latest in movies:1');
   await trending.locator('button').first().focus(); await page.keyboard.press('ArrowDown');
@@ -102,8 +103,8 @@ test('CSS-hidden variants and shared first-row anchors settle without continuous
     plain('first', 'First collection', 'start'), plain('same', 'Before media', 'native:my media:1'), ...settings.rows
   ] });
   const firstRows = await page.locator('.homeSectionsContainer > section').evaluateAll(nodes => [...nodes]
-    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).slice(0, 3).map(node => node.getAttribute('aria-label')));
-  expect(firstRows).toEqual(['First collection', 'Before media', 'My Media']);
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).slice(0, 4).map(node => node.getAttribute('aria-label')));
+  expect(firstRows).toEqual(['Streaming services', 'First collection', 'Before media', 'My Media']);
   await page.evaluate(() => {
     const media = document.querySelector('#homeTab [aria-label="My Media"]')!;
     const hidden = media.cloneNode(true) as HTMLElement;

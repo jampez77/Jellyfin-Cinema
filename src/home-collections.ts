@@ -6,9 +6,13 @@ import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { HomeReadiness } from './home-readiness';
+import { createProviderHomesStore, type ProviderHomesStore } from './provider-settings-store';
+import type { ProviderHomesSettings } from './provider-settings';
+import type { ProviderBrandId } from './provider-brands';
+import { providerHomeRow } from './provider-home';
 
-type RenderedRow = { row: HomeCollectionRow; element: HTMLElement; reconcileSource: () => Promise<void> };
-type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement };
+type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void> };
+type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement; retry?: boolean };
 type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string };
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
@@ -33,9 +37,17 @@ export class HomeCollections {
   private inputRevision = 0;
   private renderRetry = false;
   private items = new Map<string, CollectionItems>();
+  private providers: ProviderHomesSettings;
+  private providerStore: ProviderHomesStore;
+  private providerReady = false;
+  private providerSyncing = false;
+  private providerLastSync = 0;
 
-  constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string) {
+  constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string,
+    private openProvider?: (id: ProviderBrandId) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
+    this.providerStore = createProviderHomesStore(api); this.providers = this.providerStore.cached;
+    this.providerReady = !this.providerStore.synced;
     window.addEventListener('keydown', this.onKey, true);
     window.addEventListener('command', this.onCommand, true);
     window.addEventListener('pointerdown', this.onPointer, true);
@@ -45,16 +57,32 @@ export class HomeCollections {
       if (records.some(record => record.attributeName !== 'style'
         || (record.target as Element).matches('.verticalSection, .ec-root, .homeSectionsContainer, #homeTab'))) this.attach();
     });
-    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+    this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style', 'aria-busy'] });
     this.attach(); void this.render();
-    if (this.store.synced) {
+    if (this.store.synced || this.providerStore.synced) {
       window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
       this.syncTimer = window.setInterval(this.onVisible, 60_000); void this.refreshSettings(true);
     }
   }
 
   private onVisible = (): void => { if (document.visibilityState !== 'hidden') void this.refreshSettings(); };
+  private async refreshProviders(force: boolean): Promise<void> {
+    if (this.disposed || !this.providerStore.synced || this.providerSyncing || !force && Date.now() - this.providerLastSync < 5_000) return;
+    this.providerSyncing = true; this.providerLastSync = Date.now();
+    let changed = !this.providerReady;
+    try {
+      const settings = await this.providerStore.load();
+      if (this.disposed) return;
+      changed ||= JSON.stringify(settings) !== JSON.stringify(this.providers);
+      this.providers = settings;
+    } catch { /* Home keeps its account-scoped cache when sync is unavailable. */ }
+    finally { this.providerSyncing = false; }
+    if (this.disposed) return;
+    this.providerReady = true;
+    if (changed) await this.render();
+  }
   async refreshSettings(force = false): Promise<void> {
+    void this.refreshProviders(force);
     if (this.disposed || !this.store.synced || this.syncing || !force && Date.now() - this.lastSync < 5_000) return;
     this.syncing = true; this.lastSync = Date.now();
     try {
@@ -127,7 +155,7 @@ export class HomeCollections {
         const positions = new Map(this.sections.map(section => [section.row.id, section.element.querySelector<HTMLElement>('.tvl-home-row-cards')?.scrollLeft || 0]));
         this.sections.forEach(section => section.element.remove());
         this.sections = staged.sections; this.displayedRevision = staged.revision;
-        this.renderRetry = false;
+        this.renderRetry = !!staged.retry;
         for (const section of this.sections) {
           const cards = section.element.querySelector<HTMLElement>('.tvl-home-row-cards');
           if (cards) cards.dataset.restoreScroll = String(positions.get(section.row.id) || 0);
@@ -246,19 +274,23 @@ export class HomeCollections {
     const revision = ++this.revision;
     const inputRevision = this.inputRevision;
     this.staged = undefined;
-    if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: [] }; this.attach(); return; }
+    const providerElement = this.providerReady && this.openProvider ? providerHomeRow(this.providers, this.openProvider) : null;
+    const providerRows: RenderedRow[] = providerElement ? [{ row: { id: 'provider-homes:brands', placement: this.providers.placement },
+      element: providerElement, reconcileSource: async () => {} }] : [];
+    if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: providerRows }; this.attach(); return; }
     try {
       const available = new Map((await this.api.getCollectionList()).map(item => [item.Id, item]));
       if (this.disposed || revision !== this.revision) return;
       const rendered = await Promise.all(this.settings.rows.map(row => this.section(row, available, revision)));
       if (this.disposed || revision !== this.revision) return;
-      this.staged = { revision, inputRevision, sections: rendered }; this.attach();
+      this.staged = { revision, inputRevision, sections: [...providerRows, ...rendered] }; this.attach();
     } catch {
       if (this.disposed || revision !== this.revision) return;
       this.renderRetry = true;
       const error = el('div', 'tvl-home-row-status'); error.setAttribute('role', 'status');
       error.append(el('p', '', 'Your collection rows could not be loaded.'), button('Retry collection rows', '', '', () => { void this.render(); }));
-      this.staged = { revision, inputRevision, error }; this.attach();
+      this.staged = { revision, inputRevision, error, retry: true,
+        sections: [...providerRows, ...this.sections.filter(section => !section.element.classList.contains('tvl-home-provider-row'))] }; this.attach();
     }
   }
 
@@ -350,7 +382,7 @@ export class HomeCollections {
   destroy(): void {
     this.disposed = true; this.revision++; this.observer.disconnect();
     this.staged = undefined; this.readiness.destroy();
-    this.store.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
+    this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);
     window.removeEventListener('pointerdown', this.onPointer, true);

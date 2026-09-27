@@ -34,6 +34,9 @@ async function setup(page: Page, route: string, admin = false, layout: 'tv' | 'd
 
 async function settingsMarkup(page: Page) {
   await page.evaluate(() => {
+    // Replace the minimal demo Settings page with the audited native structure.
+    // Keeping both would duplicate its ID and attach links to the wrong fixture.
+    document.querySelector('#myPreferencesMenuPage')?.remove();
     const page = document.createElement('main'); page.id = 'myPreferencesMenuPage';
     page.className = 'page libraryPage userPreferencesPage noSecondaryNavPage mainAnimatedPage test-native-page';
     const entry = (label: string, className: string, href: string) => `<a class="emby-button show-focus ${className} listItem-border" href="${href}" style="display:block;margin:0;padding:0"><div class="listItem"><span class="material-icons listItemIcon listItemIcon-transparent" aria-hidden="true"></span><div class="listItemBody"><div class="listItemBodyText">${label}</div></div></div></a>`;

@@ -1,5 +1,7 @@
 import type { Item, LibraryQuery, MediaApi } from '../src/types';
 import { el, picture, replace } from '../src/dom';
+import { providerBrands, type ProviderBrandId } from '../src/provider-brands';
+import { orderHomeItems } from '../src/home-collection-settings';
 
 // This file belongs to the preview only. It is never included in the installer bundle.
 const MINUTE = 60 * 10_000_000;
@@ -153,6 +155,23 @@ register({ Id:'library-movies', Type:'CollectionFolder', CollectionType:'movies'
 register({ Id:'library-tv', Type:'CollectionFolder', CollectionType:'tvshows', Name:'TV Shows' }, 'mountains');
 register({ Id:'collection-coast', Type:'BoxSet', Name:'Coastal Stories', Overview:'Journeys shaped by the sea. Discover stories of homecoming, chance encounters and life along the coast.', ChildCount:2 }, 'ocean');
 register({ Id:'collection-wilderness', Type:'BoxSet', Name:'Into the Wilderness', Overview:'Step beyond the familiar. Mountain mysteries and open-country adventures from your library.', ChildCount:3 }, 'mountains');
+
+// Fictional memberships make full catalogues visibly different from weekly charts.
+const providerCatalogues: Record<ProviderBrandId, { movies: string[]; shows: string[] }> = {
+  netflix: { movies: ['movie-tide','movie-silence','movie-higher','movie-blue'], shows: ['series-north','series-harbour','series-signal'] },
+  prime: { movies: ['movie-wild','movie-blue','movie-higher'], shows: ['series-wild','series-1999','series-harbour'] },
+  disney: { movies: ['movie-tide','movie-wild'], shows: ['series-wild','series-north'] },
+  apple: { movies: ['movie-silence','movie-higher'], shows: ['series-signal','series-harbour'] },
+  now: { movies: ['movie-blue','movie-silence','movie-wild'], shows: ['series-1999','series-harbour'] },
+  paramount: { movies: ['movie-higher','movie-tide','movie-wild'], shows: ['series-north','series-signal'] }
+};
+for (const brand of providerBrands) for (const kind of ['movies','shows'] as const) {
+  const id = `provider-chart-${brand.id}-${kind}`;
+  const members = brand.id === 'netflix' ? kind === 'movies' ? ['movie-blue','movie-tide'] : ['series-signal','series-north']
+    : providerCatalogues[brand.id][kind].slice(0,2).reverse();
+  collectionMembers.set(id,members);
+  register({ Id:id, Type:'BoxSet', Name:`${brand.name} — Trending ${kind === 'movies' ? 'Movies' : 'Shows'} (UK)`, ChildCount:members.length }, 'ocean');
+}
 
 const movieGenres = [...new Set(movieIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
 const showGenres = [...new Set(seriesIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
@@ -311,6 +330,13 @@ function browseLibrary(ids: string[], genres: Item[], parentId: string, query: L
 }
 
 const api: MediaApi = {
+  getProviderItems: (provider, query) => respond(() => {
+    const all = list(providerCatalogues[provider][query.type === 'Movie' ? 'movies' : 'shows'].map(id => library.get(id)!));
+    const items = orderHomeItems(all, { itemSort: query.sort || 'title', itemOrder: [] });
+    const start = query.startIndex || 0;
+    return { Items:items.slice(start,start+(query.limit || 60)), TotalRecordCount:items.length, Pending:0, Total:items.length,
+      Status:'ready', Region:'GB', UpdatedAt:new Date().toISOString(), MissingIds:0, FailedIds:0 };
+  }),
   getMusic: query => respond(() => {
     const genre=musicGenres.find(item=>item.Id===query.genreId)?.Name;
     let found=list(query.kind==='artists'||query.kind==='albumArtists'?artists:query.kind==='songs'?songs:query.kind==='playlists'?playlists:albums);
@@ -436,6 +462,11 @@ const homeSections=el('div','sections homeSectionsContainer');homeTab.append(hom
 const favoritesTab=el('section','tabContent pageTabContent hide');favoritesTab.id='favoritesTab';favoritesTab.dataset.index='1';favoritesTab.setAttribute('aria-label','Favourites');
 favoritesTab.append(el('h1','','Favourites'),el('p','','Your saved films, shows and albums.'));
 nativeHome.append(homeTab,favoritesTab);document.body.insertBefore(nativeHeader,nativePage);document.body.insertBefore(nativeHome,nativePage);
+const nativeSettings = el('main', 'page libraryPage userPreferencesPage hide'); nativeSettings.id = 'myPreferencesMenuPage';
+const settingsContent = el('div', 'readOnlyContent');
+settingsContent.append(el('h1', '', 'Settings'));
+const settingsHome = el('a', 'emby-button', 'Home'); settingsHome.href = '#/home'; settingsContent.append(settingsHome);
+nativeSettings.append(settingsContent); document.body.insertBefore(nativeSettings, nativePage);
 function selectNativeHomeTab(index:number,notify=false):void{
   const previousIndex=homeTab.classList.contains('is-active')?0:1;
   homeTab.classList.toggle('hide',index!==0);homeTab.classList.toggle('is-active',index===0);
@@ -543,12 +574,15 @@ function syncRoute() {
   const shows = /^#\/tv(?:\?|$)/.test(location.hash);
   const music = /^#\/music(?:\?|$)/.test(location.hash);
   const home = /^#\/home(?:\?|$)/.test(location.hash);
+  const preferences = /^#\/mypreferencesmenu(?:\?|$)/.test(location.hash);
+  document.querySelector('.demo-switcher')?.classList.toggle('hide', params.has('cinemaProvider') || params.has('cinemaProviders'));
+  nativeSettings.classList.toggle('hide', !preferences);
   nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':music?'musicRecommendedPage':guide?'liveTvSuggestedPage':'';
   const homeActive=home&&params.get('tab')!=='1';
-  nativeHome.classList.toggle('hide',!home);nativeHeader.classList.toggle('hide',!home);nativePage.classList.toggle('hide',home);
+  nativeHome.classList.toggle('hide',!home);nativeHeader.classList.toggle('hide',!home);nativePage.classList.toggle('hide',home || preferences);
   selectNativeHomeTab(homeActive?0:1);
   if(homeActive)setTimeout(function restoreHomeFocus(attempt=0){if(!/^#\/home(?:\?|$)/.test(location.hash)||!homeTab.classList.contains('is-active')||!nativeHome.isConnected)return;
-    if(document.getElementById('tv-layout')){if(attempt<20)requestAnimationFrame(()=>restoreHomeFocus(attempt+1));return;}
+    if(document.querySelector('.tvl-root')){if(attempt<20)requestAnimationFrame(()=>restoreHomeFocus(attempt+1));return;}
     const focus=homeFocused?.isConnected?homeFocused:homeTab.querySelector<HTMLElement>('.itemsContainer button,.homeLibraryButton');
     if(focus&&(!document.activeElement||document.activeElement===document.body||!nativeHome.contains(document.activeElement)))focus.focus({preventScroll:true});
   },30);

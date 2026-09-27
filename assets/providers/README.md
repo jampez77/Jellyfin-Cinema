@@ -1,0 +1,39 @@
+# Provider logos
+
+These marks identify collections grouped by streaming provider. Jellyfin Cinema is not affiliated with or endorsed by the providers. The marks remain the property of their respective owners; the project's software license does not grant trademark rights.
+
+All images are embedded as data URIs in `src/provider-brands.ts`, so provider navigation works without a request to an external image host. The files here are the editable source assets. If an image changes, update its matching literal in that module as well.
+
+## SVG marks
+
+Netflix, Apple TV, NOW and Paramount+ are from [Simple Icons](https://github.com/simple-icons/simple-icons) at commit [`d4e6ba93e48f178898707f0145ec285f28b64b38`](https://github.com/simple-icons/simple-icons/tree/d4e6ba93e48f178898707f0145ec285f28b64b38), retrieved 27 September 2026. Simple Icons distributes its icon data under [CC0 1.0](SIMPLE-ICONS-LICENSE.md). Paths are unchanged. The view boxes remove unused square padding, and fills are red for Netflix and white for the other marks on dark Cinema tiles.
+
+| Local file | Pinned source | Brand source recorded by Simple Icons |
+| --- | --- | --- |
+| `netflix.svg` | [Netflix icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/netflix.svg) | [Netflix brand assets](https://brand.netflix.com/en/assets/logos) |
+| `apple.svg` | [Apple TV icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/appletv.svg) | [Apple TV logo](https://en.wikipedia.org/wiki/File:Apple_TV_(logo).svg) |
+| `now.svg` | [NOW icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/now.svg) | [NOW](https://www.nowtv.com) |
+| `paramount.svg` | [Paramount+ icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/paramountplus.svg) | [Paramount+ brand](https://www.paramount.com/brand/paramount-plus) |
+
+## Official website marks
+
+These two transparent PNG images are unmodified assets from the providers' public websites, retrieved 27 September 2026. They are proprietary brand assets, not covered by the Simple Icons CC0 dedication. They are included solely to identify the corresponding provider; no general license to reuse them is asserted.
+
+| Local file | Source page | Image source | Native size |
+| --- | --- | --- | --- |
+| `prime.png` | [Prime Video](https://www.primevideo.com/) | [White Prime Video wordmark](https://m.media-amazon.com/images/G/02/digital/video/acquisition/logo/pv_logo_white._CB548648705_.png) | 1040 × 317 |
+| `disney.png` | [Disney+ UK](https://www.disneyplus.com/en-gb) | [White Disney+ wordmark](https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/C17497FEB6E396BC29C6A790A01C34FEAC1E56F78A0AEAD93D6390B42C95C05E/compose?format=png&width=640) | 640 × 350 |
+
+The interface uses a separate text label for each provider, including Apple TV+, rather than altering any logo's lettering. Accent colors decorate Cinema's own tiles and are not part of the logo artwork.
+
+## TMDB data attribution
+
+`tmdb.svg` is TMDB's approved **Alt short (blue)** logo, downloaded unmodified on 27 September 2026 from the official [logos and attribution page](https://www.themoviedb.org/about/logos-attribution). Its [direct SVG source](https://www.themoviedb.org/assets/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg) is embedded verbatim as a data URI in `src/provider-attribution.ts`. The gradient, lettering and aspect ratio are preserved. This proprietary trademark is not covered by the Simple Icons license.
+
+TMDB's [API FAQ](https://developer.themoviedb.org/docs/faq) requires the approved logo and this notice in an application's About or Credits section:
+
+> This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+The logo should remain less prominent than Jellyfin Cinema's own identity and link to [TMDB](https://www.themoviedb.org). Do not imply endorsement or change the logo's colors or aspect ratio.
+
+TMDB's [watch-provider documentation](https://developer.themoviedb.org/reference/movie-watch-providers) separately requires attribution to **JustWatch** as the source of streaming availability data. Cinema's provider-data credits should therefore identify TMDB and JustWatch, and link JustWatch credit to [JustWatch](https://www.justwatch.com/).

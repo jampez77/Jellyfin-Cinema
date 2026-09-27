@@ -78,7 +78,7 @@ test('custom row gaps match adjacent native rows without accumulating extra top 
   const gaps=await page.locator('#homeTab').evaluate(home=>{
     const plain=home.querySelector('[data-home-row="plain"]')!.getBoundingClientRect();
     const ranked=home.querySelector('[data-home-row="ranked"]')!.getBoundingClientRect();
-    const firstNative=home.querySelector('.verticalSection:not(.tvl-home-collection-row)')!.getBoundingClientRect();
+    const firstNative=home.querySelector('.verticalSection:not(.tvl-home-collection-row):not(.tvl-home-provider-row)')!.getBoundingClientRect();
     const native=home.querySelector('[aria-label="Continue watching"]')!.getBoundingClientRect();
     const next=home.querySelector('[aria-label="Next up"]')!.getBoundingClientRect();
     const heading=home.querySelector('[data-home-row="ranked"] h2')!.getBoundingClientRect();

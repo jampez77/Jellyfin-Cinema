@@ -111,7 +111,10 @@ test('Featured-owned Home nodes keep their position, event listeners, keyboard a
   await featured.getByRole('button',{name:'Resume',exact:true}).focus();await page.keyboard.press('ArrowRight');
   await expect(featured).toHaveAttribute('data-featured-key','ArrowRight');await expect(featured.getByRole('link',{name:'Details',exact:true})).toBeFocused();
   await expect(featured).toHaveCSS('height','535px');
-  await expect.poll(()=>featured.evaluate(node=>node.parentElement?.firstElementChild===node&&!!node.nextElementSibling?.hasAttribute('data-home-section'))).toBe(true);
+  // The default provider row precedes Featured; Featured keeps its original
+  // position relative to the native sections that follow it.
+  await expect.poll(()=>featured.evaluate(node=>node.parentElement?.firstElementChild===node.previousElementSibling
+    &&!!node.previousElementSibling?.matches('.tvl-home-provider-row')&&!!node.nextElementSibling?.hasAttribute('data-home-section'))).toBe(true);
   await featured.getByRole('link',{name:'Details',exact:true}).click();await expect(page.getByRole('dialog',{name:'After the Tide details',exact:true})).toBeVisible();
   await page.keyboard.press('Escape');await expect(featured).toHaveAttribute('data-instance','original');await expect(featured.getByRole('link',{name:'Details',exact:true})).toBeFocused();
 });

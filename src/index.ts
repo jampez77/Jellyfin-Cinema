@@ -21,6 +21,12 @@ import nativeUserPageStyles from './native-user-pages.css';
 import homeStyles from './home.css';
 import homeCollectionStyles from './home-collections.css';
 import { HomeCollections } from './home-collections';
+import { ProviderHomeView, type ProviderHomeState } from './provider-home';
+import { ProviderSettingsEditor } from './provider-settings-editor';
+import { ProviderData } from './provider-data';
+import { providerBrand, type ProviderBrandId } from './provider-brands';
+import providerHomeStyles from './provider-home.css';
+import providerSettingsStyles from './provider-settings.css';
 import pauseStyles from './pause-screen.css';
 import playerStyles from './player-browser.css';
 import { NativeHostMask } from './native-host';
@@ -41,8 +47,9 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles;document.head.append(sheet);
-let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|null=null;
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles;document.head.append(sheet);
+let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|ProviderHomeView|ProviderSettingsEditor|null=null;
+let providerPreview:ProviderData|undefined;
 let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
 let timer:number|undefined;
@@ -59,6 +66,7 @@ const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
 const libraryStates=new Map<string,LibraryBrowseState>();
 const browseStates=new Map<string,BrowseState>();
+const providerStates=new Map<string,ProviderHomeState>();
 const recordingOrigins=new Set<string>();
 const movieCollectionOrigins=new Map<string,string>();
 const detailOrigins=new Set<string>();
@@ -68,9 +76,10 @@ let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
 type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
+type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderBrandId;rowId?:string}|{kind:'provider-settings'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
   homeCollections?.destroy();homeCollections=null;
+  providerPreview?.destroy();providerPreview=undefined;
   stopThemeVideo?.();stopThemeVideo=undefined;
   view?.destroy();view=null;activeKey='';openedHash='';
   nativeHostMask.clear();
@@ -81,7 +90,12 @@ function close(restore=true):void{
 function currentRoute():Route|null{
   const [path,query='']=location.hash.replace(/^#\/?/,'').split('?');
   const params=new URLSearchParams(query);
+  if(/^mypreferencesmenu\/?$/i.test(path)&&params.get('cinemaProviders')==='1'
+    &&onlyParams(params,['cinemaProviders','serverId']))return {kind:'provider-settings'};
   if(/^home\/?$/i.test(path)){
+    const provider=params.get('cinemaProvider');
+    if(provider&&providerBrand(provider)&&onlyParams(params,['serverId','cinemaProvider','cinemaRow']))
+      return {kind:'provider',provider:provider as ProviderBrandId,rowId:params.get('cinemaRow')||undefined};
     // Home/Favourites switch native controllers without changing the URL.
     // Both retain their native tabs, focus handling and content ownership.
     if(!onlyParams(params,['serverId','tab'])||(params.has('tab')&&!['0','1'].includes(params.get('tab')!)))return null;
@@ -141,6 +155,9 @@ function back():void{
 }
 function hideNativeHost(route:Route):void{
   if(route.kind==='home')return;
+  if(route.kind==='provider'||route.kind==='provider-settings'){
+    nativeHostMask.setSelector(route.kind==='provider'?'#indexPage':'#myPreferencesMenuPage');return;
+  }
   const selector=route.kind==='music'?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
   nativeHostMask.setSelector(selector);
 }
@@ -153,7 +170,7 @@ function updateAccount(api:MediaApi|null):void{
   // Dispose first: views save their final state during destruction. Clear that
   // outgoing account's state afterwards, before mounting any new account view.
   probeRevision++;pendingHash='';close(false);accountScope=scope;dismissed='';previousFocus=null;
-  returnFocus.clear();libraryStates.clear();browseStates.clear();
+  returnFocus.clear();libraryStates.clear();browseStates.clear();providerStates.clear();
   recordingOrigins.clear();movieCollectionOrigins.clear();detailOrigins.clear();verifiedLibraries.clear();
 }
 function refresh():void{
@@ -242,12 +259,18 @@ function collectionBack(route:CollectionRoute):void{
 function openRoute(route:Route,api:MediaApi,key:string):void{
   close(false);activeKey=key;openedHash=location.hash;previousFocus=document.activeElement as HTMLElement;
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
+  const openProvider=(provider:ProviderBrandId,rowId?:string)=>{
+    rememberFocus();const params=new URLSearchParams({cinemaProvider:provider});
+    if(rowId)params.set('cinemaRow',rowId);
+    if(api.serverId)params.set('serverId',api.serverId);
+    location.hash=`/home?${params}`;
+  };
   if(route.kind==='home'){
     // Keep Jellyfin's Home in place. Its controllers own user/device settings,
     // section order, hidden libraries, focus and Featured's carousel lifecycle.
     // Styling alone also works when the native page arrives after this route.
     document.body.classList.add('tvl-home');
-    homeCollections=new HomeCollections(api,id=>navigate(id,api.serverId),focusId);return;
+    homeCollections=new HomeCollections(api,id=>navigate(id,api.serverId),focusId,openProvider);return;
   }
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
@@ -260,7 +283,17 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
     if(serverId&&!params.has('serverId'))params.set('serverId',serverId);
     location.hash=path+(params.toString()?`?${params}`:'');
   };
-  if(route.kind==='guide')view=new GuideView(api,{back});
+  if(route.kind==='provider'){
+    const hash=location.hash;
+    view=new ProviderHomeView(api,{provider:route.provider,rowId:route.rowId,focusId,back,navigate:go,openRow:id=>openProvider(route.provider,id),state:providerStates.get(hash),onState:state=>{
+      providerStates.set(hash,state);if(providerStates.size>100)providerStates.delete(providerStates.keys().next().value!);
+    }});
+  }
+  else if(route.kind==='provider-settings'){
+    const data=new ProviderData(api);providerPreview=data;
+    view=new ProviderSettingsEditor(api,{onBack:back,loadPreview:async(provider,row)=>(await data.load(provider,row,0,8)).items});
+  }
+  else if(route.kind==='guide')view=new GuideView(api,{back});
   else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
   else if(route.kind==='movies'||route.kind==='shows'){
     const hash=location.hash;

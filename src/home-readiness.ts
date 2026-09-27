@@ -37,7 +37,7 @@ export class HomeReadiness {
   private watch(host: HTMLElement): void {
     for (const element of Array.from(host.querySelectorAll<NativeItems>('.sections .itemsContainer, .homeSectionsContainer .itemsContainer'))) {
       const original = element.fetchData;
-      if (element.closest('.tvl-home-collection-row') || this.watches.has(element) || element.childElementCount
+      if (element.closest('.tvl-home-collection-row, .tvl-home-provider-row') || this.watches.has(element) || element.childElementCount
         || typeof original === 'function' && completed.get(element) === original) continue;
       if (typeof original !== 'function') continue;
       const owner = this;
