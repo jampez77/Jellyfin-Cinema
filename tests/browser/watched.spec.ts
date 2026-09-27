@@ -39,11 +39,13 @@ for (const layout of ['desktop', 'tv']) test(`${layout} movie watched toggle sav
   await expect(toggle).toHaveAccessibleName('Mark watched');
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   await expect(detail(page).getByRole('button', { name: 'Resume', exact: true })).toBeVisible();
+  await expect(detail(page).getByRole('button', { name: 'Play from beginning', exact: true })).toBeVisible();
   await toggle.focus(); await page.keyboard.press('Enter');
   await expect(toggle).toHaveAccessibleName('Mark unwatched');
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
   await expect(toggle).toBeFocused();
   await expect(detail(page).getByRole('button', { name: 'Resume', exact: true })).toHaveCount(0);
+  await expect(detail(page).getByRole('button', { name: 'Play from beginning', exact: true })).toHaveCount(0);
   await expect(detail(page).getByRole('button', { name: 'Play', exact: true })).toBeVisible();
   await expect(page.getByRole('main', { name: 'Demo playback' })).toHaveCount(0);
 

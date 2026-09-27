@@ -74,11 +74,11 @@ const providerHistoryKey='jellyfinCinemaProviderVisit';
 type ProviderVisit={version:1;scope:string;provider:ProviderId;home:string};
 let pendingProviderVisit:(ProviderVisit&{hash:string})|undefined;
 // Classification only: item data and access are still fetched for each view.
-const verifiedLibraries=new Map<string,'collections'|'recordings'>();
+const verifiedLibraries=new Map<string,'collections'|'recordings'|'playlists'>();
 let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
-type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'};
+type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'|'playlists'};
 type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderId;rowId?:string}|{kind:'provider-settings';providerId?:ProviderId}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
   homeCollections?.destroy();homeCollections=null;
@@ -110,6 +110,14 @@ function currentRoute():Route|null{
     const tabs:Record<string,BrowseTab>={'0':'albums','1':'suggestions','2':'albumArtists','3':'artists','4':'playlists','5':'songs','6':'genres'};
     const tab=tabs[params.get('tab')||'0'];
     return tab?{kind:'music',parentId:params.get('topParentId')||undefined,tab}:null;
+  }
+  if(/^playlists\/?$/i.test(path)){
+    // Modern Jellyfin's standalone playlist library has its own route. Its
+    // Favourites tab remains native rather than showing an unfiltered list.
+    if(!onlyParams(params,['topParentId','serverId','collectionType','tab'])
+      ||params.has('collectionType')&&params.get('collectionType')!=='playlists'
+      ||params.has('tab')&&params.get('tab')!=='0')return null;
+    return {kind:'music',tab:'playlists',scope:'playlists'};
   }
   if(/^livetv\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
@@ -199,7 +207,7 @@ function hideNativeHost(route:Route):void{
   if(route.kind==='provider'||route.kind==='provider-settings'){
     nativeHostMask.setSelector(route.kind==='provider'?'#indexPage':'#myPreferencesMenuPage');return;
   }
-  const selector=route.kind==='music'?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
+  const selector=route.kind==='music'&&!route.scope?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
   nativeHostMask.setSelector(selector);
 }
 function scopeOf(api:MediaApi|null):string|null{
@@ -245,7 +253,7 @@ function refresh():void{
   if(route.kind==='collections'&&route.verifyParent){
     const verified=verifiedLibraries.get(route.parentId!);
     if(verified){
-      openRoute(verified==='recordings'?{kind:'recordings',scope:'list',parentId:route.parentId}:route,api,key);return;
+      openRoute(verified==='playlists'?{kind:'music',tab:'playlists',scope:'list'}:verified==='recordings'?{kind:'recordings',scope:'list',parentId:route.parentId}:route,api,key);return;
     }
     if(pendingHash===location.hash)return;
     close(false);
@@ -254,6 +262,11 @@ function refresh():void{
       if(revision!==probeRevision||location.hash!==hash||scopeOf(getPlayerApi())!==scope)return;
       if(parent.CollectionType==='boxsets'){
         pendingHash='';rememberLibrary(parent.Id,'collections');openRoute(route,api,key);return;
+      }
+      if(parent.CollectionType==='playlists'){
+        // The virtual library is a navigation root, not a music album parent.
+        // Match native Jellyfin's account-wide playlist query.
+        pendingHash='';rememberLibrary(parent.Id,'playlists');openRoute({kind:'music',tab:'playlists',scope:'list'},api,key);return;
       }
       // DVR recognition can be unavailable to a library-only account. The
       // ordinary native folder still gets styling without gaining DVR access.
@@ -271,7 +284,7 @@ function refresh():void{
   }
   openRoute(route,api,key);
 }
-function rememberLibrary(id:string,kind:'collections'|'recordings'):void{
+function rememberLibrary(id:string,kind:'collections'|'recordings'|'playlists'):void{
   verifiedLibraries.set(id,kind);
   if(verifiedLibraries.size>100)verifiedLibraries.delete(verifiedLibraries.keys().next().value!);
 }

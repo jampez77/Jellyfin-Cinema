@@ -28,6 +28,8 @@ test('desktop Home themes native sections and mouse/keyboard navigation restores
   await expect(details.getByRole('button', { name: 'Remove from favourites', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await details.getByRole('button', { name: 'Resume', exact: true }).focus();
   await page.keyboard.press('Tab');
+  await expect(details.getByRole('button', { name: 'Play from beginning', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(details.getByRole('button', { name: 'Watch trailer', exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(item).toBeFocused(); await expect(page.locator('body')).toHaveClass(/tvl-home/);

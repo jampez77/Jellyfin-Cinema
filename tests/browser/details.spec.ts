@@ -130,6 +130,8 @@ test('movie trailer has an icon, starts independently, and preserves movie resum
   await expect(trailer.locator('svg')).toBeVisible();
   await expect(root.getByRole('button', { name: 'Resume', exact: true })).toBeFocused();
   await page.keyboard.press('ArrowRight');
+  await expect(root.getByRole('button', { name: 'Play from beginning', exact: true })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
   await expect(trailer).toBeFocused();
   await page.keyboard.press('Enter');
   const player = page.getByRole('main', { name: 'Demo playback' });

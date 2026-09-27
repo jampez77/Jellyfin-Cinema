@@ -300,7 +300,7 @@ export class DetailView {
   private playbackActions(): HTMLElement {
     const play = button(this.playLabel(), 'play', 'tvl-primary', () => { if(this.target) void this.play(this.target); });
     play.dataset.focusId = 'play'; play.disabled = !this.target || !playable(this.target);
-    if (this.target?.Type !== 'Episode' || !this.canResume()) return play;
+    if (!['Movie', 'Episode'].includes(this.target?.Type || '') || !this.canResume()) return play;
     const playback = el('div', 'tvl-playback-actions');
     const restart = button('Play from beginning', '', 'tvl-restart', () => { if(this.target) void this.play(this.target, 0); });
     restart.dataset.focusId = 'restart'; restart.disabled = play.disabled;
