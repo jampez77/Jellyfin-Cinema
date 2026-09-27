@@ -1,6 +1,8 @@
-# Jellyfin Cinema local preview
+# Jellyfin Cinema demo
 
-Run `npm install`, `npm run build`, and `npm run dev` from the project root. Open [the preview](http://127.0.0.1:4173/).
+Try the hosted demo in [TV mode](https://jampez77.github.io/Jellyfin-Cinema/?layout=tv&featured=0#/home) or [desktop mode](https://jampez77.github.io/Jellyfin-Cinema/?layout=desktop&featured=0#/home). It uses fictional media and simulated playback; the screenshots in the main README show a real Jellyfin library instead. No personal library content or Jellyfin credentials are included in the public demo.
+
+To run it locally, use `npm ci`, `npm run build`, and `npm run dev` from the project root. Open [the local preview](http://127.0.0.1:4173/).
 
 Add `?layout=desktop` before the hash to preview desktop mode, for example [desktop Home](http://127.0.0.1:4173/?layout=desktop&featured=0#/home). This keeps the same Cinema design without enabling Jellyfin’s TV display mode.
 
@@ -10,7 +12,7 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 - **Movies:** the library includes search, letter filters, genres, favourites and suggestions. Open a card to view its details; After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
 - **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and artwork for the highlighted programme fits above the schedule, including future programmes. The schedule is calculated when the page loads.
 - **Home:** use **Collections → Customize collection rows** to choose collections, add rows of their members and enable outlined rank images beside posters. Choices persist for the demo account in this browser. The rest is a native-shaped Home fixture with My Media, Continue watching/listening, Next up, Live TV navigation and latest additions. The installed layout styles Jellyfin's existing sections in place, preserving its user preferences and plugins. The preview's fictional featured hero is labelled; it is not the Featured plugin. A minimal Settings page opens the provider editor; other native settings/search forms are not simulated.
-- **Streaming services:** six branded tiles open individual provider pages with featured artwork, full fictional film/TV catalogues and separate chart subsets. **Settings → Cinema → Streaming services** edits the tile order, Home position, provider rows, collection overrides, sorting and rank artwork with live previews. **Save changes** persists preferences in this browser; the demo does not exercise server sync or make availability requests. Provider assignments and chart order are fictional test data, not real UK streaming offers.
+- **Streaming services:** nine branded tiles open individual provider pages with featured artwork, full fictional film/TV catalogues and configured chart subsets. **Settings → Cinema → Streaming services** edits the tile order, Home position, provider rows, collection overrides, sorting and rank artwork with live previews. **Save changes** persists preferences in this browser; the demo does not exercise server sync or make availability requests. Provider assignments and chart order are fictional test data, not real UK streaming offers.
 - **Music:** fictional albums, artists and tracks, with search, genres, A–Z/#, favourites and suggestions. Open an artist to see albums, then an album to select its tracks.
 - **Recordings:** completed and active recordings, search and direct playback. Scheduling links point to Jellyfin's native pages, which the local fixture does not implement.
 
@@ -67,3 +69,9 @@ The preview includes **Coastal Stories** for After the Tide and **Into the Wilde
 Native theme-video integration is covered by browser tests using a local canvas video stream. The preview does not download or autoplay a sample theme video; installed Jellyfin clients use their existing theme player and preferences.
 
 In-player browsing and the pause screen are tested with real local canvas video streams in the browser suite. The regular demo playback screen remains a labelled simulation; it does not reproduce Jellyfin’s actual player. Test the integrated player UI on the installed server using Down/Browse or Pause.
+
+## Publishing the demo
+
+Run `npm run build:demo` to create a standalone static site in `dist/demo-site`. The build includes the production layout bundle, fictional fixture, bundled artwork and credits. Relative asset paths support hosting beneath a project path such as `/Jellyfin-Cinema/`.
+
+The [Publish demo workflow](../.github/workflows/demo.yml) builds and deploys this directory to GitHub Pages when relevant source or build files change on `main`. It can also be run manually from the repository’s Actions page. Repository Pages settings must use **GitHub Actions** as the publishing source; deployment is restricted to `main`. This workflow does not package or release the Jellyfin server plugin.

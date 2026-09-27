@@ -10,7 +10,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .demo-switcher a:hover { color: #fff; background: #ffffff0e; }
 .demo-switcher a[aria-current="page"] { color: #17181d; background: #ececec; }
 .demo-switcher a:focus-visible { outline: 2px solid white; outline-offset: 4px; }
-.demo-native-page { min-height: 100vh; padding: 42px 6vw; background: linear-gradient(90deg, #08090bef 3%, #08090b86 60%, #08090b33), linear-gradient(0deg, #08090b 0%, transparent 85%), url('/demo/assets/mountains.jpg') center / cover; }
+.demo-native-page { min-height: 100vh; padding: 42px 6vw; background: linear-gradient(90deg, #08090bef 3%, #08090b86 60%, #08090b33), linear-gradient(0deg, #08090b 0%, transparent 85%), url('assets/mountains.jpg') center / cover; }
 .demo-native-brand { font-weight: 700; font-size: 14px; letter-spacing: 2px; }
 .demo-native-brand span { margin-left: 16px; color: #a0a3aa; font-size: 9px; letter-spacing: 1.5px; }
 .demo-native-content { padding-top: min(22vh, 220px); max-width: 670px; }

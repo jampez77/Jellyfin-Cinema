@@ -11,7 +11,10 @@ const scenario = new URLSearchParams(location.search).get('scenario');
 if (new URLSearchParams(location.search).get('layout') === 'desktop') document.body.classList.replace('layout-tv', 'layout-desktop');
 const library = new Map<string, Item>();
 const artwork = new Map<string, string>();
-const asset = (name: string) => `/demo/assets/${name}.jpg`;
+// Resolve from the fixture script so localhost and project-hosted demos share
+// the same artwork paths, including the direct /demo/index.html entry point.
+const assetBase = new URL('../demo/assets/', (document.currentScript as HTMLScriptElement).src).pathname;
+const asset = (name: string) => `${assetBase}${name}.jpg`;
 const seasons: Item[] = [];
 const episodes = new Map<string, Item[]>();
 const channels: Item[] = [];
