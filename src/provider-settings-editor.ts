@@ -1,14 +1,16 @@
 import { button, el, replace } from './dom';
 import { attachRemote } from './remote';
-import { providerBrand, providerBrands, type ProviderBrandId } from './provider-brands';
-import { cloneProviderHomes, defaultProviderRows, maxProviderRows, type ProviderHomeConfig, type ProviderHomesSettings, type ProviderRow, type ProviderRowSource, type ProviderItemSort } from './provider-settings';
+import { providerBrand, providerBrands } from './provider-brands';
+import { cloneProviderHomes, defaultProviderConfig, defaultCustomProvider, maxProviders, maxProviderRows, type ProviderId, type ProviderHomeConfig, type ProviderHomesSettings, type ProviderRow, type ProviderRowSource, type ProviderItemSort } from './provider-settings';
+import { providerAppearance, providerLogo } from './provider-appearance';
+import { providerHomeRow } from './provider-home';
 import { createProviderHomesStore, ProviderHomesSyncError, type ProviderHomesStore } from './provider-settings-store';
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
 import { homeCollectionKey } from './home-collection-settings';
 import { homeRowCard } from './home-row-card';
 import type { Item, MediaApi } from './types';
 
-type Options = { onBack: () => void; loadPreview: (provider: ProviderBrandId, row: ProviderRow) => Promise<Item[]> };
+type Options = { onBack: () => void; loadPreview: (provider: ProviderHomeConfig, row: ProviderRow) => Promise<Item[]> };
 const sources: [ProviderRowSource, string][] = [['movies', 'Films'], ['shows', 'TV shows'], ['trending-movies', 'Trending films'], ['trending-shows', 'Trending TV shows'], ['collection', 'Collection']];
 const sorts: [ProviderItemSort, string][] = [['collection', 'Source order'], ['title', 'Title A–Z'], ['title-desc', 'Title Z–A'], ['newest', 'Newest release first'], ['oldest', 'Oldest release first']];
 
@@ -20,10 +22,13 @@ export class ProviderSettingsEditor {
   private status = el('p', 'tvl-provider-settings-status');
   private reloadButton: HTMLButtonElement;
   private saveButton: HTMLButtonElement;
+  private cancelButton: HTMLButtonElement;
   private store: ProviderHomesStore;
   private draft: ProviderHomesSettings;
-  private selected: ProviderBrandId | 'home' = 'home';
-  private selectedRows = new Map<ProviderBrandId, string>();
+  private saved: ProviderHomesSettings;
+  private selected: ProviderId | 'home' = 'home';
+  private selectedRows = new Map<ProviderId, string>();
+  private providerIdInputs = new Map<string, string>();
   private collections: Item[] = [];
   private anchors: HomeAnchor[] = [];
   private previewItems = new Map<string, Item[]>();
@@ -37,7 +42,7 @@ export class ProviderSettingsEditor {
   private removeRemote: () => void;
 
   constructor(private api: MediaApi, private options: Options) {
-    this.store = createProviderHomesStore(api); this.draft = this.store.cached;
+    this.store = createProviderHomesStore(api); this.draft = this.store.cached; this.saved = cloneProviderHomes(this.draft);
     this.element.setAttribute('aria-label', 'Streaming service settings');
     this.sidebar.setAttribute('aria-label', 'Streaming service pages');
     this.status.setAttribute('role', 'status');
@@ -53,6 +58,7 @@ export class ProviderSettingsEditor {
     const heading = el('div'); heading.append(el('p', 'tvl-provider-settings-eyebrow', 'PERSONALISE CINEMA'), el('h1', '', 'Streaming services'));
     const actions = el('div', 'tvl-provider-settings-actions');
     actions.append(this.control('Back to settings', 'back', () => this.options.onBack(), 'back'));
+    this.cancelButton = this.control('Cancel changes', 'cancel', () => this.cancel()); this.cancelButton.disabled = true; actions.append(this.cancelButton);
     this.saveButton = this.control('Save changes', 'save', () => { void this.save(); }, 'check', 'tvl-primary');
     this.saveButton.disabled = true; actions.append(this.saveButton); header.append(heading, actions);
     this.reloadButton = this.control('Reload saved settings', 'reload', () => { void this.load(); }); this.reloadButton.hidden = true;
@@ -69,6 +75,10 @@ export class ProviderSettingsEditor {
   }
   private selectKeys = (event: KeyboardEvent) => {
     const active = document.activeElement;
+    if (!this.disposed && active instanceof HTMLInputElement && active.type === 'range' && this.element.contains(active)
+      && ['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
+      event.stopImmediatePropagation(); return;
+    }
     if (!this.disposed && active instanceof HTMLInputElement && active.type === 'checkbox' && this.element.contains(active) && event.key === 'Enter') {
       event.preventDefault(); event.stopImmediatePropagation();
       if (event.type === 'keydown' && !event.repeat) active.click();
@@ -80,6 +90,11 @@ export class ProviderSettingsEditor {
   private selectCommand = (event: Event) => {
     const active = document.activeElement;
     const command = (event as CustomEvent).detail?.command?.toLowerCase();
+    if (active instanceof HTMLInputElement && active.type === 'range' && this.element.contains(active) && ['left', 'right'].includes(command)) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      active.value = String(Math.min(Number(active.max), Math.max(Number(active.min), Number(active.value) + (command === 'right' ? 1 : -1))));
+      active.dispatchEvent(new Event('input', { bubbles: true })); return;
+    }
     if (!(active instanceof HTMLSelectElement) || !this.element.contains(active) || !['up', 'down', 'left', 'right', 'select', 'enter', 'ok'].includes(command)) return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (['up', 'down', 'left', 'right'].includes(command)) {
@@ -98,14 +113,14 @@ export class ProviderSettingsEditor {
   async load(): Promise<void> {
     if (this.disposed || this.loading || this.saving) return;
     const generation = ++this.generation; this.previewGeneration++;
-    this.loading = true; this.ready = false; this.saveButton.disabled = true; this.reloadButton.hidden = true;
+    this.loading = true; this.ready = false; this.saveButton.disabled = true; this.cancelButton.disabled = true; this.reloadButton.hidden = true;
     this.status.textContent = 'Loading saved streaming services…';
     this.setControlsDisabled(true);
     try {
       const [settings, collections] = await Promise.allSettled([this.store.load(), this.api.getCollectionList()]);
       if (this.disposed || generation !== this.generation) return;
       if (settings.status === 'rejected') throw settings.reason;
-      this.draft = settings.value; this.ready = true;
+      this.draft = settings.value; this.saved = cloneProviderHomes(this.draft); this.providerIdInputs.clear(); this.ready = true;
       this.collections = collections.status === 'fulfilled' ? collections.value : [];
       this.status.textContent = collections.status === 'rejected' ? 'Collection choices could not load. Automatic film and TV rows are still available.' : '';
       if (this.selected !== 'home' && !this.draft.providers.some(provider => provider.id === this.selected)) this.selected = 'home';
@@ -115,7 +130,7 @@ export class ProviderSettingsEditor {
       this.status.textContent = error instanceof ProviderHomesSyncError ? error.message : 'Saved streaming services could not be loaded. Check your connection and try again.';
       this.reloadButton.hidden = false;
     } finally {
-      if (!this.disposed && generation === this.generation) { this.loading = false; this.saveButton.disabled = !this.ready; this.setControlsDisabled(!this.ready); }
+      if (!this.disposed && generation === this.generation) { this.loading = false; this.saveButton.disabled = !this.ready; this.cancelButton.disabled = !this.ready; this.setControlsDisabled(!this.ready); }
     }
   }
   private setControlsDisabled(disabled: boolean): void {
@@ -125,27 +140,40 @@ export class ProviderSettingsEditor {
     });
   }
   private changed(): void { this.status.textContent = 'Unsaved changes'; }
+  private cancel(): void {
+    if (this.disposed || !this.ready || this.loading || this.saving) return;
+    this.draft = cloneProviderHomes(this.saved); this.providerIdInputs.clear(); this.previewItems.clear();
+    if (this.selected !== 'home' && !this.draft.providers.some(provider => provider.id === this.selected)) this.selected = 'home';
+    this.render(); this.status.textContent = 'Changes discarded.'; this.reloadButton.hidden = true;
+  }
   private render(focus?: string): void {
     if (this.disposed) return;
     const restore = focus || (document.activeElement as HTMLElement | null)?.dataset.providerSettingsFocus;
     this.previewGeneration++;
-    replace(this.sidebar); replace(this.workspace);
-    const home = this.control('Home row', 'page:home', () => { this.selected = 'home'; this.render('page:home'); });
-    home.setAttribute('aria-pressed', String(this.selected === 'home')); this.sidebar.append(home);
-    for (const provider of this.draft.providers) {
-      const brand = providerBrand(provider.id)!;
-      const choice = this.control(brand.name, `page:${provider.id}`, () => { this.selected = provider.id; this.render(`page:${provider.id}`); });
-      choice.setAttribute('aria-pressed', String(this.selected === provider.id));
-      const logo = el('img'); logo.src = brand.logo; logo.alt = ''; logo.setAttribute('aria-hidden', 'true'); choice.prepend(logo);
-      if (!provider.enabled) choice.append(el('small', '', 'Hidden'));
-      this.sidebar.append(choice);
-    }
+    this.renderSidebar(); replace(this.workspace);
     if (this.selected === 'home') this.renderHome();
     else {
       const provider = this.draft.providers.find(provider => provider.id === this.selected);
       if (provider) this.renderProvider(provider);
     }
     this.restoreFocus(restore);
+  }
+  private renderSidebar(): void {
+    replace(this.sidebar);
+    const home = this.control('Home row', 'page:home', () => { this.selected = 'home'; this.render('page:home'); });
+    home.setAttribute('aria-pressed', String(this.selected === 'home')); this.sidebar.append(home);
+    for (const provider of this.draft.providers) {
+      const brand = providerAppearance(provider);
+      const choice = this.control(brand.name, `page:${provider.id}`, () => { this.selected = provider.id; this.render(`page:${provider.id}`); });
+      choice.setAttribute('aria-pressed', String(this.selected === provider.id));
+      const logo = providerLogo(provider, 'tvl-provider-sidebar-logo'); logo.setAttribute('aria-hidden', 'true'); choice.prepend(logo);
+      if (!provider.enabled) choice.append(el('small', '', 'Hidden'));
+      this.sidebar.append(choice);
+    }
+    const add = this.control('Add service', 'add-service', () => {
+      const provider = defaultCustomProvider(`custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+      this.draft.providers.push(provider); this.selected = provider.id; this.changed(); this.render('provider:name');
+    }); add.disabled = this.draft.providers.length >= maxProviders; this.sidebar.append(add);
   }
   private field(label: string, focus: string, value: string, change: (value: string) => void, max = 80): HTMLElement {
     const wrap = el('label', 'tvl-provider-field', label), input = el('input'); input.type = 'text'; input.maxLength = max; input.value = value;
@@ -167,9 +195,16 @@ export class ProviderSettingsEditor {
     const positions: [string, string][] = [['start', 'Before the first Home row'], ...this.anchors.map(anchor => [anchor.key, `Before ${anchor.label}`] as [string, string]), ['end', 'After the last Home row']];
     if (!positions.some(([key]) => key === this.draft.placement)) positions.splice(positions.length - 1, 0, [this.draft.placement, 'Saved Home position (currently unavailable)']);
     this.workspace.append(this.select('Home position', 'home:placement', this.draft.placement, positions, value => { this.draft.placement = value; }));
+    const size = el('label', 'tvl-provider-field tvl-provider-size'), range = el('input'), amount = el('output', '', `${this.draft.tileScale}%`);
+    range.type = 'range'; range.min = '70'; range.max = '150'; range.step = '1'; range.value = String(this.draft.tileScale);
+    range.setAttribute('aria-label', 'Tile size'); range.setAttribute('aria-valuetext', `${range.value}%`); range.dataset.providerSettingsFocus = 'home:tile-size'; amount.setAttribute('aria-hidden', 'true');
+    range.addEventListener('input', () => { this.draft.tileScale = Number(range.value); amount.textContent = `${range.value}%`; range.setAttribute('aria-valuetext', `${range.value}%`); this.changed(); this.renderHomePreview(); });
+    size.append(el('span', '', 'Tile size'), amount, range); this.workspace.append(size);
+    this.workspace.append(this.checkbox('Show service names', 'home:show-names', this.draft.showNames, value => { this.draft.showNames = value; this.renderHomePreview(); }));
+    const preview = el('aside', 'tvl-provider-home-preview'); preview.setAttribute('aria-label', 'Home services row preview'); this.workspace.append(preview); this.renderHomePreview();
     const list = el('ol', 'tvl-provider-service-order'); list.setAttribute('aria-label', 'Home service order');
     for (const [index, provider] of this.draft.providers.entries()) {
-      const brand = providerBrand(provider.id)!, entry = el('li');
+      const brand = providerAppearance(provider), entry = el('li');
       entry.append(this.checkbox(`Show ${brand.name}`, `enabled:${provider.id}`, provider.enabled, value => { provider.enabled = value; this.render(`enabled:${provider.id}`); }));
       const actions = el('div', 'tvl-provider-order-actions');
       const earlier = this.control(`Move ${brand.name} earlier`, `earlier:${provider.id}`, () => this.moveProvider(provider, -1), '', 'tvl-provider-order-button'); earlier.disabled = index === 0;
@@ -178,22 +213,17 @@ export class ProviderSettingsEditor {
     }
     this.workspace.append(list);
     for (const brand of providerBrands.filter(brand => !this.draft.providers.some(provider => provider.id === brand.id))) {
-      this.workspace.append(this.control(`Add ${brand.name}`, `add-provider:${brand.id}`, () => {
-        this.draft.providers.push({ id: brand.id, enabled: true, hero: true, rows: defaultProviderRows() }); this.changed(); this.render(`page:${brand.id}`);
-      }));
+      const add = this.control(`Add ${brand.name}`, `add-provider:${brand.id}`, () => {
+        this.draft.providers.push(defaultProviderConfig(brand.id)); this.changed(); this.render(`page:${brand.id}`);
+      }); add.disabled = this.draft.providers.length >= maxProviders; this.workspace.append(add);
     }
-    const preview = el('aside', 'tvl-provider-home-preview'); preview.setAttribute('aria-label', 'Home services row preview'); this.workspace.append(preview); this.renderHomePreview();
   }
   private renderHomePreview(): void {
     const preview = this.workspace.querySelector<HTMLElement>('.tvl-provider-home-preview'); if (!preview) return;
-    replace(preview, el('span', 'tvl-provider-preview-label', 'HOME PREVIEW'), el('h3', '', this.draft.title || 'Streaming services'));
+    replace(preview, el('span', 'tvl-provider-preview-label', 'HOME PREVIEW'));
     if (!this.draft.enabled) { preview.append(el('p', 'tvl-provider-help', 'This row is hidden on Home.')); return; }
-    const tiles = el('div', 'tvl-provider-preview-tiles');
-    for (const provider of this.draft.providers.filter(provider => provider.enabled)) {
-      const brand = providerBrand(provider.id)!, tile = el('div', 'tvl-provider-preview-tile'), logo = el('img');
-      logo.src = brand.logo; logo.alt = brand.name; tile.style.setProperty('--provider-accent', brand.accent); tile.append(logo); tiles.append(tile);
-    }
-    preview.append(tiles);
+    const row = providerHomeRow(this.draft, id => { this.selected = id; this.render(`page:${id}`); });
+    if (row) preview.append(row); else preview.append(el('p', 'tvl-provider-help', 'No services are enabled.'));
   }
   private moveProvider(provider: ProviderHomeConfig, direction: number): void {
     const index = this.draft.providers.indexOf(provider), next = index + direction;
@@ -201,11 +231,39 @@ export class ProviderSettingsEditor {
     this.draft.providers.splice(index, 1); this.draft.providers.splice(next, 0, provider); this.changed(); this.render(`enabled:${provider.id}`);
   }
   private renderProvider(provider: ProviderHomeConfig): void {
-    const brand = providerBrand(provider.id)!, header = el('div', 'tvl-provider-editor-brand'), logo = el('img'); logo.src = brand.logo; logo.alt = '';
-    header.style.setProperty('--provider-accent', brand.accent); header.append(logo, el('h2', '', `${brand.name} Home`)); this.workspace.append(header);
+    const brand = providerAppearance(provider), header = el('div', 'tvl-provider-editor-brand');
+    header.style.setProperty('--provider-accent', brand.accent); header.append(providerLogo(provider), el('h2', '', `${brand.name} Home`)); this.workspace.append(header);
     const options = el('div', 'tvl-provider-page-options');
     options.append(this.checkbox(`Show ${brand.name} on Home`, 'provider:enabled', provider.enabled, value => { provider.enabled = value; this.render('provider:enabled'); }),
       this.checkbox('Show featured artwork', 'provider:hero', provider.hero, value => { provider.hero = value; })); this.workspace.append(options);
+    const appearance = el('div', 'tvl-provider-appearance'), fields = el('div');
+    fields.append(this.serviceField(provider, 'Service name', 'name', provider.name, value => { provider.name = value; this.updateAppearance(provider); }, value => value.trim() ? '' : 'Enter a service name.'));
+    fields.append(this.serviceField(provider, 'Logo URL', 'logo', provider.logoUrl, value => { provider.logoUrl = value.trim(); this.updateAppearance(provider); }, value => this.logoError(value), 2048));
+    fields.append(el('p', 'tvl-provider-help', providerBrand(provider.id) ? 'Leave the logo URL empty to use the original service logo.' : 'Use an HTTP or HTTPS image URL, or leave it empty for an initial badge.'));
+    fields.append(this.serviceField(provider, 'Accent colour', 'accent', provider.accent, value => { provider.accent = value; this.updateAppearance(provider); }, value => /^#[\da-f]{6}$/i.test(value) ? '' : 'Use a six-digit colour such as #9fb8a8.', 7));
+    const tilePreview = el('aside', 'tvl-provider-appearance-preview'); tilePreview.setAttribute('aria-label', 'Service tile preview');
+    appearance.append(fields, tilePreview); this.workspace.append(appearance); this.updateAppearance(provider);
+    const advanced = el('details', 'tvl-provider-advanced'), summary = el('summary', '', 'Catalogue sources'); summary.tabIndex = 0;
+    const sourceHelp = el('p', 'tvl-provider-help', 'Optional TMDB provider IDs match titles in your Jellyfin library to this service’s UK catalogue. Collection rows work without these IDs. Separate multiple IDs with commas.');
+    const reference = el('a', '', 'TMDB provider reference'); reference.href = 'https://developer.themoviedb.org/reference/watch-providers-movie-list'; reference.target = '_blank'; reference.rel = 'noopener noreferrer'; sourceHelp.append(document.createTextNode(' '), reference);
+    advanced.append(summary, sourceHelp);
+    for (const [key, label] of [['movieProviderIds', 'Film provider IDs'], ['showProviderIds', 'TV provider IDs']] as const) {
+      const value = this.providerIdInputs.get(`${provider.id}:${key}`) ?? provider[key].join(', ');
+      advanced.append(this.serviceField(provider, label, key, value, value => {
+        this.providerIdInputs.set(`${provider.id}:${key}`, value); const parsed = this.readProviderIds(value);
+        if (parsed.ids) provider[key] = parsed.ids;
+        this.refreshSelectedPreview(provider);
+      }, value => this.readProviderIds(value).error, 180));
+    }
+    const offers = el('fieldset', 'tvl-provider-offers'); offers.append(el('legend', '', 'UK catalogue availability'));
+    for (const [type, label] of [['flatrate', 'Include subscription titles'], ['free', 'Include free titles'], ['ads', 'Include ad-supported titles']] as const) {
+      offers.append(this.checkbox(label, `provider:offer-${type}`, provider.offerTypes.includes(type), checked => {
+        provider.offerTypes = checked ? [...provider.offerTypes, type] : provider.offerTypes.filter(value => value !== type);
+        this.refreshSelectedPreview(provider); const error = offers.querySelector<HTMLElement>('.tvl-provider-field-error')!;
+        error.textContent = provider.offerTypes.length ? '' : 'Choose at least one availability type.'; error.hidden = !!provider.offerTypes.length;
+      }));
+    }
+    const offerError = el('p', 'tvl-provider-field-error', provider.offerTypes.length ? '' : 'Choose at least one availability type.'); offerError.hidden = !!provider.offerTypes.length; offers.append(offerError); advanced.append(offers); this.workspace.append(advanced);
     const rowList = el('div', 'tvl-provider-row-list'); rowList.setAttribute('aria-label', `${brand.name} rows`);
     let selected = provider.rows.find(row => row.id === this.selectedRows.get(provider.id)) || provider.rows[0];
     if (selected) this.selectedRows.set(provider.id, selected.id);
@@ -230,6 +288,70 @@ export class ProviderSettingsEditor {
       const link = el('a', '', name); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer'; credits.append(link);
     }
     this.workspace.append(credits);
+    const manage = el('div', 'tvl-provider-manage');
+    const builtin = providerBrand(provider.id);
+    if (builtin) manage.append(this.control('Restore defaults', 'provider:restore', () => {
+      const index = this.draft.providers.indexOf(provider); this.draft.providers[index] = defaultProviderConfig(builtin.id);
+      this.clearProviderInputs(provider.id); this.changed(); this.render('provider:name');
+    }));
+    manage.append(this.control('Remove service', 'provider:remove', () => {
+      this.draft.providers = this.draft.providers.filter(value => value !== provider); this.clearProviderInputs(provider.id);
+      this.selected = 'home'; this.changed(); this.render('page:home');
+    }, '', 'tvl-provider-remove'));
+    this.workspace.append(manage);
+  }
+  private serviceField(provider: ProviderHomeConfig, label: string, focus: string, value: string, change: (value: string) => void, validate: (value: string) => string, max = 80): HTMLElement {
+    const wrap = this.field(label, `provider:${focus}`, value, change, max), input = wrap.querySelector('input')!;
+    input.setAttribute('aria-label', label);
+    const error = el('span', 'tvl-provider-field-error'); error.id = `provider-field-${provider.id}-${focus}`; input.setAttribute('aria-describedby', error.id);
+    const check = () => { const message = validate(input.value); error.textContent = message; error.hidden = !message; input.setAttribute('aria-invalid', String(!!message)); };
+    input.addEventListener('input', check); wrap.append(error); check(); return wrap;
+  }
+  private logoError(value: string): string {
+    if (!value.trim()) return '';
+    try { const url = new URL(value.trim()); if (/^https?:\/\//i.test(value.trim()) && !/\s/.test(value.trim()) && url.hostname && !url.username && !url.password && value.trim().length <= 2048) return ''; } catch { /* Show a field-level error below. */ }
+    return 'Use an HTTP or HTTPS image URL without a username or password.';
+  }
+  private readProviderIds(value: string): { ids?: number[]; error: string } {
+    if (!value.trim()) return { ids: [], error: '' };
+    const pieces = value.split(',').map(part => part.trim());
+    if (pieces.length > 20) return { error: 'Use no more than 20 provider IDs.' };
+    if (pieces.some(part => !/^\d+$/.test(part) || Number(part) < 1 || Number(part) > 1_000_000)) return { error: 'Use comma-separated whole numbers from 1 to 1000000.' };
+    const ids = pieces.map(Number); if (new Set(ids).size !== ids.length) return { error: 'Use each provider ID only once.' };
+    return { ids, error: '' };
+  }
+  private clearProviderInputs(id: ProviderId): void {
+    this.providerIdInputs.delete(`${id}:movieProviderIds`); this.providerIdInputs.delete(`${id}:showProviderIds`);
+    this.previewItems.clear();
+  }
+  private updateAppearance(provider: ProviderHomeConfig): void {
+    const appearance = providerAppearance(provider), header = this.workspace.querySelector<HTMLElement>('.tvl-provider-editor-brand');
+    if (header) { header.style.setProperty('--provider-accent', appearance.accent); replace(header, providerLogo(provider), el('h2', '', `${appearance.name} Home`)); }
+    const toggle = this.workspace.querySelector<HTMLElement>('[data-provider-settings-focus="provider:enabled"]')?.parentElement?.querySelector('span');
+    if (toggle) toggle.textContent = `Show ${appearance.name} on Home`;
+    this.workspace.querySelector('.tvl-provider-row-list')?.setAttribute('aria-label', `${appearance.name} rows`);
+    const preview = this.workspace.querySelector<HTMLElement>('.tvl-provider-appearance-preview');
+    if (preview) {
+      replace(preview, el('span', 'tvl-provider-preview-label', 'SERVICE PREVIEW'));
+      const row = providerHomeRow({ ...this.draft, enabled: true, title: '', providers: [{ ...provider, enabled: true }] }, () => {});
+      if (row) preview.append(row);
+    }
+    this.renderSidebar();
+  }
+  private refreshSelectedPreview(provider: ProviderHomeConfig): void {
+    const row = provider.rows.find(row => row.id === this.selectedRows.get(provider.id)) || provider.rows[0];
+    const preview = this.workspace.querySelector<HTMLElement>('.tvl-provider-row-preview');
+    if (row && preview) void this.renderRowPreview(provider, row, preview);
+  }
+  private providerError(provider: ProviderHomeConfig): { focus: string; message: string } | undefined {
+    if (!provider.name.trim()) return { focus: 'name', message: 'Enter a service name.' };
+    const logo = this.logoError(provider.logoUrl); if (logo) return { focus: 'logo', message: logo };
+    if (!/^#[\da-f]{6}$/i.test(provider.accent)) return { focus: 'accent', message: 'Use a six-digit colour such as #9fb8a8.' };
+    for (const key of ['movieProviderIds', 'showProviderIds'] as const) {
+      const parsed = this.readProviderIds(this.providerIdInputs.get(`${provider.id}:${key}`) ?? provider[key].join(', '));
+      if (parsed.error) return { focus: key, message: parsed.error };
+    }
+    if (!provider.offerTypes.length) return { focus: 'offer-flatrate', message: 'Choose at least one availability type.' };
   }
   private moveRow(provider: ProviderHomeConfig, row: ProviderRow, direction: number): void {
     const index = provider.rows.indexOf(row), next = index + direction; if (next < 0 || next >= provider.rows.length) return;
@@ -267,7 +389,7 @@ export class ProviderSettingsEditor {
         const index = provider.rows.indexOf(row); provider.rows.splice(index, 1); this.selectedRows.set(provider.id, provider.rows[Math.min(index, provider.rows.length - 1)]?.id || '');
         this.changed(); this.render('add-row');
       }, '', 'tvl-provider-remove'));
-    fields.append(el('p', 'tvl-provider-help', row.source.startsWith('trending') ? 'Automatic trending uses the matching chart collection and its source order.'
+    fields.append(el('p', 'tvl-provider-help', row.source.startsWith('trending') ? 'Trending uses the matching chart collection and its source order. Choose a collection override if no matching chart is available.'
       : row.source === 'collection' ? 'Only titles visible to this Jellyfin account can appear.' : 'Automatic shows titles in your Jellyfin library available with this service in the UK. A collection override uses your chosen collection instead.'));
     editor.append(fields, preview); this.workspace.append(editor); refresh();
   }
@@ -277,14 +399,14 @@ export class ProviderSettingsEditor {
     const status = el('p', 'tvl-provider-help'); preview.append(status);
     if (!row.enabled) { status.textContent = 'This row is hidden on the provider page.'; return; }
     if (row.source === 'collection' && !row.collectionId) { status.textContent = 'Choose a collection to preview this row.'; return; }
-    const key = `${provider.id}:${row.source}:${row.collectionId}:${row.itemSort}`;
+    const key = JSON.stringify([provider.id, provider.name, provider.movieProviderIds, provider.showProviderIds, provider.offerTypes, row.source, row.collectionId, row.itemSort]);
     try {
       let items = this.previewItems.get(key);
       if (!items) {
         status.textContent = 'Loading preview…';
         let request = this.previewPending.get(key);
         if (!request) {
-          request = this.options.loadPreview(provider.id, { ...row }); this.previewPending.set(key, request);
+          request = this.options.loadPreview({ ...provider, movieProviderIds: [...provider.movieProviderIds], showProviderIds: [...provider.showProviderIds], offerTypes: [...provider.offerTypes], rows: provider.rows.map(row => ({ ...row })) }, { ...row }); this.previewPending.set(key, request);
           void request.then(value => { if (!this.disposed) this.previewItems.set(key, value); }, () => undefined).then(() => { if (this.previewPending.get(key) === request) this.previewPending.delete(key); });
         }
         items = await request;
@@ -304,6 +426,12 @@ export class ProviderSettingsEditor {
   private async save(): Promise<void> {
     if (this.disposed || !this.ready || this.saving || this.loading) return;
     for (const provider of this.draft.providers) {
+      const invalid = this.providerError(provider);
+      if (invalid) {
+        this.selected = provider.id; this.render();
+        if (invalid.focus.endsWith('ProviderIds') || invalid.focus.startsWith('offer-')) this.workspace.querySelector('details')!.open = true;
+        this.restoreFocus(`provider:${invalid.focus}`); this.status.textContent = invalid.message; return;
+      }
       const row = provider.rows.find(row => row.enabled && row.source === 'collection' && !row.collectionId);
       if (!row) continue;
       this.selected = provider.id; this.selectedRows.set(provider.id, row.id); this.render('row:collection');
@@ -312,10 +440,10 @@ export class ProviderSettingsEditor {
       this.status.textContent = `Choose a collection for “${row.title || 'Collection'}” before saving.`;
       return;
     }
-    this.saving = true; this.saveButton.disabled = true; this.setControlsDisabled(true); this.status.textContent = 'Saving streaming services…';
+    this.saving = true; this.saveButton.disabled = true; this.cancelButton.disabled = true; this.setControlsDisabled(true); this.status.textContent = 'Saving streaming services…';
     try {
       const saved = await this.store.save(cloneProviderHomes(this.draft)); if (this.disposed) return;
-      this.draft = saved; this.render(); this.status.textContent = this.store.synced ? 'Saved to your Jellyfin account.' : 'Saved on this device.';
+      this.draft = saved; this.saved = cloneProviderHomes(saved); this.providerIdInputs.clear(); this.render(); this.status.textContent = this.store.synced ? 'Saved to your Jellyfin account.' : 'Saved on this device.';
       this.reloadButton.hidden = true;
       window.dispatchEvent(new CustomEvent('tvl-provider-settings-changed', { detail: { serverId: this.api.serverId, userId: this.api.userId } }));
     } catch (error) {
@@ -325,7 +453,7 @@ export class ProviderSettingsEditor {
         this.ready = false; this.reloadButton.hidden = error.kind === 'stale';
       }
     } finally {
-      if (!this.disposed) { this.saving = false; this.saveButton.disabled = !this.ready; this.setControlsDisabled(false); }
+      if (!this.disposed) { this.saving = false; this.saveButton.disabled = !this.ready; this.cancelButton.disabled = !this.ready; this.setControlsDisabled(false); }
     }
   }
   destroy(): void {

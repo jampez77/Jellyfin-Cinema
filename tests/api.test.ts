@@ -1,5 +1,6 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { defaultCustomProvider } from '../src/provider-settings.ts';
 import { createJellyfinApi } from '../src/api';
 import type { Item } from '../src/types';
 
@@ -830,4 +831,23 @@ test('closed pages and inaccessible movies cannot click native Trailer controls'
   await assert.rejects(api.playTrailer({ ...movie, PlayAccess: 'None' }, () => true), /not available/i);
   await assert.rejects(api.playTrailer({ ...movie, Type: 'Episode' }, () => true), /movie is not available/i);
   assert.equal(clicks(), 0);
+});
+
+
+test('custom catalogue and draft preview use authenticated endpoints with bounded queries and validated drafts', async () => {
+  let current = 'user-a';
+  const calls: { type?: string; url: string; data?: string }[] = [];
+  const data = { Items: [{ Id: 'film', Name: 'Film', Type: 'Movie' }], TotalRecordCount: 1, Pending: 0, Total: 1, Status: 'ready', Region: 'GB', UpdatedAt: null };
+  const api = client({ getCurrentUserId: () => current,
+    getUrl: (path: string, query: Record<string, string> = {}) => path + '?' + new URLSearchParams(query),
+    getJSON: async (url: string) => { calls.push({ url }); return data; },
+    ajax: async (request: { type: string; url: string; data: string }) => { calls.push(request); return data; } });
+  const draft = { ...defaultCustomProvider('custom-public'), movieProviderIds: [38], offerTypes: ['free' as const] };
+  await api.getProviderItems!(draft.id, { type: 'Movie', startIndex: -2, limit: 200 });
+  assert.match(calls[0].url, /^TvItemLayout\/Providers\/custom-public\/Items\?type=Movie&startIndex=0&limit=100&sort=title$/);
+  await api.previewProviderItems!(draft, { type: 'Movie', limit: 8 });
+  assert.equal(calls[1].type, 'POST'); assert.match(calls[1].url, /Providers\/Preview\?mediaType=Movie/); assert.deepEqual(JSON.parse(calls[1].data!), draft);
+  await assert.rejects(api.previewProviderItems!({ ...draft, logoUrl: 'https://user:password@example.com/image' }, { type: 'Movie' }), /invalid/i);
+  await assert.rejects(api.getProviderItems!('../private', { type: 'Movie' }), /Unknown/); assert.equal(calls.length, 2);
+  current = 'user-b'; await assert.rejects(api.previewProviderItems!(draft, { type: 'Movie' }), /account changed/i); assert.equal(calls.length, 2);
 });

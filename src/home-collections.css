@@ -3,9 +3,38 @@
    or after the short failure deadline; background refreshes never apply it. */
 .tvl-home #homeTab.tvl-home-initial-loading,
 .tvl-home #homeTab.tvl-home-initial-loading * { visibility:hidden !important; }
-.tvl-home #homeTab.tvl-home-initial-loading .tvl-home-loading-status {
-  visibility:visible !important;position:fixed;top:42vh;left:4.5vw;right:4.5vw;
-  text-align:center;color:#b9c4bd;font-size:1rem;pointer-events:none;
+/* This is a body child: native cached pages may transform their own coordinate
+   system, so a fixed element inside Home would disappear on a deep return. */
+.tvl-home-loading-status {
+  position:fixed;top:0;right:0;bottom:0;left:0;z-index:1400;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 47%,#17251f 0,#101513 36%,#101112 72%);
+  color:#e1eee5;text-align:center;font:1rem/1.4 'Segoe UI','Helvetica Neue',Arial,sans-serif;
+}
+.tvl-home-loading-projector { position:relative;width:18rem;height:10rem;margin:0 0 1.7rem; }
+.tvl-home-loading-camera { position:absolute;left:4.1rem;top:4.3rem;width:7.2rem;height:3.5rem;border:2px solid #aac9b7;border-radius:.55rem;background:linear-gradient(150deg,#294637,#19281f);box-shadow:0 0 2rem #97d9b516; }
+.tvl-home-loading-camera::after { content:'';position:absolute;left:1.1rem;right:1.1rem;top:1.35rem;height:2px;background:#abcbb53d; }
+.tvl-home-loading-lens { position:absolute;left:11.1rem;top:5.1rem;width:1.1rem;height:1.8rem;border:2px solid #c3e0ce;border-radius:.15rem;background:#385340; }
+.tvl-home-loading-foot { position:absolute;left:6.6rem;top:7.9rem;width:2.1rem;height:1.4rem;border-left:2px solid #7e9c89;border-right:2px solid #7e9c89;transform:perspective(5rem) rotateX(25deg); }
+.tvl-home-loading-foot::after { content:'';position:absolute;left:-1rem;right:-1rem;bottom:0;border-bottom:2px solid #7e9c89; }
+.tvl-home-loading-reel { position:absolute;top:1.05rem;width:3.65rem;height:3.65rem;border:2px solid #bad8c6;border-radius:50%;background:#1d3025;animation:tvl-cinema-reel 3.2s linear infinite; }
+.tvl-home-loading-reel-left { left:3.45rem; }.tvl-home-loading-reel-right { left:7.6rem;animation-direction:reverse; }
+.tvl-home-loading-reel::after { content:'';position:absolute;left:calc(50% - .2rem);top:calc(50% - .2rem);width:.4rem;height:.4rem;border-radius:50%;background:#d5ecdc; }
+.tvl-home-loading-reel i { position:absolute;width:1rem;height:1rem;border:1px solid #92b69e;border-radius:50%;background:#101b14;left:calc(50% - .5rem);top:.28rem;transform-origin:50% 1.5rem; }
+.tvl-home-loading-reel i:nth-child(2) { transform:rotate(120deg); }.tvl-home-loading-reel i:nth-child(3) { transform:rotate(240deg); }
+.tvl-home-loading-beam { position:absolute;left:12.15rem;top:2.4rem;width:5.6rem;height:7.2rem;background:linear-gradient(90deg,#c5f8d95c,#b5f3cf00);clip-path:polygon(0 40%,100% 0,100% 100%,0 60%);animation:tvl-cinema-beam 2.6s ease-in-out infinite;transform-origin:left center; }
+.tvl-home-loading-copy { display:flex;flex-direction:column;align-items:center; }
+.tvl-home-loading-brand { font-size:.85rem;letter-spacing:.3em;font-weight:650;color:#d4e7d9;padding-left:.3em; }
+.tvl-home-loading-label { margin-top:.8rem;font-size:1.15rem;font-weight:400;color:#a9bfb0; }
+.tvl-home-loading-dots { display:flex;margin-top:1.2rem; }
+.tvl-home-loading-dots i { width:.25rem;height:.25rem;border-radius:50%;background:#c3e4cf;margin:0 .25rem;animation:tvl-cinema-dot 1.5s ease-in-out infinite; }
+.tvl-home-loading-dots i:nth-child(2) { animation-delay:.2s; }.tvl-home-loading-dots i:nth-child(3) { animation-delay:.4s; }
+@keyframes tvl-cinema-reel { to { transform:rotate(360deg); } }
+@keyframes tvl-cinema-beam { 0%,100% { opacity:.45;transform:scaleY(.94); } 50% { opacity:.85;transform:scaleY(1); } }
+@keyframes tvl-cinema-dot { 0%,100% { opacity:.25; } 50% { opacity:1; } }
+@media(prefers-reduced-motion:reduce) {
+  .tvl-home-loading-status * { animation:none !important; }
+  .tvl-home-loading-beam { opacity:.65; }
 }
 /* Saved rows and the editor preview share card artwork and focus geometry. */
 .tvl-home-collection-row { margin:0 0 2.2em; }

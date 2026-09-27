@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Jellyfin.Plugin.TvItemLayout.Providers;
 #if JELLYFIN_1010
 using Jellyfin.Data.Enums;
 #else
@@ -52,7 +53,7 @@ public sealed class ProviderHomesController(
         return caller.Id;
     }
 
-    private string StorePath(Guid user) => Path.Combine(paths.DataPath, "jellyfin-cinema", "provider-homes", user.ToString("N") + ".json");
+    private static string StorePath(IApplicationPaths paths, Guid user) => Path.Combine(paths.DataPath, "jellyfin-cinema", "provider-homes", user.ToString("N") + ".json");
 
     private static async Task<ProviderHomesResponse> Read(string path, CancellationToken cancellationToken)
     {
@@ -61,9 +62,16 @@ public sealed class ProviderHomesController(
         var data = await System.IO.File.ReadAllTextAsync(path, cancellationToken);
         var saved = JsonSerializer.Deserialize<ProviderHomesResponse>(data);
         if (saved?.Revision is null || !Guid.TryParseExact(saved.Revision, "N", out _)
-            || saved.Settings is not JsonElement settings || !ValidSettings(settings))
+            || saved.Settings is not JsonElement settings || !ProviderHomesSchema.ValidSettings(settings))
             throw new InvalidDataException("Saved Provider Homes are invalid.");
         return saved;
+    }
+
+    internal static async Task<ProviderHomesResponse> ReadForUser(IApplicationPaths paths, Guid user, CancellationToken cancellationToken)
+    {
+        await StoreLock.WaitAsync(cancellationToken);
+        try { return await Read(StorePath(paths, user), cancellationToken); }
+        finally { StoreLock.Release(); }
     }
 
     [HttpGet]
@@ -72,7 +80,7 @@ public sealed class ProviderHomesController(
         var user = await CurrentUser();
         if (user is null) return Unauthorized();
         await StoreLock.WaitAsync(cancellationToken);
-        try { return Ok(await Read(StorePath(user.Value), cancellationToken)); }
+        try { return Ok(await Read(StorePath(paths, user.Value), cancellationToken)); }
         finally { StoreLock.Release(); }
     }
 
@@ -82,17 +90,20 @@ public sealed class ProviderHomesController(
     {
         var user = await CurrentUser();
         if (user is null) return Unauthorized();
-        if ((request.Revision is not null && !Guid.TryParseExact(request.Revision, "N", out _)) || !ValidSettings(request.Settings))
+        if ((request.Revision is not null && !Guid.TryParseExact(request.Revision, "N", out _)) || !ProviderHomesSchema.ValidSettings(request.Settings))
             return BadRequest("Invalid Provider Home settings.");
         if (Encoding.UTF8.GetByteCount(request.Settings.GetRawText()) > MaximumBytes - 1024)
             return StatusCode(413, "Provider Home settings are too large.");
         await StoreLock.WaitAsync(cancellationToken);
         try
         {
-            var path = StorePath(user.Value);
+            var path = StorePath(paths, user.Value);
             var current = await Read(path, cancellationToken);
             if (!string.Equals(request.Revision, current.Revision, StringComparison.Ordinal))
                 return Conflict("Provider Homes changed on another device. Reload them before saving.");
+            if (current.Settings is JsonElement existing && existing.GetProperty("version").GetInt32() == 2
+                && request.Settings.GetProperty("version").GetInt32() == 1)
+                return Conflict("These services were configured with a newer Cinema client. Reload the updated client before saving.");
             var saved = new ProviderHomesResponse(Guid.NewGuid().ToString("N"), request.Settings.Clone());
             var serialized = JsonSerializer.Serialize(saved);
             if (Encoding.UTF8.GetByteCount(serialized) > MaximumBytes)
@@ -111,42 +122,7 @@ public sealed class ProviderHomesController(
         finally { StoreLock.Release(); }
     }
 
-    private static bool Properties(JsonElement value, params string[] allowed) => value.ValueKind == JsonValueKind.Object
-        && value.EnumerateObject().All(property => allowed.Contains(property.Name, StringComparer.Ordinal))
-        && value.EnumerateObject().Select(property => property.Name).Distinct().Count() == value.EnumerateObject().Count();
-    private static bool Text(JsonElement value, string key, int maximum, bool empty = true) => value.TryGetProperty(key, out var text)
-        && text.ValueKind == JsonValueKind.String && text.GetString()!.Length <= maximum && (empty || text.GetString()!.Length > 0);
-    private static bool Boolean(JsonElement value, string key) => value.TryGetProperty(key, out var boolean)
-        && boolean.ValueKind is JsonValueKind.True or JsonValueKind.False;
-    private static bool Choice(JsonElement value, string key, params string[] choices) => value.TryGetProperty(key, out var choice)
-        && choice.ValueKind == JsonValueKind.String && choices.Contains(choice.GetString(), StringComparer.Ordinal);
-    private static bool ValidSettings(JsonElement settings)
-    {
-        if (!Properties(settings, "version", "enabled", "title", "placement", "providers")
-            || !settings.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.Number
-            || !version.TryGetInt32(out var number) || number != 1 || !Boolean(settings, "enabled")
-            || !Text(settings, "title", 80) || !Text(settings, "placement", 240, false)
-            || !settings.TryGetProperty("providers", out var providers) || providers.ValueKind != JsonValueKind.Array
-            || providers.GetArrayLength() > 6) return false;
-        var placement = settings.GetProperty("placement").GetString()!;
-        if (placement is not ("start" or "end") && (!placement.StartsWith("native:", StringComparison.Ordinal) || placement.Length == 7)) return false;
-        var providerIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var provider in providers.EnumerateArray())
-        {
-            if (!Properties(provider, "id", "enabled", "hero", "rows")
-                || !Choice(provider, "id", "netflix", "prime", "disney", "apple", "now", "paramount")
-                || !providerIds.Add(provider.GetProperty("id").GetString()!) || !Boolean(provider, "enabled") || !Boolean(provider, "hero")
-                || !provider.TryGetProperty("rows", out var rows) || rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() > 12) return false;
-            var rowIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var row in rows.EnumerateArray())
-                if (!Properties(row, "id", "title", "source", "collectionId", "enabled", "ranked", "itemSort")
-                    || !Text(row, "id", 100, false) || !rowIds.Add(row.GetProperty("id").GetString()!) || !Text(row, "title", 80)
-                    || !Choice(row, "source", "movies", "shows", "trending-movies", "trending-shows", "collection")
-                    || !Text(row, "collectionId", 199) || !Boolean(row, "enabled") || !Boolean(row, "ranked")
-                    || !Choice(row, "itemSort", "collection", "title", "title-desc", "newest", "oldest")) return false;
-        }
-        return true;
-    }
+
 }
 
 public sealed record ProviderHomesRequest(

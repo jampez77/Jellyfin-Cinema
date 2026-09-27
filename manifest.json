@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.16.3",
+        "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.16/TvItemLayout_0.2.16.3_jellyfin-12.0.0.zip",
+        "checksum": "fb83a933ad9538f4ceebc87d5a95ea8d",
+        "timestamp": "2026-09-27T09:32:57Z"
+      },
+      {
+        "version": "0.2.16.2",
+        "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.16/TvItemLayout_0.2.16.2_jellyfin-10.11.0.zip",
+        "checksum": "47b6ec2923cdba10388f1ee6c6e146ba",
+        "timestamp": "2026-09-27T09:32:57Z"
+      },
+      {
+        "version": "0.2.16.1",
+        "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.16/TvItemLayout_0.2.16.1_jellyfin-10.10.7.zip",
+        "checksum": "57b43156580cd1310fb0992569ad309c",
+        "timestamp": "2026-09-27T09:32:57Z"
+      },
+      {
         "version": "0.2.15.3",
         "changelog": "Fixes automatic provider trending rows for SmartLists collections with the [Smart] suffix. Provider Back returns to main Home without stepping through tabs; item details retain their return selection. Native, streaming-service and collection rows now coordinate their first Home reveal, with a bounded fallback for stalled requests. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

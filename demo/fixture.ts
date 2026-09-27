@@ -1,6 +1,8 @@
 import type { Item, LibraryQuery, MediaApi } from '../src/types';
 import { el, picture, replace } from '../src/dom';
 import { providerBrands, type ProviderBrandId } from '../src/provider-brands';
+import { defaultProviderHomes, defaultProviderConfig, parseProviderHomes, providerHomesKey, type ProviderHomeConfig } from '../src/provider-settings';
+import type { ProviderItemsQuery, ProviderItemsPage } from '../src/provider-data';
 import { orderHomeItems } from '../src/home-collection-settings';
 
 // This file belongs to the preview only. It is never included in the installer bundle.
@@ -163,9 +165,12 @@ const providerCatalogues: Record<ProviderBrandId, { movies: string[]; shows: str
   disney: { movies: ['movie-tide','movie-wild'], shows: ['series-wild','series-north'] },
   apple: { movies: ['movie-silence','movie-higher'], shows: ['series-signal','series-harbour'] },
   now: { movies: ['movie-blue','movie-silence','movie-wild'], shows: ['series-1999','series-harbour'] },
-  paramount: { movies: ['movie-higher','movie-tide','movie-wild'], shows: ['series-north','series-signal'] }
+  paramount: { movies: ['movie-higher','movie-tide','movie-wild'], shows: ['series-north','series-signal'] },
+  bbc: { movies: ['movie-tide','movie-silence'], shows: ['series-north','series-harbour'] },
+  itvx: { movies: ['movie-wild','movie-blue'], shows: ['series-1999','series-harbour'] },
+  channel4: { movies: ['movie-blue','movie-higher'], shows: ['series-signal','series-wild'] }
 };
-for (const brand of providerBrands) for (const kind of ['movies','shows'] as const) {
+for (const brand of providerBrands.filter(brand => !['bbc','itvx','channel4'].includes(brand.id))) for (const kind of ['movies','shows'] as const) {
   const id = `provider-chart-${brand.id}-${kind}`;
   const members = brand.id === 'netflix' ? kind === 'movies' ? ['movie-blue','movie-tide'] : ['series-signal','series-north']
     : providerCatalogues[brand.id][kind].slice(0,2).reverse();
@@ -329,14 +334,27 @@ function browseLibrary(ids: string[], genres: Item[], parentId: string, query: L
   return {items:page,total:items.length,nextStartIndex:start+page.length};
 }
 
+function providerPage(config: ProviderHomeConfig | undefined, query: ProviderItemsQuery): ProviderItemsPage {
+  const type = query.type === 'Movie' ? 'movies' : 'shows';
+  const sourceIds = config ? query.type === 'Movie' ? config.movieProviderIds : config.showProviderIds : [];
+  const matched = providerBrands.filter(brand => {
+    const preset = defaultProviderConfig(brand.id);
+    return preset.offerTypes.some(offer => config?.offerTypes.includes(offer))
+      && (query.type === 'Movie' ? preset.movieProviderIds : preset.showProviderIds).some(id => sourceIds.includes(id));
+  });
+  const ids = [...new Set(matched.flatMap(brand => providerCatalogues[brand.id][type]))];
+  const items = orderHomeItems(list(ids.map(id => library.get(id)!)), { itemSort: query.sort || 'title', itemOrder: [] });
+  const start = query.startIndex || 0;
+  return { Items: items.slice(start, start + (query.limit || 60)), TotalRecordCount: items.length, Pending: 0, Total: items.length,
+    Status: sourceIds.length ? 'ready' : 'unavailable', Region: 'GB', UpdatedAt: new Date().toISOString(), MissingIds: 0, FailedIds: 0 };
+}
 const api: MediaApi = {
   getProviderItems: (provider, query) => respond(() => {
-    const all = list(providerCatalogues[provider][query.type === 'Movie' ? 'movies' : 'shows'].map(id => library.get(id)!));
-    const items = orderHomeItems(all, { itemSort: query.sort || 'title', itemOrder: [] });
-    const start = query.startIndex || 0;
-    return { Items:items.slice(start,start+(query.limit || 60)), TotalRecordCount:items.length, Pending:0, Total:items.length,
-      Status:'ready', Region:'GB', UpdatedAt:new Date().toISOString(), MissingIds:0, FailedIds:0 };
+    let settings = defaultProviderHomes();
+    try { const raw = localStorage.getItem(providerHomesKey(location.origin, 'demo')); if (raw) settings = parseProviderHomes(JSON.parse(raw)); } catch { /* Use preview defaults. */ }
+    return providerPage(settings.providers.find(config => config.id === provider && config.enabled), query);
   }),
+  previewProviderItems: (provider, query) => respond(() => providerPage(provider, query)),
   getMusic: query => respond(() => {
     const genre=musicGenres.find(item=>item.Id===query.genreId)?.Name;
     let found=list(query.kind==='artists'||query.kind==='albumArtists'?artists:query.kind==='songs'?songs:query.kind==='playlists'?playlists:albums);

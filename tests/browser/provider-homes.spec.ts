@@ -39,9 +39,9 @@ async function noPageOverflow(page: Page) {
 }
 
 for (const layout of ['desktop', 'tv']) {
-  test(`${layout}: all six branded Home tiles open distinct provider homes with separate catalogue and ranked chart rows`, async ({ page }, info) => {
+  test(`${layout}: all nine branded Home tiles open distinct homes with catalogue rows and configured charts`, async ({ page }, info) => {
     await page.goto(previewUrl(layout));
-    await expect(services(page).locator('.tvl-provider-tile')).toHaveCount(6);
+    await expect(services(page).locator('.tvl-provider-tile')).toHaveCount(9);
     expect(await names(services(page).locator('.tvl-provider-tile'))).toEqual(providerBrands.map(brand => brand.name));
     await expect.poll(() => services(page).locator('img').evaluateAll(nodes => nodes.every(node => (node as HTMLImageElement).complete && (node as HTMLImageElement).naturalWidth > 0))).toBe(true);
     await noEditingButtons(home(page));
@@ -54,7 +54,9 @@ for (const layout of ['desktop', 'tv']) {
       await expect(providerHome(page).locator('.tvl-provider-header-logo')).toBeVisible();
       await expect(providerHome(page).locator('.tvl-provider-identity')).toContainText('United Kingdom');
       await expect(cards(page, 'movies').first()).toBeVisible(); await expect(cards(page, 'shows').first()).toBeAttached();
-      await expect(cards(page, 'trending-movies').first()).toBeAttached(); await expect(cards(page, 'trending-shows').first()).toBeAttached();
+      const charts = !['bbc', 'itvx', 'channel4'].includes(brand.id);
+      if (charts) { await expect(cards(page, 'trending-movies').first()).toBeAttached(); await expect(cards(page, 'trending-shows').first()).toBeAttached(); }
+      else { await expect(providerRow(page, 'trending-movies')).toHaveCount(0); await expect(providerRow(page, 'trending-shows')).toHaveCount(0); }
       const allFilms = await cards(page, 'movies').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-item-id')));
       const trending = await cards(page, 'trending-movies').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-item-id')));
       expect(allFilms.length).toBeGreaterThanOrEqual(trending.length); expect(trending.every(id => allFilms.includes(id))).toBe(true);
@@ -100,8 +102,8 @@ test('provider row waits for native Home readiness and remote arrows cross nativ
 
 test('last provider tile keeps its focus border inside the row with no visible horizontal scrollbar', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 }); await page.goto(previewUrl());
-  const tiles = services(page).locator('.tvl-provider-tile'); await expect(tiles).toHaveCount(6); await tiles.first().focus();
-  for (let step = 0; step < 5; step++) await remote(page, 'right');
+  const tiles = services(page).locator('.tvl-provider-tile'); await expect(tiles).toHaveCount(9); await tiles.first().focus();
+  for (let step = 0; step < providerBrands.length - 1; step++) await remote(page, 'right');
   await expect(tiles.last()).toBeFocused();
   expect(await tiles.last().evaluate(node => {
     const row = node.closest('.tvl-home-row-cards')!, art = node.querySelector('.tvl-provider-tile-mark')!;
@@ -118,6 +120,7 @@ async function largeCatalogue(page: Page) {
       const api=window.TvItemLayoutDemo.api, provider=api.getProviderItems.bind(api), getItem=api.getItem.bind(api);
       const item=index=>({Id:'provider-film-'+index,Name:'Provider film '+String(index).padStart(3,'0'),Type:'Movie',ProductionYear:2025,RunTimeTicks:60000000000});
       api.getProviderItems=async(id,query)=>{if(id!=='netflix'||query.type!=='Movie')return provider(id,query);const items=Array.from({length:125},(_,i)=>item(i+1));if(query.sort==='title-desc')items.reverse();return {Items:items.slice(query.startIndex||0,(query.startIndex||0)+(query.limit||60)),TotalRecordCount:125,Pending:0,Total:125,UpdatedAt:null,Status:'ready',Region:'GB'};};
+      api.previewProviderItems=(config,query)=>api.getProviderItems(config.id,query);
       api.getItem=async id=>id.startsWith('provider-film-')?{...await getItem('movie-tide'),...item(Number(id.split('-').pop()))}:getItem(id);
     })();` });
   });
@@ -179,7 +182,7 @@ test('Settings owns provider editing; changes to service order, Home position, h
   await settings.locator('.tvl-provider-row-editor').scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('provider-settings-desktop.png') });
   await page.evaluate(() => { location.hash = '/home'; }); await expect(services(page)).toHaveAttribute('aria-label', 'My streaming services');
-  expect(await names(services(page).locator('.tvl-provider-tile'))).toEqual(['Prime Video', 'Netflix', 'Apple TV+', 'NOW', 'Paramount+']);
+  expect(await names(services(page).locator('.tvl-provider-tile'))).toEqual(['Prime Video', 'Netflix', 'Apple TV+', 'NOW', 'Paramount+', 'BBC iPlayer', 'ITVX', 'Channel 4']);
   expect(await services(page).evaluate(node => node.nextElementSibling?.querySelector('h2')?.textContent)).toBe('Next up');
   await services(page).getByRole('button', { name: 'Netflix', exact: true }).click();
   await expect(providerHome(page).locator('.tvl-provider-hero')).toBeHidden();
@@ -265,8 +268,8 @@ async function device(browser: Browser, server: SettingsServer, user: string, la
 test('native SmartLists collection names populate Movies and Shows charts for all six provider homes', async ({ browser }) => {
   const server = new SettingsServer(), client = await device(browser, server, 'parents', 'tv', true), page = client.page;
   try {
-    await page.goto(previewUrl()); await expect(services(page).locator('.tvl-provider-tile')).toHaveCount(6);
-    for (const brand of providerBrands) {
+    await page.goto(previewUrl()); await expect(services(page).locator('.tvl-provider-tile')).toHaveCount(9);
+    for (const brand of providerBrands.filter(brand => !['bbc', 'itvx', 'channel4'].includes(brand.id))) {
       await services(page).getByRole('button', { name: brand.name, exact: true }).click();
       await expect(cards(page, 'trending-movies')).toHaveCount(2); await expect(cards(page, 'trending-shows')).toHaveCount(2);
       await expect(cards(page, 'trending-movies').first()).toHaveAttribute('aria-label', /^Rank 1:/);
@@ -292,7 +295,7 @@ test('saved provider preferences sync from desktop to a fresh TV while another a
     await tv.page.goto(previewUrl()); await expect(services(tv.page)).toHaveAttribute('aria-label', 'Family streaming');
     await expect(services(tv.page).getByRole('button', { name: 'Netflix', exact: true })).toHaveCount(0);
     expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(1);
-    await kids.page.goto(previewUrl()); await expect(services(kids.page)).toHaveAttribute('aria-label', 'Streaming services'); await expect(services(kids.page).locator('.tvl-provider-tile')).toHaveCount(6);
+    await kids.page.goto(previewUrl()); await expect(services(kids.page)).toHaveAttribute('aria-label', 'Streaming services'); await expect(services(kids.page).locator('.tvl-provider-tile')).toHaveCount(9);
     await services(kids.page).getByRole('button', { name: 'Netflix', exact: true }).click(); await expect(providerRow(kids.page, 'movies')).toContainText('No matching titles');
     await expect(cards(kids.page, 'movies')).toHaveCount(0); await expect(providerRow(kids.page, 'trending-movies')).toContainText('unavailable for this account');
     expect(server.snapshot('kids').Settings).toBeNull(); expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(1);

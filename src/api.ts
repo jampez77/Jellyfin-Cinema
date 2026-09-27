@@ -3,8 +3,8 @@ import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 import { createHomeCollectionTransport } from './home-collection-transport';
 import { createProviderHomesTransport } from './provider-settings-store';
-import type { ProviderItemsPage } from './provider-data';
-import { providerBrand } from './provider-brands';
+import type { ProviderItemsPage, ProviderItemsQuery } from './provider-data';
+import { validProviderId, parseProviderHomes, defaultProviderHomes } from './provider-settings';
 
 type Query = Record<string, string | number | boolean>;
 type ItemResult = { Items?: Item[]; TotalRecordCount?: number };
@@ -232,6 +232,13 @@ export function createJellyfinApi(): MediaApi | null {
     EnableImages: true, EnableImageTypes: 'Primary,Thumb,Backdrop', EnableTotalRecordCount: true,
     StartIndex: startIndex, Limit: PAGE_SIZE
   })), type === 'Movie' ? 'movie genre' : 'TV show genre')).filter(item => item.Type === 'Genre'));
+  const providerCatalogue = (data: ProviderItemsPage, query: ProviderItemsQuery): ProviderItemsPage => {
+    if (!data || !Array.isArray(data.Items) || !data.Items.every(item => item && typeof item.Id === 'string' && typeof item.Name === 'string' && item.Type === query.type)
+      || ![data.TotalRecordCount, data.Pending, data.Total].every(value => Number.isInteger(value) && value >= 0)
+      || !['ready', 'refreshing', 'unavailable'].includes(data.Status) || data.Region !== 'GB')
+      throw new Error('Jellyfin returned an invalid provider catalogue. Try again.');
+    return { ...data, Items: data.Items.filter(available) };
+  };
   const browse = createBrowseApi(client, userId, read);
   return {
     ...browse,
@@ -240,16 +247,21 @@ export function createJellyfinApi(): MediaApi | null {
     homeCollections: createHomeCollectionTransport(client, sessionCurrent),
     providerHomes: createProviderHomesTransport(client, sessionCurrent),
     getProviderItems: (provider, query) => read(async () => {
-      if (!providerBrand(provider) || !['Movie', 'Series'].includes(query.type)) throw new Error('Unknown streaming provider or media type.');
-      const data = await client.getJSON(client.getUrl(`TvItemLayout/Providers/${provider}/Items`, {
+      if (!validProviderId(provider) || !['Movie', 'Series'].includes(query.type)) throw new Error('Unknown streaming provider or media type.');
+      const data = await client.getJSON(client.getUrl(`TvItemLayout/Providers/${encodeURIComponent(provider)}/Items`, {
         type: query.type, startIndex: Math.max(0, Math.floor(query.startIndex || 0)),
         limit: Math.max(1, Math.min(100, Math.floor(query.limit || 60))), sort: query.sort || 'title'
       })) as ProviderItemsPage;
-      if (!data || !Array.isArray(data.Items) || !data.Items.every(item => item && typeof item.Id === 'string' && typeof item.Name === 'string' && item.Type === query.type)
-        || ![data.TotalRecordCount, data.Pending, data.Total].every(value => Number.isInteger(value) && value >= 0)
-        || !['ready', 'refreshing', 'unavailable'].includes(data.Status) || data.Region !== 'GB')
-        throw new Error('Jellyfin returned an invalid provider catalogue. Try again.');
-      return { ...data, Items: data.Items.filter(available) };
+      return providerCatalogue(data, query);
+    }),
+    previewProviderItems: (provider, query) => read(async () => {
+      const config = parseProviderHomes({ ...defaultProviderHomes(), providers: [provider] }).providers[0];
+      if (!['Movie', 'Series'].includes(query.type)) throw new Error('Unknown media type.');
+      const data = await client.ajax({ type: 'POST', url: client.getUrl('TvItemLayout/Providers/Preview', {
+        mediaType: query.type, startIndex: Math.max(0, Math.floor(query.startIndex || 0)),
+        limit: Math.max(1, Math.min(100, Math.floor(query.limit || 60))), sort: query.sort || 'title'
+      }), data: JSON.stringify(config), contentType: 'application/json', dataType: 'json' }) as ProviderItemsPage;
+      return providerCatalogue(data, query);
     }),
     getItem: id => read(async () => {
       const item = await client.getItem(userId, id);

@@ -117,3 +117,16 @@ test('transport translates conflicts, missing endpoints, auth and size failures 
     for (const operation of [() => transport.load(), () => transport.save(settings('Draft'), null)]) await assert.rejects(operation(), error => error instanceof ProviderHomesSyncError && error.kind === kind && message.test(error.message));
   }
 });
+
+test('legacy account settings migrate quietly in cache and only explicit saves publish schema2', async () => {
+  const original = defaultProviderHomes(); original.enabled = false; original.providers[0].enabled = false;
+  const legacy = { version: 1, enabled: original.enabled, title: 'Saved services', placement: 'end',
+    providers: original.providers.slice(0, 6).map(({ id, enabled, hero, rows }) => ({ id, enabled, hero, rows })) };
+  const server = new Server(); server.snapshot = { Revision: 'legacy-revision', Settings: legacy } as any;
+  const storage = new Storage(); storage.setItem(key, JSON.stringify(legacy));
+  const store = new ProviderHomesStore(key, storage, server);
+  assert.equal(store.cached.version, 2); assert.equal(store.cached.providers[0].enabled, false);
+  const migrated = await store.load(); assert.equal(migrated.providers.length, 9); assert.equal(migrated.enabled, false);
+  assert.equal(server.writes, 0); assert.equal(server.snapshot.Settings!.version, 1); assert.equal(JSON.parse(storage.getItem(key)!).version, 2);
+  await store.save(migrated); assert.equal(server.writes, 1); assert.equal(server.snapshot.Settings!.version, 2);
+});

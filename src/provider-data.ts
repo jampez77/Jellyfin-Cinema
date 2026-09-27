@@ -1,6 +1,6 @@
 import { orderHomeItems } from './home-collection-settings';
 import { providerBrand, type ProviderBrandId } from './provider-brands';
-import type { ProviderRow } from './provider-settings';
+import { defaultProviderConfig, type ProviderRow, type ProviderHomeConfig } from './provider-settings';
 import type { Item, MediaApi } from './types';
 
 export type ProviderItemsQuery = {
@@ -23,7 +23,7 @@ export class ProviderDataError extends Error {
 }
 
 const CACHE_MS = 30_000;
-const chartProviders: Record<ProviderBrandId, { movies: string; shows: string }> = {
+const chartProviders: Partial<Record<ProviderBrandId, { movies: string; shows: string }>> = {
   netflix: { movies: 'nfx', shows: 'nfx' }, prime: { movies: 'amp', shows: 'amp' },
   disney: { movies: 'dnp', shows: 'dnp' }, apple: { movies: 'atp', shows: 'atp' },
   now: { movies: 'ntc', shows: 'ntv' }, paramount: { movies: 'pmp', shows: 'pmp' }
@@ -86,10 +86,12 @@ export class ProviderData {
     this.pending.set(key, promise); return promise;
   }
 
-  async load(provider: ProviderBrandId, row: ProviderRow, startIndex = 0, limit = 60): Promise<ProviderRowResult> {
+  async load(provider: ProviderBrandId | ProviderHomeConfig, row: ProviderRow, startIndex = 0, limit = 60, preview = false): Promise<ProviderRowResult> {
     const generation = this.generation; this.current(generation);
-    const brand = providerBrand(provider);
-    if (!brand) throw invalid();
+    if (typeof provider === 'string' && !providerBrand(provider)) throw invalid();
+    const config = typeof provider === 'string' ? defaultProviderConfig(provider) : provider;
+    const brand = providerBrand(config.id);
+    const chart = brand && chartProviders[brand.id];
     const start = Number.isFinite(startIndex) ? Math.max(0, Math.floor(startIndex)) : 0;
     const size = Number.isFinite(limit) ? Math.min(100, Math.max(1, Math.floor(limit))) : 60;
     const type = row.source === 'movies' || row.source === 'trending-movies' ? 'Movie'
@@ -98,12 +100,12 @@ export class ProviderData {
     if (!collectionId && (row.source === 'movies' || row.source === 'shows')) {
       const sourceLabel = 'UK streaming availability · JustWatch via TMDB';
       const sourceUrl = 'https://www.justwatch.com/uk';
-      if (!this.api.getProviderItems) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl };
+      if (preview ? !this.api.previewProviderItems : !this.api.getProviderItems) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl };
       const query: ProviderItemsQuery = { type: type!, startIndex: start, limit: size, sort: row.itemSort === 'collection' ? 'title' : row.itemSort };
-      const key = `${provider}:${query.type}:${query.sort}:${start}:${size}`;
+      const key = `${preview ? JSON.stringify(config) : config.id}:${query.type}:${query.sort}:${start}:${size}`;
       let promise = this.cataloguePending.get(key);
       if (!promise) {
-        promise = Promise.resolve().then(() => { this.current(generation); return this.api.getProviderItems!(provider, query); });
+        promise = Promise.resolve().then(() => { this.current(generation); return preview ? this.api.previewProviderItems!(config, query) : this.api.getProviderItems!(config.id, query); });
         this.cataloguePending.set(key, promise);
       }
       let page: ProviderItemsPage;
@@ -120,7 +122,7 @@ export class ProviderData {
     let source = collectionId;
     let sourceLabel = 'Selected Jellyfin collection';
     let sourceUrl: string | undefined;
-    if (!source && (row.source === 'trending-movies' || row.source === 'trending-shows')) {
+    if (!source && chart && brand && (row.source === 'trending-movies' || row.source === 'trending-shows')) {
       const shows = row.source === 'trending-shows';
       const expected = normalizedName(`${brand.name} Trending ${shows ? 'Shows' : 'Movies'} UK`);
       const collections = await this.collectionItems('collections', () => this.api.getCollectionList(), generation);
@@ -129,7 +131,7 @@ export class ProviderData {
         && (!item.Type || item.Type === 'BoxSet') && normalizedName(item.Name) === expected);
       const ids = [...new Map(matches.map(item => [itemIdentity(item.Id), item.Id])).values()];
       sourceLabel = 'UK weekly streaming charts · JustWatch via MDBList';
-      sourceUrl = `https://mdblist.com/lists/official/${shows ? 'shows' : 'movies'}/justwatch-streaming-charts?locale=en_GB&rank=7&provider=${chartProviders[provider][shows ? 'shows' : 'movies']}`;
+      sourceUrl = `https://mdblist.com/lists/official/${shows ? 'shows' : 'movies'}/justwatch-streaming-charts?locale=en_GB&rank=7&provider=${chart[shows ? 'shows' : 'movies']}`;
       if (ids.length === 1) source = ids[0];
     }
     if (!source) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl, missingSource: true };
