@@ -90,6 +90,7 @@ export class HomeCollections {
   private accountIdentity: string;
   private providerSyncing = false;
   private providerLastSync = 0;
+  private providerRefreshPending = false;
 
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string,
     private openProvider?: (id: ProviderId) => void) {
@@ -107,6 +108,9 @@ export class HomeCollections {
     window.addEventListener('scroll', this.onScroll, true);
     window.addEventListener('click', this.rememberPosition, true);
     window.addEventListener('wheel', this.onWheel, { capture: true, passive: true });
+    window.addEventListener('storage', this.onProviderStorage);
+    window.addEventListener('tvl-provider-settings-changed', this.onProviderSaved);
+    window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
     this.observer = new MutationObserver(records => {
       // Native row order can change without replacing a node. Ignore scroller
       // transform updates so animated TV focus does not keep reattaching rows.
@@ -116,7 +120,6 @@ export class HomeCollections {
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style', 'aria-busy'] });
     this.attach(); void this.render();
     if (this.store.synced || this.providerStore.synced) {
-      window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
       this.syncTimer = window.setInterval(this.onVisible, 60_000); void this.loadInitialSettings();
     }
   }
@@ -137,7 +140,10 @@ export class HomeCollections {
         if (this.disposed) return;
         const changed = JSON.stringify(settings) !== JSON.stringify(this.providers); this.providers = settings;
         if (changed) void this.render();
-      }).catch(() => {}).finally(() => { this.providerSyncing = false; }) : Promise.resolve()
+      }).catch(() => {}).finally(() => {
+        this.providerSyncing = false;
+        if (this.providerRefreshPending) return this.refreshProviders(true);
+      }) : Promise.resolve()
     ]);
     if (this.disposed) return;
     this.initialSettingsReady = true; this.attach();
@@ -240,9 +246,24 @@ export class HomeCollections {
   };
   private onWheel = (): void => { this.inputRevision++; this.positionToRestore = undefined; };
 
-  private onVisible = (): void => { if (document.visibilityState !== 'hidden') void this.refreshSettings(); };
+  private onVisible = (event?: Event): void => {
+    // Returning to an open Home must not be skipped by the polling throttle.
+    if (document.visibilityState !== 'hidden') void this.refreshSettings(!!event);
+  };
+  private onProviderStorage = (event: StorageEvent): void => {
+    if (event.storageArea === localStorage && event.key === this.providerStore.key) void this.refreshProviders(true);
+  };
+  private onProviderSaved = (event: Event): void => {
+    const account = (event as CustomEvent).detail;
+    if (account && account.serverId === this.api.serverId && account.userId === this.api.userId) void this.refreshProviders(true);
+  };
   private async refreshProviders(force: boolean): Promise<void> {
-    if (this.disposed || !this.providerStore.synced || this.providerSyncing || !force && Date.now() - this.providerLastSync < 5_000) return;
+    if (this.disposed || JSON.stringify([this.api.serverId, this.api.userId]) !== this.accountIdentity
+      || !force && (!this.providerStore.synced || Date.now() - this.providerLastSync < 5_000)) return;
+    // A save may finish while the initial/polling read is still in flight.
+    // Queue another read so that older response cannot swallow the notification.
+    if (this.providerSyncing) { this.providerRefreshPending ||= force; return; }
+    this.providerRefreshPending = false;
     this.providerSyncing = true; this.providerLastSync = Date.now();
     let changed = false;
     try {
@@ -253,6 +274,8 @@ export class HomeCollections {
     } catch { /* Home keeps its account-scoped cache when sync is unavailable. */ }
     finally { this.providerSyncing = false; }
     if (this.disposed) return;
+    // Do not leave a confirmed save waiting behind collection artwork fetches.
+    if (this.providerRefreshPending) void this.refreshProviders(true);
     if (changed) await this.render();
   }
   async refreshSettings(force = false): Promise<void> {
@@ -584,6 +607,8 @@ export class HomeCollections {
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);
+    window.removeEventListener('storage', this.onProviderStorage);
+    window.removeEventListener('tvl-provider-settings-changed', this.onProviderSaved);
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);
     window.removeEventListener('pointerdown', this.onPointer, true);
     window.removeEventListener('focusin', this.rememberNativeFocus, true);

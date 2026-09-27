@@ -72,6 +72,106 @@ test('tile size and hidden name labels preview the actual Home tiles and persist
   await page.reload(); await expect(actual.locator('.tvl-provider-tile-name')).toBeHidden();
 });
 
+for (const synced of [false, true]) test(`saved tile sizes update an already-open ${synced ? 'account-synced' : 'preview'} Home tab without reload or focus`, async ({ page, context }) => {
+  if (synced) {
+    let snapshot = { Revision: 'initial', Settings: defaultProviderHomes() };
+    await context.route('**/tile-settings-fixture', async route => {
+      if (route.request().method() === 'PUT') snapshot = { Revision: 'saved', Settings: route.request().postDataJSON().Settings };
+      await route.fulfill({ json: snapshot });
+    });
+    await context.route('**/dist/demo.js', async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: `${await response.text()}\n(() => {
+        const request=async(options)=>{const response=await fetch('/tile-settings-fixture',options);return response.json();};
+        window.TvItemLayoutDemo.api.providerHomes={isCurrent:()=>true,load:()=>request(),save:(Settings,Revision)=>request({method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({Settings,Revision})})};
+      })();` });
+    });
+  }
+  await page.goto('/?featured=0&layout=desktop#/home');
+  const actual = page.locator('#homeTab .tvl-home-provider-row').getByRole('button', { name: 'Netflix', exact: true });
+  await expect(actual).toBeVisible();
+  const width = () => actual.evaluate(node => node.getBoundingClientRect().width);
+  const initial = await width();
+  const settingsPage = await context.newPage();
+  try {
+    await setup(settingsPage);
+    await page.evaluate(() => {
+      const received = (event: StorageEvent) => {
+        if (!event.key?.endsWith(':another-user')) return;
+        document.body.dataset.foreignSettingsSeen = 'true'; window.removeEventListener('storage', received);
+      };
+      window.addEventListener('storage', received);
+    });
+    await settingsPage.evaluate(settings => {
+      localStorage.setItem(`jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:another-user`, JSON.stringify({ ...settings, tileScale: 70 }));
+    }, defaultProviderHomes());
+    await expect(page.locator('body')).toHaveAttribute('data-foreign-settings-seen', 'true');
+    expect(await width()).toBeCloseTo(initial, 0);
+    const slider = editor(settingsPage).getByRole('slider', { name: 'Tile size', exact: true });
+    await slider.focus(); await settingsPage.keyboard.press('End'); await expect(slider).toHaveValue('150');
+    expect((await homePreview(settingsPage).getByRole('button', { name: 'Netflix', exact: true }).boundingBox())!.width).toBeCloseTo(initial * 1.5, 0);
+    expect(await width()).toBeCloseTo(initial, 0);
+    await save(settingsPage);
+    // Do not focus/reload Home or advance its 60-second refresh timer: saving
+    // in a sibling tab must resize the mounted row while it remains open.
+    await expect.poll(width, { timeout: 2_000 }).toBeCloseTo(initial * 1.5, 0);
+    await slider.focus(); await settingsPage.keyboard.press('Home'); await expect(slider).toHaveValue('70');
+    expect(await width()).toBeCloseTo(initial * 1.5, 0);
+    await save(settingsPage);
+    await expect.poll(width, { timeout: 2_000 }).toBeCloseTo(initial * .7, 0);
+  } finally { await settingsPage.close(); }
+});
+
+test('saved tile sizes reach the real Home row after Back and survive reload', async ({ page }) => {
+  await page.goto('/?featured=0&layout=desktop#/home');
+  const actual = page.locator('#homeTab .tvl-home-provider-row').getByRole('button', { name: 'Netflix', exact: true });
+  await expect(actual).toBeVisible();
+  const width = () => actual.evaluate(node => node.getBoundingClientRect().width);
+  const initial = await width();
+  await page.evaluate(() => { location.hash = '/mypreferencesmenu?cinemaProviders=1'; });
+  await expect(editor(page).getByRole('button', { name: 'Save changes', exact: true })).toBeEnabled();
+  await editor(page).getByRole('slider', { name: 'Tile size', exact: true }).focus();
+  await page.keyboard.press('Home'); await save(page);
+  await page.goBack(); await expect(actual).toBeVisible();
+  await expect.poll(width).toBeCloseTo(initial * .7, 0);
+  await page.reload(); await expect(actual).toBeVisible();
+  await expect.poll(width).toBeCloseTo(initial * .7, 0);
+});
+
+test('a save during an older Home settings read queues a fresh read instead of keeping stale tile sizes', async ({ page, context }) => {
+  let snapshot = { Revision: 'initial', Settings: defaultProviderHomes() }, reads = 0;
+  let releaseOld!: () => void, readingOld!: () => void;
+  const oldRead = new Promise<void>(resolve => { readingOld = resolve; });
+  const release = new Promise<void>(resolve => { releaseOld = resolve; });
+  await context.route('**/tile-settings-fixture', async route => {
+    if (route.request().method() === 'PUT') snapshot = { Revision: 'saved', Settings: route.request().postDataJSON().Settings };
+    else if (++reads === 1) {
+      const oldSnapshot = structuredClone(snapshot); readingOld(); await release;
+      return route.fulfill({ json: oldSnapshot });
+    }
+    await route.fulfill({ json: snapshot });
+  });
+  await context.route('**/dist/demo.js', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}\n(() => {
+      const request=async(options)=>{const response=await fetch('/tile-settings-fixture',options);return response.json();};
+      window.TvItemLayoutDemo.api.providerHomes={isCurrent:()=>true,load:()=>request(),save:(Settings,Revision)=>request({method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({Settings,Revision})})};
+    })();` });
+  });
+  await page.goto('/?featured=0&layout=desktop#/home'); await oldRead;
+  const settingsPage = await context.newPage();
+  try {
+    await setup(settingsPage);
+    await editor(settingsPage).getByRole('slider', { name: 'Tile size', exact: true }).focus();
+    await settingsPage.keyboard.press('End'); await save(settingsPage);
+    releaseOld();
+    const actual = page.locator('#homeTab .tvl-home-provider-row').getByRole('button', { name: 'Netflix', exact: true });
+    await expect.poll(() => reads, { timeout: 2_000 }).toBeGreaterThanOrEqual(3);
+    await expect(actual).toBeVisible();
+    await expect.poll(() => actual.evaluate(node => node.getBoundingClientRect().width), { timeout: 2_000 }).toBeCloseTo(360, 0);
+  } finally { releaseOld(); await settingsPage.close(); }
+});
+
 test('TV range keys and remote commands adjust tile size while preserving control focus', async ({ page }) => {
   await setup(page, 'tv'); const size = editor(page).getByRole('slider', { name: 'Tile size', exact: true });
   await size.focus(); await page.keyboard.press('ArrowRight'); await expect(size).toHaveValue('101');
