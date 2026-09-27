@@ -1,0 +1,16 @@
+# README screenshots
+
+These are unretouched screenshots of an installed Jellyfin Cinema library in desktop display mode, captured on 27 September 2026 at the browser’s 1728 × 872 viewport. They use real movies, shows and library artwork. They are separate from the hosted demo, which uses fictional data and simulated playback.
+
+| File | Screen |
+| --- | --- |
+| `home.jpg` | Home with the optional Jellyfin Featured plugin and library tiles |
+| `movie-details.jpg` | Dune: Part Two details |
+| `episodes.jpg` | Bluey’s first-season episode browser |
+| `streaming-service.jpg` | Netflix’s configured trending-movie collection with ranked posters |
+| `collection-editor.jpg` | An existing collection row and its Home preview, with Movies and Shows tabs |
+| `live-tv.jpg` | Live TV guide with No Time to Die selected |
+
+Captures show the application viewport without browser chrome. No playback, watched status or saved collection settings were changed to stage these images. Provider membership, rankings and guide times reflect that library at capture time; they are not a promise of current availability. Movie and television artwork remains the property of its respective owners and is shown to illustrate the interface.
+
+To refresh the gallery, capture the corresponding screens from an installed library after artwork has loaded. Retain the real interface and avoid screenshot-only CSS. Check that the captures contain no credentials, server addresses or personal profile details before publishing.

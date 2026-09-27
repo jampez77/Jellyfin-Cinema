@@ -5,6 +5,7 @@
   "description": "Cinematic Jellyfin TV and desktop browsing, personal collection rows and in-player navigation",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:demo": "node scripts/build-demo.mjs",
     "dev": "node scripts/dev.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

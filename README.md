@@ -4,9 +4,40 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). Formerly **TV Item Layout**, with the same plugin identity and upgrade path.
 
+[**Try the demo**](https://jampez77.github.io/Jellyfin-Cinema/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.25.md)
+
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB.
 
 **0.2.25 is available as a prerelease** ([release notes](docs/releases/v0.2.25.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Partly rewatched movies and episodes now retain Resume even when Jellyfin keeps their earlier watched flag. Movies and TV Shows cards show saved playback progress, including Continue watching. Cinema presents partial rewatches as in progress while preserving viewing history. Streaming-service collection selections remain account-specific and have been verified across server restarts. Physical LG webOS testing remains pending.
+
+## Try the demo
+
+**[Open the interactive demo →](https://jampez77.github.io/Jellyfin-Cinema/?layout=desktop&featured=0#/home)**
+
+Explore Home, movie details, seasons and episodes, streaming-service pages, collections, Music and Live TV in your browser. Try the collection-row editor and its live preview, or configure the streaming-service tiles and rows.
+
+Choose [desktop mode](https://jampez77.github.io/Jellyfin-Cinema/?layout=desktop&featured=0#/home) or [TV mode](https://jampez77.github.io/Jellyfin-Cinema/?layout=tv&featured=0#/home). Both use the real Cinema layout with fictional library data. No installation, Jellyfin server or sign-in is needed. Playback is simulated, and demo preferences stay in your browser. Provider assignments and chart rankings are examples, not live streaming listings.
+
+The demo follows the latest code on `main`, which may be ahead of an installed release. It does not reproduce Jellyfin's native video player or every native Settings page. See [demo scenarios](demo/README.md) for what you can explore, or [run it locally](#preview-locally).
+
+## Screenshots
+
+Captured from an installed Jellyfin library with real films and shows, including **Dune: Part Two**, **Bluey** and **No Time to Die**. These show desktop display mode; TV mode shares the visual design with remote focus and TV-specific controls. The Home capture includes the optional Jellyfin Featured plugin. Select an image to view it at full size.
+
+| Home | Movie details |
+| --- | --- |
+| [![Cinema Home with The Return of the King featured banner and library rows](docs/screenshots/home.jpg)](docs/screenshots/home.jpg) | [![Dune: Part Two details with title artwork, playback controls and Ends at](docs/screenshots/movie-details.jpg)](docs/screenshots/movie-details.jpg) |
+| A featured film and your media libraries. | Dune: Part Two with playback actions and a finish-time estimate. |
+
+| Seasons and episodes | Streaming services |
+| --- | --- |
+| [![Bluey season browser with real episode artwork, descriptions and watched controls](docs/screenshots/episodes.jpg)](docs/screenshots/episodes.jpg) | [![Netflix service page with ranked film posters including Practical Magic and Dune: Part Two](docs/screenshots/streaming-service.jpg)](docs/screenshots/streaming-service.jpg) |
+| Browse seasons, resume episodes and manage watched status. | Branded pages with configurable collection rows and numbered artwork. |
+
+| Collection-row editor | Live TV guide |
+| --- | --- |
+| [![Collection-row editor with real film posters and a live Home preview](docs/screenshots/collection-editor.jpg)](docs/screenshots/collection-editor.jpg) | [![Live TV guide showing No Time to Die, channel rows and a horizontal schedule](docs/screenshots/live-tv.jpg)](docs/screenshots/live-tv.jpg) |
+| Choose collections, arrange their items and preview your Home rows. | Programme artwork, broadcast times and a browsable channel schedule. |
 
 ## The layouts
 
