@@ -6,17 +6,29 @@ export function runtime(ticks?: number): string {
   if (minutes < 1) return '';
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}` : `${minutes}m`;
 }
+export function resumePosition(item: Item): number {
+  const position = item.UserData?.PlaybackPositionTicks;
+  return position != null && Number.isFinite(position) ? Math.max(0, position) : 0;
+}
+export function isWatched(item: Item): boolean {
+  return !!item.UserData?.Played && (!['Movie', 'Episode'].includes(item.Type || '') || resumePosition(item) === 0);
+}
 export function progress(item: Item): number {
-  if (item.UserData?.Played) return 100;
-  return Math.min(100, Math.max(0, item.RunTimeTicks ? (item.UserData?.PlaybackPositionTicks || 0) / item.RunTimeTicks * 100 : 0));
+  const position = resumePosition(item);
+  // Jellyfin retains the watched flag during a rewatch. Its current position
+  // takes priority over that earlier completion and any stale percentage.
+  if (position && item.RunTimeTicks && Number.isFinite(item.RunTimeTicks) && item.RunTimeTicks > 0) {
+    return Math.min(100, position / item.RunTimeTicks * 100);
+  }
+  if (!position && item.UserData?.Played) return 100;
+  const percentage = item.UserData?.PlayedPercentage;
+  return percentage != null && Number.isFinite(percentage) ? Math.min(100, Math.max(0, percentage)) : 0;
 }
 export function playbackEnd(item: Item, now = Date.now()): Date | null {
   const duration = item.RunTimeTicks;
   if (!['Movie', 'Episode'].includes(item.Type || '') || !playable(item)
     || duration == null || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(now)) return null;
-  const position = item.UserData?.PlaybackPositionTicks || 0;
-  // Watched titles start over, matching the detail page's Play action.
-  const resume = item.UserData?.Played || !Number.isFinite(position) ? 0 : Math.max(0, Math.min(duration, position));
+  const resume = Math.min(duration, resumePosition(item));
   const end = new Date(now + (duration - resume) / 10_000);
   return Number.isFinite(end.getTime()) ? end : null;
 }

@@ -1,6 +1,6 @@
 import type { Item, ItemUserData, MediaApi } from './types';
 import { el, icon, button, picture, replace } from './dom';
-import { runtime, progress, playbackEnd, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
+import { runtime, progress, playbackEnd, resumePosition, isWatched, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
 import { attachRemote } from './remote';
 import { CollectionPicker } from './collection-picker';
 
@@ -307,7 +307,7 @@ export class DetailView {
     playback.append(play, restart); return playback;
   }
   private canResume(): boolean {
-    return !!this.target && (this.target.UserData?.PlaybackPositionTicks || 0) > 0 && !this.target.UserData?.Played;
+    return !!this.target && resumePosition(this.target) > 0;
   }
   private open(pane: Pane): void {
     this.restoreId = (document.activeElement as HTMLElement)?.dataset.focusId || '';
@@ -398,7 +398,7 @@ export class DetailView {
       if (!items.length) list.append(this.empty('No episodes available','This season has no playable episodes yet.'));
       for (const episode of items) {
         const card = el('button','tvl-episode'); card.type='button';card.dataset.episode=episode.Id;
-        card.setAttribute('aria-label',`${episodeCode(episode)} ${episode.Name}${episode.UserData?.Played ? ', watched' : ''}`);
+        card.setAttribute('aria-label',`${episodeCode(episode)} ${episode.Name}${isWatched(episode) ? ', watched' : ''}`);
         const thumb = picture(this.api.image(episode,'thumb'),'tvl-episode-thumb');
         const overlay = el('span','tvl-thumb-play');overlay.append(icon('play'));thumb.append(overlay);
         thumb.append(el('span','tvl-episode-number',episodeCode(episode)));
@@ -406,8 +406,8 @@ export class DetailView {
         const copy=el('div','tvl-episode-copy');
         const title=el('div','tvl-episode-title');title.append(el('h3','',episode.Name),el('span','',runtime(episode.RunTimeTicks)));
         copy.append(title,el('p','',plainText(episode.Overview)||'No synopsis available.'));
-        if (episode.UserData?.Played) {const watched=el('span','tvl-watched','Watched');watched.prepend(icon('check'));copy.append(watched);}
-        else if (episode.UserData?.PlaybackPositionTicks) copy.append(el('span','tvl-continue','Continue watching'));
+        if (resumePosition(episode)) copy.append(el('span','tvl-continue','Continue watching'));
+        else if (isWatched(episode)) {const watched=el('span','tvl-watched','Watched');watched.prepend(icon('check'));copy.append(watched);}
         card.append(thumb,copy);card.addEventListener('click',()=>void this.play(episode));
         const row = el('div', 'tvl-episode-row'); row.append(card);
         if (this.api.setPlayed) row.append(this.watchedButton(episode, 'tvl-icon-button tvl-episode-watched', `${episodeCode(episode)} ${episode.Name}`));
@@ -516,7 +516,7 @@ export class DetailView {
     this.updateWatchedButton(node, item); return node;
   }
   private updateWatchedButton(node: HTMLButtonElement, item: Item): void {
-    const played = !!item.UserData?.Played;
+    const played = isWatched(item);
     const label = `Mark ${node.dataset.watchedSubject ? `${node.dataset.watchedSubject} ` : ''}${played ? 'unwatched' : 'watched'}`;
     node.setAttribute('aria-label', label); node.title = label;
     node.setAttribute('aria-pressed', String(played));
@@ -576,12 +576,13 @@ export class DetailView {
     this.refreshWatchedControls();
     this.element.querySelectorAll<HTMLButtonElement>('[data-episode]').forEach(card => {
       const episode = this.watchedItems().find(item => item.Id === card.dataset.episode); if (!episode) return;
-      card.setAttribute('aria-label', `${episodeCode(episode)} ${episode.Name}${episode.UserData?.Played ? ', watched' : ''}`);
+      card.setAttribute('aria-label', `${episodeCode(episode)} ${episode.Name}${isWatched(episode) ? ', watched' : ''}`);
       const copy = card.querySelector('.tvl-episode-copy');
       copy?.querySelectorAll('.tvl-watched,.tvl-continue').forEach(node => node.remove());
-      if (episode.UserData?.Played) {
+      if (resumePosition(episode)) copy?.append(el('span', 'tvl-continue', 'Continue watching'));
+      else if (isWatched(episode)) {
         const badge = el('span', 'tvl-watched', 'Watched'); badge.prepend(icon('check')); copy?.append(badge);
-      } else if (episode.UserData?.PlaybackPositionTicks) copy?.append(el('span', 'tvl-continue', 'Continue watching'));
+      }
       const thumb = card.querySelector('.tvl-episode-thumb'); thumb?.querySelector('.tvl-thumb-progress')?.remove();
       if (progress(episode) > 0) { const bar = el('span', 'tvl-thumb-progress'); bar.style.width = `${progress(episode)}%`; thumb?.append(bar); }
     });
@@ -601,7 +602,7 @@ export class DetailView {
   private async toggleWatched(item: Item): Promise<void> {
     if (this.watchedPending || !this.api.setPlayed || this.disposed) return;
     this.watchedPending = true; this.refreshWatchedControls();
-    const played = !item.UserData?.Played;
+    const played = !isWatched(item);
     try {
       const data = await this.api.setPlayed(item.Id, played);
       if (this.disposed) return;
@@ -656,7 +657,7 @@ export class DetailView {
   private async play(item: Item, startTicks?: number): Promise<void> {
     if(this.launching||!playable(item))return;
     await this.launch(
-      ()=>this.api.play(item,startTicks ?? (item.Type==='TvChannel'||item.UserData?.Played ? 0 : item.UserData?.PlaybackPositionTicks||0),()=>!this.disposed),
+      ()=>this.api.play(item,startTicks ?? (item.Type==='TvChannel' ? 0 : resumePosition(item)),()=>!this.disposed),
       item.Type==='TvChannel'?'Tuning channel…':`Starting ${item.Name}…`
     );
   }

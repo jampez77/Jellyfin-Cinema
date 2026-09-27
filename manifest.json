@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.25.3",
+        "changelog": "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.25/TvItemLayout_0.2.25.3_jellyfin-12.0.0.zip",
+        "checksum": "55d4e78b910206357b11c158db81b241",
+        "timestamp": "2026-09-27T17:51:54Z"
+      },
+      {
+        "version": "0.2.25.2",
+        "changelog": "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.25/TvItemLayout_0.2.25.2_jellyfin-10.11.0.zip",
+        "checksum": "803b56b4ff7bec3753b57087bd800277",
+        "timestamp": "2026-09-27T17:51:54Z"
+      },
+      {
+        "version": "0.2.25.1",
+        "changelog": "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.25/TvItemLayout_0.2.25.1_jellyfin-10.10.7.zip",
+        "checksum": "542f9c261cec850ab073bbf15894efdd",
+        "timestamp": "2026-09-27T17:51:54Z"
+      },
+      {
         "version": "0.2.24.3",
         "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

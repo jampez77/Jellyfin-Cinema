@@ -545,14 +545,27 @@ for (const order of ['before', 'after']) {
   });
 }
 
-test('watched films restart from zero and descriptions render as plain text', async ({ page }) => {
-  await fixture(page, `items.get('browse-next').UserData.Played=true;items.get('browse-next').Overview='<p>A <strong>new</strong> mystery.</p>';`);
+test('completed films without a new position restart from zero and descriptions render as plain text', async ({ page }) => {
+  await fixture(page, `items.get('browse-next').UserData={Played:true,PlaybackPositionTicks:0};items.get('browse-next').Overview='<p>A <strong>new</strong> mystery.</p>';`);
   await player(page, 'browse-movie'); await remote(page, 'down');
   await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-movie'); await remote(page, 'right');
   await expect(browser(page).locator('.tvl-player-description')).toHaveText('A new mystery.');
   await expect(browser(page).getByRole('button', { name: 'Play', exact: true })).toBeFocused();
   await remote(page, 'select');
   expect(await page.evaluate(() => (window as any).__browserPlays)).toEqual([{ id: 'browse-next', ticks: 0 }]);
+  await remote(page, 'back');
+});
+
+test('a partly rewatched film resumes at its saved position and shows current progress', async ({ page }) => {
+  await fixture(page, `items.get('browse-next').UserData={Played:true,PlaybackPositionTicks:38000000000,PlayedPercentage:100,PlayCount:5};`);
+  await player(page, 'browse-movie'); await remote(page, 'down');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-movie'); await remote(page, 'right');
+  await expect(browser(page).getByRole('button', { name: 'Resume', exact: true })).toBeFocused();
+  await expect(browser(page).locator('.tvl-player-meta')).not.toContainText('Watched');
+  expect(await browser(page).locator('.tvl-player-progress > div').evaluate(node => parseFloat((node as HTMLElement).style.width))).toBeCloseTo(66.6667, 3);
+  await remote(page, 'select');
+  expect(await page.evaluate(() => (window as any).__browserPlays)).toEqual([{ id: 'browse-next', ticks: 38000000000 }]);
+  expect(await page.evaluate(() => (window as any).__browserItems.get('browse-next').UserData)).toEqual({Played:true,PlaybackPositionTicks:38000000000,PlayedPercentage:100,PlayCount:5});
   await remote(page, 'back');
 });
 

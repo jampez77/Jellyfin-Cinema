@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { episodeCode, isLive, playable, playbackEnd, programmeProgress, progress, runtime, seasonName, time } from '../src/utils';
+import { episodeCode, isLive, isWatched, playable, playbackEnd, programmeProgress, progress, resumePosition, runtime, seasonName, time } from '../src/utils';
 import type { Item } from '../src/types';
 
 const item = (extra: Partial<Item> = {}): Item => ({ Id: 'item', Name: '', ...extra });
@@ -13,12 +13,32 @@ test('duration labels cover unknown, minute, and hour runtimes', () => {
   assert.equal(runtime(125 * 600_000_000), '2h 5m');
 });
 
-test('watch progress is bounded and watched items remain complete', () => {
+test('watch progress is bounded and a current rewatch takes priority over an earlier completion', () => {
   assert.equal(progress(item()), 0);
   assert.equal(progress(item({ RunTimeTicks: 100, UserData: { PlaybackPositionTicks: 25 } })), 25);
   assert.equal(progress(item({ RunTimeTicks: 100, UserData: { PlaybackPositionTicks: -5 } })), 0);
   assert.equal(progress(item({ RunTimeTicks: 100, UserData: { PlaybackPositionTicks: 150 } })), 100);
   assert.equal(progress(item({ UserData: { Played: true } })), 100);
+  assert.equal(progress(item({ RunTimeTicks: 100, UserData: { Played: true, PlayedPercentage: 100, PlaybackPositionTicks: 25 } })), 25);
+  assert.equal(progress(item({ UserData: { PlaybackPositionTicks: 25, PlayedPercentage: 40 } })), 40);
+  assert.equal(progress(item({ UserData: { PlayedPercentage: Infinity } })), 0);
+});
+
+test('resume positions preserve a rewatch without changing its watched history', () => {
+  const rewatch = item({ UserData: { Played: true, PlaybackPositionTicks: 25, PlayCount: 5 } });
+  assert.equal(resumePosition(rewatch), 25);
+  assert.deepEqual(rewatch.UserData, { Played: true, PlaybackPositionTicks: 25, PlayCount: 5 });
+  for (const PlaybackPositionTicks of [undefined, -1, NaN, Infinity]) assert.equal(resumePosition(item({ UserData: { PlaybackPositionTicks } })), 0);
+});
+
+test('leaf watched indicators describe the current viewing while container status remains server-controlled', () => {
+  for (const Type of ['Movie', 'Episode']) {
+    assert.equal(isWatched(item({ Type, UserData: { Played: true, PlaybackPositionTicks: 25 } })), false);
+    assert.equal(isWatched(item({ Type, UserData: { Played: true, PlaybackPositionTicks: 0 } })), true);
+    assert.equal(isWatched(item({ Type, UserData: { Played: false, PlaybackPositionTicks: 0 } })), false);
+  }
+  assert.equal(isWatched(item({ Type: 'Series', UserData: { Played: true, PlaybackPositionTicks: 25 } })), true);
+  assert.equal(isWatched(item({ Type: 'Season', UserData: { Played: true, PlaybackPositionTicks: 25 } })), true);
 });
 
 test('finish estimates use the current time and the duration that Play or Resume will play', () => {
@@ -27,7 +47,7 @@ test('finish estimates use the current time and the duration that Play or Resume
   assert.equal(playbackEnd(movie, now)?.toISOString(), '2026-09-24T01:00:00.000Z');
   const episode = { ...movie, Type: 'Episode', UserData: { PlaybackPositionTicks: 30.5 * 600_000_000 } };
   assert.equal(playbackEnd(episode, now)?.toISOString(), '2026-09-24T00:29:30.000Z');
-  assert.equal(playbackEnd({ ...episode, UserData: { ...episode.UserData, Played: true } }, now)?.toISOString(), '2026-09-24T01:00:00.000Z');
+  assert.equal(playbackEnd({ ...episode, UserData: { ...episode.UserData, Played: true } }, now)?.toISOString(), '2026-09-24T00:29:30.000Z');
   assert.equal(playbackEnd(movie, now + 60_000)?.getTime(), playbackEnd(movie, now)!.getTime() + 60_000);
 });
 

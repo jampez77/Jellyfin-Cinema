@@ -19,12 +19,12 @@ for (const layout of ['tv', 'desktop']) {
   });
 }
 
-test('unstarted movies and watched movies with stale resume ticks have only one playback action', async ({ page }) => {
+test('unstarted movies and completed movies without a resume position have only one playback action', async ({ page }) => {
   await page.route('**/dist/demo.js', async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}\n(() => {
       const api=window.TvItemLayoutDemo.api,get=api.getItem;
-      api.getItem=async id=>{const item=await get(id);return id==='movie-tide'?{...item,UserData:{...item.UserData,Played:true}}:item;};
+      api.getItem=async id=>{const item=await get(id);return id==='movie-tide'?{...item,UserData:{...item.UserData,Played:true,PlaybackPositionTicks:0}}:item;};
     })();` });
   });
   for (const id of ['movie-blue', 'movie-tide']) {
