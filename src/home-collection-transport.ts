@@ -20,7 +20,7 @@ export function createHomeCollectionTransport(client: Client, isCurrent: () => b
       const status = response?.status || response?.statusCode || response?.response?.status;
       if (status === 409) throw new HomeCollectionSyncError('conflict', 'Collection rows changed on another device. Reload saved rows to review them before saving. Your current draft has not been saved.');
       if (status === 401 || status === 403) throw new HomeCollectionSyncError('unavailable', 'Sign in again to sync collection rows. Your changes have not been saved.');
-      if (status === 404) throw new HomeCollectionSyncError('unavailable', 'Update Jellyfin Cinema on the server to sync collection rows. Your changes have not been saved.');
+      if (status === 404) throw new HomeCollectionSyncError('unavailable', 'Update ScreenHarbour on the server to sync collection rows. Your changes have not been saved.');
       if (status === 413) throw new HomeCollectionSyncError('invalid', 'These collection rows are too large to sync. Reduce custom item orders and try again. Your changes have not been saved.');
       throw new HomeCollectionSyncError('unavailable', 'Collection rows could not sync with Jellyfin. Check your connection and try again. Your changes have not been saved.');
     }

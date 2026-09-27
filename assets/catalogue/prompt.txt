@@ -1,11 +1,11 @@
-Generated with the built-in image_gen tool.
+Generated with the built-in image_gen tool on 27 September 2026.
+Mode: edit of the previous project catalogue artwork; opaque background.
+Output: screenharbour.png.
 
-Use case: ads-marketing
-Asset type: repository and plugin catalogue cover, wide 16:9 landscape, 2048x1152.
-Primary request: A polished cinematic brand graphic for "Jellyfin Cinema", a sophisticated television media browsing interface.
-Scene and subject: Dark charcoal backdrop with a refined, slightly angled smoked-glass widescreen interface on the right. Within the glass screen, show a curated row of tall fictional film posters and a second subtle shelf of poster cards, with one large elegant outlined ranking numeral beside a poster. Original poster imagery only: misty mountains, a lone sailing boat, abstract orbital light, and a forest at dusk. No recognizable films, characters or real-world studio logos.
-Composition: A clean, deliberate wide layout. Large, exceptionally legible title in the left half with generous clear space around it, balanced by the glass screen illustration in the right half. Keep all important elements comfortably inside the canvas. The screen is a stylized product illustration rather than a literal app screenshot.
-Typography: The exact prominent title "Jellyfin Cinema", elegantly typeset in warm cream, two lines allowed. No other words or letters anywhere in the image.
-Style and materials: Premium editorial product illustration with restrained photorealistic glass reflections, subtle film grain, soft depth, and precise edges. A quiet, confident home cinema mood rather than loud neon gaming.
-Lighting and palette: Deep charcoal and near-black, muted sage green accent glow, warm cream typography, gently lit glass borders and understated warm highlights.
-Constraints: 16:9 wide framing. Verbatim title spelling. No extra slogans, captions, watermarks, invented logos, controls with tiny illegible text, or copyright film imagery.
+Use case: text-localization
+Asset type: repository and plugin catalogue cover, wide 16:9 landscape.
+Input image: edit target, the existing cinematic catalogue artwork.
+Primary request: Rebrand this artwork by replacing the two-line title "Jellyfin Cinema" with the exact new independent name "ScreenHarbour".
+Typography: Set "Screen" on the first line and "Harbour" on the second line, together forming ScreenHarbour. Keep the existing elegant warm-cream serif style, generous readable size and left-side placement. Spell both lines verbatim: S-c-r-e-e-n and H-a-r-b-o-u-r. No other words or letters.
+Invariants: Preserve the established dark charcoal, muted sage and warm cream palette; luxurious dim home-cinema scene; sofa, table, plants and lighting; angled smoked-glass display on the right; the original fictional mountain, sailboat, orbital light and forest poster artwork; outlined ranking numeral and subtle second card row. Preserve the wide composition and photographic illustration quality.
+Constraints: Remove the old title completely. Do not include the word Jellyfin anywhere. Do not add any logos, triangles, Jellyfin marks or imitations, slogans, captions, watermarks, or recognizable film imagery. Keep the title fully inside the canvas and unobstructed.

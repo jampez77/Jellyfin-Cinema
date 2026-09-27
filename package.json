@@ -1,8 +1,8 @@
 {
-  "name": "jellyfin-cinema",
-  "version": "0.2.25",
+  "name": "screenharbour",
+  "version": "0.2.26",
   "private": true,
-  "description": "Cinematic Jellyfin TV and desktop browsing, personal collection rows and in-player navigation",
+  "description": "A cinematic interface for Jellyfin, with personal collection rows and in-player navigation",
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:demo": "node scripts/build-demo.mjs",

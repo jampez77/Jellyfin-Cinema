@@ -111,7 +111,7 @@ public sealed class ProviderHomesController(
                 return Conflict("Provider Homes changed on another device. Reload them before saving.");
             if (current.Settings is JsonElement existing && existing.GetProperty("version").GetInt32() == 2
                 && request.Settings.GetProperty("version").GetInt32() == 1)
-                return Conflict("These services were configured with a newer Cinema client. Reload the updated client before saving.");
+                return Conflict("These services were configured with a newer ScreenHarbour client. Reload the updated client before saving.");
             var saved = new ProviderHomesResponse(Guid.NewGuid().ToString("N"), request.Settings.Clone());
             var serialized = JsonSerializer.Serialize(saved);
             if (Encoding.UTF8.GetByteCount(serialized) > MaximumBytes)

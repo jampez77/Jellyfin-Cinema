@@ -1,6 +1,6 @@
 # README screenshots
 
-These are unretouched screenshots of an installed Jellyfin Cinema library in desktop display mode, captured on 27 September 2026. The Home service and trending views use the browser’s 1728 × 816 viewport; the other captures use 1728 × 872. They use real movies, shows and library artwork. They are separate from the hosted demo, which uses fictional data and simulated playback.
+These are unretouched historical screenshots of ScreenHarbour’s predecessor, Jellyfin Cinema, installed in a real Jellyfin library in desktop display mode. They were captured on 27 September 2026 before the rebrand and may still show the Cinema name. The layouts remain representative of ScreenHarbour. The Home service and trending views use the browser’s 1728 × 816 viewport; the other captures use 1728 × 872. They use real movies, shows and library artwork. They are separate from the hosted demo, which uses fictional data and simulated playback.
 
 | File | Screen |
 | --- | --- |

@@ -120,7 +120,7 @@ test('native transport uses current authentication with no caller-selected user 
   current = false; await assert.rejects(transport.load(), /account changed/); assert.equal(calls.length, 2);
 });
 test('native transport explains server size rejection and does not hide failed authorization', async () => {
-  for (const [status, message] of [[413, /Reduce custom item orders/], [401, /Sign in again/], [404, /Update Jellyfin Cinema/]] as const) {
+  for (const [status, message] of [[413, /Reduce custom item orders/], [401, /Sign in again/], [404, /Update ScreenHarbour/]] as const) {
     const transport = createHomeCollectionTransport({ getUrl: path => path, getJSON: async () => { throw { status }; }, ajax: async () => { throw { status }; } }, () => true);
     await assert.rejects(transport.load(), message); await assert.rejects(transport.save(rows('Draft'), null), message);
   }

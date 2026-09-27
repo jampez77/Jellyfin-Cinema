@@ -44,7 +44,7 @@ export function createProviderHomesTransport(client: Client, isCurrent: () => bo
       const status = response?.status || response?.statusCode || response?.response?.status;
       if (status === 409) throw new ProviderHomesSyncError('conflict', 'Streaming services changed on another device. Your draft is still here. Reload saved settings before saving again.');
       if (status === 401 || status === 403) throw new ProviderHomesSyncError('unavailable', 'Sign in again to sync streaming services. Your changes have not been saved.');
-      if (status === 404) throw new ProviderHomesSyncError('unavailable', 'Update Jellyfin Cinema on the server to sync streaming services. Your changes have not been saved.');
+      if (status === 404) throw new ProviderHomesSyncError('unavailable', 'Update ScreenHarbour on the server to sync streaming services. Your changes have not been saved.');
       if (status === 413) throw new ProviderHomesSyncError('invalid', 'These streaming-service settings are too large to sync. Your changes have not been saved.');
       throw new ProviderHomesSyncError('unavailable', 'Streaming services could not sync with Jellyfin. Check your connection and try again. Your changes have not been saved.');
     }

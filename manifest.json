@@ -1,18 +1,42 @@
 [
   {
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
-    "name": "Jellyfin Cinema",
+    "name": "ScreenHarbour",
     "overview": "Cinematic TV and desktop browsing, personal collection rows and in-player navigation.",
-    "description": "A cinematic style for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "description": "An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
+    "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
+      {
+        "version": "0.2.26.3",
+        "changelog": "Renamed to ScreenHarbour, an independent cinematic interface for Jellyfin. Updates plugin and interface names, catalogue artwork, documentation and demo to follow Jellyfin's branding guidance. Existing plugin identity, saved collection rows, streaming-service choices and playback data are preserved. Update your catalogue URL to https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/manifest.json, then update without uninstalling. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.26/TvItemLayout_0.2.26.3_jellyfin-12.0.0.zip",
+        "checksum": "89d4100ee75636b4e849a3e01721b789",
+        "timestamp": "2026-09-27T20:54:43Z"
+      },
+      {
+        "version": "0.2.26.2",
+        "changelog": "Renamed to ScreenHarbour, an independent cinematic interface for Jellyfin. Updates plugin and interface names, catalogue artwork, documentation and demo to follow Jellyfin's branding guidance. Existing plugin identity, saved collection rows, streaming-service choices and playback data are preserved. Update your catalogue URL to https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/manifest.json, then update without uninstalling. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.26/TvItemLayout_0.2.26.2_jellyfin-10.11.0.zip",
+        "checksum": "969d29853f8b4e17b854fc89450d5454",
+        "timestamp": "2026-09-27T20:54:43Z"
+      },
+      {
+        "version": "0.2.26.1",
+        "changelog": "Renamed to ScreenHarbour, an independent cinematic interface for Jellyfin. Updates plugin and interface names, catalogue artwork, documentation and demo to follow Jellyfin's branding guidance. Existing plugin identity, saved collection rows, streaming-service choices and playback data are preserved. Update your catalogue URL to https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/manifest.json, then update without uninstalling. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.26/TvItemLayout_0.2.26.1_jellyfin-10.10.7.zip",
+        "checksum": "2bcb21ec794389d74c971f4b2cf00711",
+        "timestamp": "2026-09-27T20:54:43Z"
+      },
       {
         "version": "0.2.25.3",
         "changelog": "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.25/TvItemLayout_0.2.25.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.25/TvItemLayout_0.2.25.3_jellyfin-12.0.0.zip",
         "checksum": "55d4e78b910206357b11c158db81b241",
         "timestamp": "2026-09-27T17:51:54Z"
       },
@@ -20,7 +44,7 @@
         "version": "0.2.25.2",
         "changelog": "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.25/TvItemLayout_0.2.25.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.25/TvItemLayout_0.2.25.2_jellyfin-10.11.0.zip",
         "checksum": "803b56b4ff7bec3753b57087bd800277",
         "timestamp": "2026-09-27T17:51:54Z"
       },
@@ -28,7 +52,7 @@
         "version": "0.2.25.1",
         "changelog": "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.25/TvItemLayout_0.2.25.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.25/TvItemLayout_0.2.25.1_jellyfin-10.10.7.zip",
         "checksum": "542f9c261cec850ab073bbf15894efdd",
         "timestamp": "2026-09-27T17:51:54Z"
       },
@@ -36,7 +60,7 @@
         "version": "0.2.24.3",
         "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.24/TvItemLayout_0.2.24.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.24/TvItemLayout_0.2.24.3_jellyfin-12.0.0.zip",
         "checksum": "0afa0c5ddb519c924d6c5a00e56b9c31",
         "timestamp": "2026-09-27T17:11:19Z"
       },
@@ -44,7 +68,7 @@
         "version": "0.2.24.2",
         "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.24/TvItemLayout_0.2.24.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.24/TvItemLayout_0.2.24.2_jellyfin-10.11.0.zip",
         "checksum": "42997a50bb654f45521c6f77e4c26fa6",
         "timestamp": "2026-09-27T17:11:19Z"
       },
@@ -52,7 +76,7 @@
         "version": "0.2.24.1",
         "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.24/TvItemLayout_0.2.24.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.24/TvItemLayout_0.2.24.1_jellyfin-10.10.7.zip",
         "checksum": "e186a4cc844e4ca7b77f665fcb1885b8",
         "timestamp": "2026-09-27T17:11:19Z"
       },
@@ -60,7 +84,7 @@
         "version": "0.2.23.3",
         "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.23/TvItemLayout_0.2.23.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.23/TvItemLayout_0.2.23.3_jellyfin-12.0.0.zip",
         "checksum": "cea8fc5db70089c8243e767d8054e94c",
         "timestamp": "2026-09-27T16:00:15Z"
       },
@@ -68,7 +92,7 @@
         "version": "0.2.23.2",
         "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.23/TvItemLayout_0.2.23.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.23/TvItemLayout_0.2.23.2_jellyfin-10.11.0.zip",
         "checksum": "134eab330b61a2bb05dd8bb13738ef2d",
         "timestamp": "2026-09-27T16:00:15Z"
       },
@@ -76,7 +100,7 @@
         "version": "0.2.23.1",
         "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.23/TvItemLayout_0.2.23.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.23/TvItemLayout_0.2.23.1_jellyfin-10.10.7.zip",
         "checksum": "e863c94ef707b12c1bc9b60545d9d44b",
         "timestamp": "2026-09-27T16:00:15Z"
       },
@@ -84,7 +108,7 @@
         "version": "0.2.22.3",
         "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.22/TvItemLayout_0.2.22.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.22/TvItemLayout_0.2.22.3_jellyfin-12.0.0.zip",
         "checksum": "111e773df43cea3e4ac8a6b70123f0e8",
         "timestamp": "2026-09-27T14:53:04Z"
       },
@@ -92,7 +116,7 @@
         "version": "0.2.22.2",
         "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.22/TvItemLayout_0.2.22.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.22/TvItemLayout_0.2.22.2_jellyfin-10.11.0.zip",
         "checksum": "7ba951e920146b279c92ffb087512272",
         "timestamp": "2026-09-27T14:53:04Z"
       },
@@ -100,7 +124,7 @@
         "version": "0.2.22.1",
         "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.22/TvItemLayout_0.2.22.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.22/TvItemLayout_0.2.22.1_jellyfin-10.10.7.zip",
         "checksum": "f8822bd4379b92773e3cf8c156acc98e",
         "timestamp": "2026-09-27T14:53:04Z"
       },
@@ -108,7 +132,7 @@
         "version": "0.2.21.3",
         "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.21/TvItemLayout_0.2.21.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.21/TvItemLayout_0.2.21.3_jellyfin-12.0.0.zip",
         "checksum": "389836864e501c4732aca67bcf8a3b41",
         "timestamp": "2026-09-27T11:44:31Z"
       },
@@ -116,7 +140,7 @@
         "version": "0.2.21.2",
         "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.21/TvItemLayout_0.2.21.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.21/TvItemLayout_0.2.21.2_jellyfin-10.11.0.zip",
         "checksum": "5368981a135c9d2f96776b58fd69f098",
         "timestamp": "2026-09-27T11:44:31Z"
       },
@@ -124,7 +148,7 @@
         "version": "0.2.21.1",
         "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.21/TvItemLayout_0.2.21.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.21/TvItemLayout_0.2.21.1_jellyfin-10.10.7.zip",
         "checksum": "10fb4be6da79e89e2b5431959ad493cd",
         "timestamp": "2026-09-27T11:44:31Z"
       },
@@ -132,7 +156,7 @@
         "version": "0.2.20.3",
         "changelog": "Native, streaming-service and collection rows now reveal together on cached Home returns, including when Jellyfin is still rebuilding its rows. Cached data remains fast and background settings/content refreshes do not delay the page. Return visits still skip the cinema animation. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.20/TvItemLayout_0.2.20.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.20/TvItemLayout_0.2.20.3_jellyfin-12.0.0.zip",
         "checksum": "abbb7e6c2967ac99809414bbcb026ed9",
         "timestamp": "2026-09-27T10:40:57Z"
       },
@@ -140,7 +164,7 @@
         "version": "0.2.20.2",
         "changelog": "Native, streaming-service and collection rows now reveal together on cached Home returns, including when Jellyfin is still rebuilding its rows. Cached data remains fast and background settings/content refreshes do not delay the page. Return visits still skip the cinema animation. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.20/TvItemLayout_0.2.20.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.20/TvItemLayout_0.2.20.2_jellyfin-10.11.0.zip",
         "checksum": "6d20a912ec3d9b9cf52308003c9d3d58",
         "timestamp": "2026-09-27T10:40:57Z"
       },
@@ -148,7 +172,7 @@
         "version": "0.2.20.1",
         "changelog": "Native, streaming-service and collection rows now reveal together on cached Home returns, including when Jellyfin is still rebuilding its rows. Cached data remains fast and background settings/content refreshes do not delay the page. Return visits still skip the cinema animation. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.20/TvItemLayout_0.2.20.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.20/TvItemLayout_0.2.20.1_jellyfin-10.10.7.zip",
         "checksum": "23fae18c9a7ea7311e9708743febb0ca",
         "timestamp": "2026-09-27T10:40:57Z"
       },
@@ -156,7 +180,7 @@
         "version": "0.2.19.3",
         "changelog": "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.19/TvItemLayout_0.2.19.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.19/TvItemLayout_0.2.19.3_jellyfin-12.0.0.zip",
         "checksum": "4813b64f53b13a61752369ce88a4d77f",
         "timestamp": "2026-09-27T10:35:20Z"
       },
@@ -164,7 +188,7 @@
         "version": "0.2.19.2",
         "changelog": "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.19/TvItemLayout_0.2.19.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.19/TvItemLayout_0.2.19.2_jellyfin-10.11.0.zip",
         "checksum": "30ec393706f00fbac32ca54cc190a64f",
         "timestamp": "2026-09-27T10:35:20Z"
       },
@@ -172,7 +196,7 @@
         "version": "0.2.19.1",
         "changelog": "Return visits to Home reuse loaded collections and streaming rows immediately, with no repeat loading animation. Settings and content refresh in the background while selected items, row tabs and scroll positions are preserved. The first load still uses the cinema animation. Session data is cleared when accounts or servers change. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.19/TvItemLayout_0.2.19.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.19/TvItemLayout_0.2.19.1_jellyfin-10.10.7.zip",
         "checksum": "14d4ccaeb2cc78c7712ccb874ca91d8e",
         "timestamp": "2026-09-27T10:35:20Z"
       },
@@ -180,7 +204,7 @@
         "version": "0.2.18.3",
         "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.18/TvItemLayout_0.2.18.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.18/TvItemLayout_0.2.18.3_jellyfin-12.0.0.zip",
         "checksum": "9fc207f02f940b2624fcde576da098b3",
         "timestamp": "2026-09-27T10:13:02Z"
       },
@@ -188,7 +212,7 @@
         "version": "0.2.18.2",
         "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.18/TvItemLayout_0.2.18.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.18/TvItemLayout_0.2.18.2_jellyfin-10.11.0.zip",
         "checksum": "b63b2ebde201cabe76c742f639eedc7a",
         "timestamp": "2026-09-27T10:13:02Z"
       },
@@ -196,7 +220,7 @@
         "version": "0.2.18.1",
         "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.18/TvItemLayout_0.2.18.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.18/TvItemLayout_0.2.18.1_jellyfin-10.10.7.zip",
         "checksum": "adde8a2827a37ad7ebf96fc8450c42c4",
         "timestamp": "2026-09-27T10:13:02Z"
       },
@@ -204,7 +228,7 @@
         "version": "0.2.17.3",
         "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.17/TvItemLayout_0.2.17.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.17/TvItemLayout_0.2.17.3_jellyfin-12.0.0.zip",
         "checksum": "1fb220dd288cb2ed9c376f3950c216df",
         "timestamp": "2026-09-27T09:44:42Z"
       },
@@ -212,7 +236,7 @@
         "version": "0.2.17.2",
         "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.17/TvItemLayout_0.2.17.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.17/TvItemLayout_0.2.17.2_jellyfin-10.11.0.zip",
         "checksum": "a13b9cc25197820935b0379ead2a03f4",
         "timestamp": "2026-09-27T09:44:42Z"
       },
@@ -220,7 +244,7 @@
         "version": "0.2.17.1",
         "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.17/TvItemLayout_0.2.17.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.17/TvItemLayout_0.2.17.1_jellyfin-10.10.7.zip",
         "checksum": "38e6c9c35a8ec847699f05041a751848",
         "timestamp": "2026-09-27T09:44:42Z"
       },
@@ -228,7 +252,7 @@
         "version": "0.2.16.3",
         "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.16/TvItemLayout_0.2.16.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.16/TvItemLayout_0.2.16.3_jellyfin-12.0.0.zip",
         "checksum": "fb83a933ad9538f4ceebc87d5a95ea8d",
         "timestamp": "2026-09-27T09:32:57Z"
       },
@@ -236,7 +260,7 @@
         "version": "0.2.16.2",
         "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.16/TvItemLayout_0.2.16.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.16/TvItemLayout_0.2.16.2_jellyfin-10.11.0.zip",
         "checksum": "47b6ec2923cdba10388f1ee6c6e146ba",
         "timestamp": "2026-09-27T09:32:57Z"
       },
@@ -244,7 +268,7 @@
         "version": "0.2.16.1",
         "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.16/TvItemLayout_0.2.16.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.16/TvItemLayout_0.2.16.1_jellyfin-10.10.7.zip",
         "checksum": "57b43156580cd1310fb0992569ad309c",
         "timestamp": "2026-09-27T09:32:57Z"
       },
@@ -252,7 +276,7 @@
         "version": "0.2.15.3",
         "changelog": "Fixes automatic provider trending rows for SmartLists collections with the [Smart] suffix. Provider Back returns to main Home without stepping through tabs; item details retain their return selection. Native, streaming-service and collection rows now coordinate their first Home reveal, with a bounded fallback for stalled requests. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.15/TvItemLayout_0.2.15.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.15/TvItemLayout_0.2.15.3_jellyfin-12.0.0.zip",
         "checksum": "91b3740a271cfad20a26af27f2e4d9a4",
         "timestamp": "2026-09-27T08:51:36Z"
       },
@@ -260,7 +284,7 @@
         "version": "0.2.15.2",
         "changelog": "Fixes automatic provider trending rows for SmartLists collections with the [Smart] suffix. Provider Back returns to main Home without stepping through tabs; item details retain their return selection. Native, streaming-service and collection rows now coordinate their first Home reveal, with a bounded fallback for stalled requests. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.15/TvItemLayout_0.2.15.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.15/TvItemLayout_0.2.15.2_jellyfin-10.11.0.zip",
         "checksum": "4130b0954ce7e232667d69e1e9a0fc20",
         "timestamp": "2026-09-27T08:51:36Z"
       },
@@ -268,7 +292,7 @@
         "version": "0.2.15.1",
         "changelog": "Fixes automatic provider trending rows for SmartLists collections with the [Smart] suffix. Provider Back returns to main Home without stepping through tabs; item details retain their return selection. Native, streaming-service and collection rows now coordinate their first Home reveal, with a bounded fallback for stalled requests. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.15/TvItemLayout_0.2.15.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.15/TvItemLayout_0.2.15.1_jellyfin-10.10.7.zip",
         "checksum": "ba718332f55cb7a1533b4db90823eb01",
         "timestamp": "2026-09-27T08:51:36Z"
       },
@@ -276,7 +300,7 @@
         "version": "0.2.14.3",
         "changelog": "Adds branded Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ Home pages with UK library catalogues and separate trending rows. Configure tile placement, provider visibility, row sources, order, ranking and featured artwork in Settings. Choices follow your Jellyfin account across devices. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.14/TvItemLayout_0.2.14.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.14/TvItemLayout_0.2.14.3_jellyfin-12.0.0.zip",
         "checksum": "bc6634cb4cd2e0c6cf5fbc8a50a844d4",
         "timestamp": "2026-09-27T07:51:02Z"
       },
@@ -284,7 +308,7 @@
         "version": "0.2.14.2",
         "changelog": "Adds branded Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ Home pages with UK library catalogues and separate trending rows. Configure tile placement, provider visibility, row sources, order, ranking and featured artwork in Settings. Choices follow your Jellyfin account across devices. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.14/TvItemLayout_0.2.14.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.14/TvItemLayout_0.2.14.2_jellyfin-10.11.0.zip",
         "checksum": "ae33035e43c510b995d9517816cc0f68",
         "timestamp": "2026-09-27T07:51:02Z"
       },
@@ -292,7 +316,7 @@
         "version": "0.2.14.1",
         "changelog": "Adds branded Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ Home pages with UK library catalogues and separate trending rows. Configure tile placement, provider visibility, row sources, order, ranking and featured artwork in Settings. Choices follow your Jellyfin account across devices. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.14/TvItemLayout_0.2.14.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.14/TvItemLayout_0.2.14.1_jellyfin-10.10.7.zip",
         "checksum": "2c5bb32b95ad95a186c13a376497402b",
         "timestamp": "2026-09-27T07:51:02Z"
       },
@@ -300,7 +324,7 @@
         "version": "0.2.13.3",
         "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.13/TvItemLayout_0.2.13.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.13/TvItemLayout_0.2.13.3_jellyfin-12.0.0.zip",
         "checksum": "68fdd8bcdc8fb4f3fc422fab3558ff32",
         "timestamp": "2026-09-26T20:26:46Z"
       },
@@ -308,7 +332,7 @@
         "version": "0.2.13.2",
         "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.13/TvItemLayout_0.2.13.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.13/TvItemLayout_0.2.13.2_jellyfin-10.11.0.zip",
         "checksum": "259aa66bb5edf1ac28a93cd05bf0aca4",
         "timestamp": "2026-09-26T20:26:46Z"
       },
@@ -316,7 +340,7 @@
         "version": "0.2.13.1",
         "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.13/TvItemLayout_0.2.13.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.13/TvItemLayout_0.2.13.1_jellyfin-10.10.7.zip",
         "checksum": "755950a3ab31bba1f820b1fc78ae1f63",
         "timestamp": "2026-09-26T20:26:46Z"
       },
@@ -324,7 +348,7 @@
         "version": "0.2.12.3",
         "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.12/TvItemLayout_0.2.12.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.12/TvItemLayout_0.2.12.3_jellyfin-12.0.0.zip",
         "checksum": "810f7c830c6502aee49ba84185a7b07c",
         "timestamp": "2026-09-26T19:22:42Z"
       },
@@ -332,7 +356,7 @@
         "version": "0.2.12.2",
         "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.12/TvItemLayout_0.2.12.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.12/TvItemLayout_0.2.12.2_jellyfin-10.11.0.zip",
         "checksum": "6aac84e7672faef36335a22152acaf7d",
         "timestamp": "2026-09-26T19:22:42Z"
       },
@@ -340,7 +364,7 @@
         "version": "0.2.12.1",
         "changelog": "Keeps Cinema Home styling in place after late native and third-party styles; fixes desktop Live TV playback; refreshes loaded Home collection contents without changing row settings. Down opens episode browsing only at the bottom of playback controls. Resumable episodes also offer Play from beginning. Removes navigation hints and limits collection-row editing to desktop. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.12/TvItemLayout_0.2.12.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.12/TvItemLayout_0.2.12.1_jellyfin-10.10.7.zip",
         "checksum": "05daf741adbc3ae60aac500637e96877",
         "timestamp": "2026-09-26T19:22:42Z"
       },
@@ -348,7 +372,7 @@
         "version": "0.2.11.3",
         "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.11/TvItemLayout_0.2.11.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.11/TvItemLayout_0.2.11.3_jellyfin-12.0.0.zip",
         "checksum": "9c45ec9d6795fc972fc4d10538b5ff24",
         "timestamp": "2026-09-23T20:21:55Z"
       },
@@ -356,7 +380,7 @@
         "version": "0.2.11.2",
         "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.11/TvItemLayout_0.2.11.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.11/TvItemLayout_0.2.11.2_jellyfin-10.11.0.zip",
         "checksum": "bc30f622f9e277a29c434b0c112cece2",
         "timestamp": "2026-09-23T20:21:55Z"
       },
@@ -364,7 +388,7 @@
         "version": "0.2.11.1",
         "changelog": "Polishes Home collection rows: wait for native Home loading to settle, keep existing rows during refresh, match native section spacing, hide horizontal scrollbars and keep the focus border around thumbnails with room at both scroll edges. Titles and ranked number artwork stay outside the highlight. Restart Jellyfin and fully reopen the TV and desktop clients. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.11/TvItemLayout_0.2.11.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.11/TvItemLayout_0.2.11.1_jellyfin-10.10.7.zip",
         "checksum": "d19856867e56e883bef01a199958edf7",
         "timestamp": "2026-09-23T20:21:55Z"
       },
@@ -372,7 +396,7 @@
         "version": "0.2.10.3",
         "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.10/TvItemLayout_0.2.10.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.10/TvItemLayout_0.2.10.3_jellyfin-12.0.0.zip",
         "checksum": "d2f56bd251e9d2faca715815e6f88d61",
         "timestamp": "2026-09-23T19:36:48Z"
       },
@@ -380,7 +404,7 @@
         "version": "0.2.10.2",
         "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.10/TvItemLayout_0.2.10.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.10/TvItemLayout_0.2.10.2_jellyfin-10.11.0.zip",
         "checksum": "932c6912574f5974173685374df4606d",
         "timestamp": "2026-09-23T19:36:48Z"
       },
@@ -388,7 +412,7 @@
         "version": "0.2.10.1",
         "changelog": "Fixes first-use Home row sync and collection editing: the empty server response now retains explicit null fields under Jellyfin's JSON settings. Home retries background sync quietly without a warning banner or Retry button, while the editor still reports failed saves. Existing rows are preserved. Restart Jellyfin, reload the desktop client and open Home to migrate existing rows, then reopen the TV app. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.10/TvItemLayout_0.2.10.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.10/TvItemLayout_0.2.10.1_jellyfin-10.10.7.zip",
         "checksum": "3b3607fa31f8d31ac74375a278ee0d7b",
         "timestamp": "2026-09-23T19:36:48Z"
       },
@@ -396,7 +420,7 @@
         "version": "0.2.9.3",
         "changelog": "Syncs custom Home rows per account across desktop and TV, with migration of existing browser rows and protection against conflicting edits. Keeps Cinema profile switching on the current webOS server after native logout. Applies Cinema route styling immediately on Back/navigation. Adds live channel up/down commands where the TV exposes them; LG remote delivery varies. Open Home once on the original desktop browser after updating to migrate rows. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.9/TvItemLayout_0.2.9.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.9/TvItemLayout_0.2.9.3_jellyfin-12.0.0.zip",
         "checksum": "e6daeed2137ab0caa2c776a895ffdb9f",
         "timestamp": "2026-09-23T19:20:52Z"
       },
@@ -404,7 +428,7 @@
         "version": "0.2.9.2",
         "changelog": "Syncs custom Home rows per account across desktop and TV, with migration of existing browser rows and protection against conflicting edits. Keeps Cinema profile switching on the current webOS server after native logout. Applies Cinema route styling immediately on Back/navigation. Adds live channel up/down commands where the TV exposes them; LG remote delivery varies. Open Home once on the original desktop browser after updating to migrate rows. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.9/TvItemLayout_0.2.9.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.9/TvItemLayout_0.2.9.2_jellyfin-10.11.0.zip",
         "checksum": "68265b54277fc3c726fb87f7687bdb27",
         "timestamp": "2026-09-23T19:20:52Z"
       },
@@ -412,7 +436,7 @@
         "version": "0.2.9.1",
         "changelog": "Syncs custom Home rows per account across desktop and TV, with migration of existing browser rows and protection against conflicting edits. Keeps Cinema profile switching on the current webOS server after native logout. Applies Cinema route styling immediately on Back/navigation. Adds live channel up/down commands where the TV exposes them; LG remote delivery varies. Open Home once on the original desktop browser after updating to migrate rows. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.9/TvItemLayout_0.2.9.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.9/TvItemLayout_0.2.9.1_jellyfin-10.10.7.zip",
         "checksum": "23a80ecdaef8bc882d89cc7c7c3e3f47",
         "timestamp": "2026-09-23T19:20:52Z"
       },
@@ -420,7 +444,7 @@
         "version": "0.2.8.3",
         "changelog": "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who\u2019s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin\u2019s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.8/TvItemLayout_0.2.8.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.8/TvItemLayout_0.2.8.3_jellyfin-12.0.0.zip",
         "checksum": "afcd430d6f8199d5d141b68d1a03c987",
         "timestamp": "2026-09-23T17:40:04Z"
       },
@@ -428,7 +452,7 @@
         "version": "0.2.8.2",
         "changelog": "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who\u2019s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin\u2019s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.8/TvItemLayout_0.2.8.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.8/TvItemLayout_0.2.8.2_jellyfin-10.11.0.zip",
         "checksum": "bc1fc949c85301d7cbba5a1188624287",
         "timestamp": "2026-09-23T17:40:04Z"
       },
@@ -436,7 +460,7 @@
         "version": "0.2.8.1",
         "changelog": "Brings the Cinema theme to Jellyfin Web desktop mode: Home and collection rows, libraries, media details, Search, Settings, login, recordings, music and player features. The Who\u2019s watching? chooser and eligible passwordless switching work with desktop mouse and keyboard. Keeps Jellyfin\u2019s native display mode and mobile layout. Existing Home row settings and account rules are retained. Requires File Transformation.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.8/TvItemLayout_0.2.8.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.8/TvItemLayout_0.2.8.1_jellyfin-10.10.7.zip",
         "checksum": "7c369a1389b2796fc576b23162717405",
         "timestamp": "2026-09-23T17:40:04Z"
       },
@@ -444,7 +468,7 @@
         "version": "0.2.7.3",
         "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.7/TvItemLayout_0.2.7.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.7/TvItemLayout_0.2.7.3_jellyfin-12.0.0.zip",
         "checksum": "d862295d3e4a8b5d55ef47257aeaa672",
         "timestamp": "2026-09-23T16:49:31Z"
       },
@@ -452,7 +476,7 @@
         "version": "0.2.7.2",
         "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.7/TvItemLayout_0.2.7.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.7/TvItemLayout_0.2.7.2_jellyfin-10.11.0.zip",
         "checksum": "bdfc0fcf960a4f26316a1c10f3d9b3a3",
         "timestamp": "2026-09-23T16:49:31Z"
       },
@@ -460,7 +484,7 @@
         "version": "0.2.7.1",
         "changelog": "Fixes passwordless profile switching on Jellyfin 12 using a fresh, authenticated server eligibility check instead of obsolete password flags. The TV avatar opens a full-screen Who\u2019s watching? chooser with large square profile artwork, remote focus and secondary Settings/Dashboard actions. Protected profiles retain native sign-in; desktop retains the native account menu. Existing Home rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.7/TvItemLayout_0.2.7.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.7/TvItemLayout_0.2.7.1_jellyfin-10.10.7.zip",
         "checksum": "05046f9ba7a9d82f138d44c7f9cdfeff",
         "timestamp": "2026-09-23T16:49:31Z"
       },
@@ -468,7 +492,7 @@
         "version": "0.2.6.3",
         "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.6/TvItemLayout_0.2.6.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.6/TvItemLayout_0.2.6.3_jellyfin-12.0.0.zip",
         "checksum": "3530c33ac411d65145eb06602272dda7",
         "timestamp": "2026-09-23T16:14:09Z"
       },
@@ -476,7 +500,7 @@
         "version": "0.2.6.2",
         "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.6/TvItemLayout_0.2.6.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.6/TvItemLayout_0.2.6.2_jellyfin-10.11.0.zip",
         "checksum": "05c91a3cdf0b62382fb544ad0e054386",
         "timestamp": "2026-09-23T16:14:09Z"
       },
@@ -484,7 +508,7 @@
         "version": "0.2.6.1",
         "changelog": "Themes native Search, Settings, login and folder lists, including historic recording libraries that are separate from the current DVR folder. Adds Dashboard shortcuts for the signed-in administrator only. Offers public profile tiles for direct native sign-in where the server already permits passwordless access; protected profiles retain native password entry. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.6/TvItemLayout_0.2.6.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.6/TvItemLayout_0.2.6.1_jellyfin-10.10.7.zip",
         "checksum": "5838725982023a44a861e630e7bb7640",
         "timestamp": "2026-09-23T16:14:09Z"
       },
@@ -492,7 +516,7 @@
         "version": "0.2.5.3",
         "changelog": "Adds Switch profile and Settings to the TV avatar while preserving native desktop behavior. Covers recording folders opened from Home with the Cinema recordings layout. Redesigns the native music queue with larger artwork, clear playback controls and themed track rows. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.5/TvItemLayout_0.2.5.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.5/TvItemLayout_0.2.5.3_jellyfin-12.0.0.zip",
         "checksum": "b170acbfe6093c0a062782ccfdf4fed6",
         "timestamp": "2026-09-23T15:36:29Z"
       },
@@ -500,7 +524,7 @@
         "version": "0.2.5.2",
         "changelog": "Adds Switch profile and Settings to the TV avatar while preserving native desktop behavior. Covers recording folders opened from Home with the Cinema recordings layout. Redesigns the native music queue with larger artwork, clear playback controls and themed track rows. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.5/TvItemLayout_0.2.5.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.5/TvItemLayout_0.2.5.2_jellyfin-10.11.0.zip",
         "checksum": "74d47027f7e90155d994880b4edc8a2d",
         "timestamp": "2026-09-23T15:36:29Z"
       },
@@ -508,7 +532,7 @@
         "version": "0.2.5.1",
         "changelog": "Adds Switch profile and Settings to the TV avatar while preserving native desktop behavior. Covers recording folders opened from Home with the Cinema recordings layout. Redesigns the native music queue with larger artwork, clear playback controls and themed track rows. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.5/TvItemLayout_0.2.5.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.5/TvItemLayout_0.2.5.1_jellyfin-10.10.7.zip",
         "checksum": "d2b2791aede11ba74167530259f553eb",
         "timestamp": "2026-09-23T15:36:29Z"
       },
@@ -516,7 +540,7 @@
         "version": "0.2.4.3",
         "changelog": "Fixes Up navigation among native and custom Home rows, including collection tabs. Keeps missing-artwork placeholders inside collection-editor thumbnails. Restores Ends at beside movie and episode ratings, including the episode selected in the series hero, using remaining runtime when resuming and updating while the page stays open. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.4/TvItemLayout_0.2.4.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.4/TvItemLayout_0.2.4.3_jellyfin-12.0.0.zip",
         "checksum": "b6be2496e587aac96882ad2861c6f095",
         "timestamp": "2026-09-23T15:05:41Z"
       },
@@ -524,7 +548,7 @@
         "version": "0.2.4.2",
         "changelog": "Fixes Up navigation among native and custom Home rows, including collection tabs. Keeps missing-artwork placeholders inside collection-editor thumbnails. Restores Ends at beside movie and episode ratings, including the episode selected in the series hero, using remaining runtime when resuming and updating while the page stays open. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.4/TvItemLayout_0.2.4.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.4/TvItemLayout_0.2.4.2_jellyfin-10.11.0.zip",
         "checksum": "11b418dd5c922dee35497c93301f1a96",
         "timestamp": "2026-09-23T15:05:41Z"
       },
@@ -532,7 +556,7 @@
         "version": "0.2.4.1",
         "changelog": "Fixes Up navigation among native and custom Home rows, including collection tabs. Keeps missing-artwork placeholders inside collection-editor thumbnails. Restores Ends at beside movie and episode ratings, including the episode selected in the series hero, using remaining runtime when resuming and updating while the page stays open. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.4/TvItemLayout_0.2.4.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.4/TvItemLayout_0.2.4.1_jellyfin-10.10.7.zip",
         "checksum": "ebfba2b6e9c4f67d664633476dd2deb1",
         "timestamp": "2026-09-23T15:05:41Z"
       },
@@ -540,7 +564,7 @@
         "version": "0.2.3.3",
         "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.3/TvItemLayout_0.2.3.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.3/TvItemLayout_0.2.3.3_jellyfin-12.0.0.zip",
         "checksum": "8d2982c8de3dfd4a7be84f5a0c317bbc",
         "timestamp": "2026-09-23T14:20:42Z"
       },
@@ -548,7 +572,7 @@
         "version": "0.2.3.2",
         "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.3/TvItemLayout_0.2.3.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.3/TvItemLayout_0.2.3.2_jellyfin-10.11.0.zip",
         "checksum": "07f7acf72b57c389bd064dadcc126ee4",
         "timestamp": "2026-09-23T14:20:42Z"
       },
@@ -556,7 +580,7 @@
         "version": "0.2.3.1",
         "changelog": "Adds optional tabs to Home collection item rows, with editable labels, a separate collection and item order for each tab, ranked artwork, live preview and TV navigation. Use Movies and Shows tabs for platform trending collections or any collections of your choice. Existing single-collection rows are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.3/TvItemLayout_0.2.3.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.3/TvItemLayout_0.2.3.1_jellyfin-10.10.7.zip",
         "checksum": "76b1b956457519308dcf81dee2733668",
         "timestamp": "2026-09-23T14:20:42Z"
       },
@@ -564,7 +588,7 @@
         "version": "0.2.2.3",
         "changelog": "Adds a live Home-style preview to the collection row editor. Preview collection artwork, titles, ranked numbers, item order and placement while editing; changes apply to Home only after saving. Existing Home row preferences are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.2/TvItemLayout_0.2.2.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.2/TvItemLayout_0.2.2.3_jellyfin-12.0.0.zip",
         "checksum": "d24506ce1e3356c7e5853b5a30a82860",
         "timestamp": "2026-09-23T13:42:16Z"
       },
@@ -572,7 +596,7 @@
         "version": "0.2.2.2",
         "changelog": "Adds a live Home-style preview to the collection row editor. Preview collection artwork, titles, ranked numbers, item order and placement while editing; changes apply to Home only after saving. Existing Home row preferences are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.2/TvItemLayout_0.2.2.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.2/TvItemLayout_0.2.2.2_jellyfin-10.11.0.zip",
         "checksum": "63799fb5e46c913b3cef2d43df8f3aaf",
         "timestamp": "2026-09-23T13:42:16Z"
       },
@@ -580,7 +604,7 @@
         "version": "0.2.2.1",
         "changelog": "Adds a live Home-style preview to the collection row editor. Preview collection artwork, titles, ranked numbers, item order and placement while editing; changes apply to Home only after saving. Existing Home row preferences are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.2/TvItemLayout_0.2.2.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.2/TvItemLayout_0.2.2.1_jellyfin-10.10.7.zip",
         "checksum": "2d8bf7f529608cb5f44b35cf1d4676e9",
         "timestamp": "2026-09-23T13:42:16Z"
       },
@@ -588,7 +612,7 @@
         "version": "0.2.1.3",
         "changelog": "Fixes the video OSD preview button squeezing playback controls. Moves Home collection setup to Collections with one-row editing, local item sorting and manual order, and custom rows positioned among native Home sections. Adds cinematic playlists with complete ordered queue playback, native music-player styling, album focus spacing and themed native DVR controls. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.1/TvItemLayout_0.2.1.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.1/TvItemLayout_0.2.1.3_jellyfin-12.0.0.zip",
         "checksum": "33be7cb8338c8b9f5d8d1bfccb39c577",
         "timestamp": "2026-09-23T13:27:02Z"
       },
@@ -596,7 +620,7 @@
         "version": "0.2.1.2",
         "changelog": "Fixes the video OSD preview button squeezing playback controls. Moves Home collection setup to Collections with one-row editing, local item sorting and manual order, and custom rows positioned among native Home sections. Adds cinematic playlists with complete ordered queue playback, native music-player styling, album focus spacing and themed native DVR controls. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.1/TvItemLayout_0.2.1.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.1/TvItemLayout_0.2.1.2_jellyfin-10.11.0.zip",
         "checksum": "59f27ef6e3bc65e2a9c29d26b4a0e17f",
         "timestamp": "2026-09-23T13:27:02Z"
       },
@@ -604,7 +628,7 @@
         "version": "0.2.1.1",
         "changelog": "Fixes the video OSD preview button squeezing playback controls. Moves Home collection setup to Collections with one-row editing, local item sorting and manual order, and custom rows positioned among native Home sections. Adds cinematic playlists with complete ordered queue playback, native music-player styling, album focus spacing and themed native DVR controls. Existing Home row settings are retained. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.1/TvItemLayout_0.2.1.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.1/TvItemLayout_0.2.1.1_jellyfin-10.10.7.zip",
         "checksum": "0f9bccb2f8bc31f8de38afc9b2c680b8",
         "timestamp": "2026-09-23T13:27:02Z"
       },
@@ -612,7 +636,7 @@
         "version": "0.2.0.3",
         "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "12.0.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.0/TvItemLayout_0.2.0.3_jellyfin-12.0.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.0/TvItemLayout_0.2.0.3_jellyfin-12.0.0.zip",
         "checksum": "532842f62b57764bf285188bb9525e2d",
         "timestamp": "2026-09-23T12:16:26Z"
       },
@@ -620,7 +644,7 @@
         "version": "0.2.0.2",
         "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.11.0",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.0/TvItemLayout_0.2.0.2_jellyfin-10.11.0.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.0/TvItemLayout_0.2.0.2_jellyfin-10.11.0.zip",
         "checksum": "de545ece6dfaea472e07eda2542317af",
         "timestamp": "2026-09-23T12:16:26Z"
       },
@@ -628,7 +652,7 @@
         "version": "0.2.0.1",
         "changelog": "Renamed to Jellyfin Cinema with the same plugin identity. Adds configurable Home collection rows, optional numbered artwork and Add to collection actions. Restores Down previews when a standalone preview script fails to initialise. Matches Featured to the cinematic theme, fixes Home caption backgrounds and places All movies/shows last. Requires File Transformation and Jellyfin Web in TV display mode.",
         "targetAbi": "10.10.7",
-        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.0/TvItemLayout_0.2.0.1_jellyfin-10.10.7.zip",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.0/TvItemLayout_0.2.0.1_jellyfin-10.10.7.zip",
         "checksum": "81411dec02a6d41c3fe383e3a3e06324",
         "timestamp": "2026-09-23T12:16:26Z"
       }

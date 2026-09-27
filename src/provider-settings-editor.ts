@@ -63,7 +63,7 @@ export class ProviderSettingsEditor {
     this.anchors = Array.from(unique.values());
     const panel = el('div', 'tvl-provider-settings-panel');
     const header = el('header', 'tvl-provider-settings-header');
-    const heading = el('div'); heading.append(el('p', 'tvl-provider-settings-eyebrow', 'PERSONALISE CINEMA'), el('h1', '', 'Streaming services'));
+    const heading = el('div'); heading.append(el('p', 'tvl-provider-settings-eyebrow', 'PERSONALISE SCREENHARBOUR'), el('h1', '', 'Streaming services'));
     const actions = el('div', 'tvl-provider-settings-actions');
     actions.append(this.control(options.providerId ? 'Back to service' : 'Back to settings', 'back', () => this.options.onBack(), 'back'));
     this.cancelButton = this.control('Cancel changes', 'cancel', () => this.cancel()); this.cancelButton.disabled = true; actions.append(this.cancelButton);

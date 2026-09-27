@@ -46,7 +46,7 @@ function loadingCinema(): HTMLElement {
   }
   art.append(el('div', 'tvl-home-loading-camera'), el('div', 'tvl-home-loading-lens'), el('div', 'tvl-home-loading-foot'));
   const copy = el('div', 'tvl-home-loading-copy');
-  copy.append(el('span', 'tvl-home-loading-brand', 'JELLYFIN CINEMA'), el('span', 'tvl-home-loading-label', 'Preparing your cinema'));
+  copy.append(el('span', 'tvl-home-loading-brand', 'SCREENHARBOUR'), el('span', 'tvl-home-loading-label', 'Preparing your Home'));
   const dots = el('span', 'tvl-home-loading-dots'); dots.setAttribute('aria-hidden', 'true');
   for (let index = 0; index < 3; index++) dots.append(el('i'));
   status.append(art, copy, dots); return status;

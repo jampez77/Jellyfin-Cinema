@@ -1,6 +1,6 @@
 # Provider logos
 
-These marks identify collections grouped by streaming provider. Jellyfin Cinema is not affiliated with or endorsed by the providers. The marks remain the property of their respective owners; the project's software license does not grant trademark rights.
+These marks identify collections grouped by streaming provider. ScreenHarbour is not affiliated with or endorsed by the providers. The marks remain the property of their respective owners; the project's software license does not grant trademark rights.
 
 All images are embedded as data URIs in `src/provider-brands.ts`, so provider navigation works without a request to an external image host. The files here are the editable source assets. If an image changes, update its matching literal in that module as well.
 
@@ -43,6 +43,6 @@ TMDB's [API FAQ](https://developer.themoviedb.org/docs/faq) requires the approve
 
 > This product uses the TMDB API but is not endorsed or certified by TMDB.
 
-The logo should remain less prominent than Jellyfin Cinema's own identity and link to [TMDB](https://www.themoviedb.org). Do not imply endorsement or change the logo's colors or aspect ratio.
+The logo should remain less prominent than ScreenHarbour's own identity and link to [TMDB](https://www.themoviedb.org). Do not imply endorsement or change the logo's colors or aspect ratio.
 
 TMDB's [watch-provider documentation](https://developer.themoviedb.org/reference/movie-watch-providers) separately requires attribution to **JustWatch** as the source of streaming availability data. Cinema's source and asset documentation identifies TMDB and [JustWatch](https://www.justwatch.com/). Data-source links and credits are omitted from the TV and desktop frontend.
