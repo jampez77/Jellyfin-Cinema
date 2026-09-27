@@ -1,9 +1,11 @@
 # README screenshots
 
-These are unretouched screenshots of an installed Jellyfin Cinema library in desktop display mode, captured on 27 September 2026 at the browser’s 1728 × 872 viewport. They use real movies, shows and library artwork. They are separate from the hosted demo, which uses fictional data and simulated playback.
+These are unretouched screenshots of an installed Jellyfin Cinema library in desktop display mode, captured on 27 September 2026. The Home service and trending views use the browser’s 1728 × 816 viewport; the other captures use 1728 × 872. They use real movies, shows and library artwork. They are separate from the hosted demo, which uses fictional data and simulated playback.
 
 | File | Screen |
 | --- | --- |
+| `home-services.jpg` | Home library tiles and streaming-service shortcuts |
+| `home-trending.jpg` | Home’s Netflix Trending Today collection with ranked posters, Movies and Shows tabs, and the adjacent Live TV row |
 | `home.jpg` | Home with the optional Jellyfin Featured plugin and library tiles |
 | `movie-details.jpg` | Dune: Part Two details |
 | `episodes.jpg` | Bluey’s first-season episode browser |

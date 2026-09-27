@@ -22,9 +22,14 @@ The demo follows the latest code on `main`, which may be ahead of an installed r
 
 ## Screenshots
 
-Captured from an installed Jellyfin library with real films and shows, including **Dune: Part Two**, **Bluey** and **No Time to Die**. These show desktop display mode; TV mode shares the visual design with remote focus and TV-specific controls. The Home capture includes the optional Jellyfin Featured plugin. Select an image to view it at full size.
+Captured from an installed Jellyfin library with real films and shows, including **Dune: Part Two**, **Bluey** and **No Time to Die**. These show desktop display mode; TV mode shares the visual design with remote focus and TV-specific controls. The Home views show streaming-service tiles, ranked trending collections and the optional Jellyfin Featured plugin. Select an image to view it at full size.
 
-| Home | Movie details |
+| Home: streaming services | Home: ranked trending films |
+| --- | --- |
+| [![Cinema Home with media libraries and Netflix, Prime Video, Disney+, Apple TV+ and NOW service tiles](docs/screenshots/home-services.jpg)](docs/screenshots/home-services.jpg) | [![Cinema Home with the Netflix Trending Today collection, numbered film posters and Movies and Shows tabs](docs/screenshots/home-trending.jpg)](docs/screenshots/home-trending.jpg) |
+| Open your configured streaming services directly from Home. | Browse ranked trending films alongside your other Home rows. |
+
+| Home: featured film | Movie details |
 | --- | --- |
 | [![Cinema Home with The Return of the King featured banner and library rows](docs/screenshots/home.jpg)](docs/screenshots/home.jpg) | [![Dune: Part Two details with title artwork, playback controls and Ends at](docs/screenshots/movie-details.jpg)](docs/screenshots/movie-details.jpg) |
 | A featured film and your media libraries. | Dune: Part Two with playback actions and a finish-time estimate. |
