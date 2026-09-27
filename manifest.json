@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.21.3",
+        "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.21/TvItemLayout_0.2.21.3_jellyfin-12.0.0.zip",
+        "checksum": "389836864e501c4732aca67bcf8a3b41",
+        "timestamp": "2026-09-27T11:44:31Z"
+      },
+      {
+        "version": "0.2.21.2",
+        "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.21/TvItemLayout_0.2.21.2_jellyfin-10.11.0.zip",
+        "checksum": "5368981a135c9d2f96776b58fd69f098",
+        "timestamp": "2026-09-27T11:44:31Z"
+      },
+      {
+        "version": "0.2.21.1",
+        "changelog": "Faster Home returns: unrelated spinners and refreshing Featured artwork no longer hold the whole page blank. Native, streaming-service and collection rows still appear together. Background refresh starts after cached content is visible, with limited simultaneous collection reads and no duplicate batches on focus. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.21/TvItemLayout_0.2.21.1_jellyfin-10.10.7.zip",
+        "checksum": "10fb4be6da79e89e2b5431959ad493cd",
+        "timestamp": "2026-09-27T11:44:31Z"
+      },
+      {
         "version": "0.2.20.3",
         "changelog": "Native, streaming-service and collection rows now reveal together on cached Home returns, including when Jellyfin is still rebuilding its rows. Cached data remains fast and background settings/content refreshes do not delay the page. Return visits still skip the cinema animation. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

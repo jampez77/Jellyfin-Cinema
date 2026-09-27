@@ -19,14 +19,15 @@ export class HomeReadiness {
   private expired = false;
   private ready = false;
   private contentReady = false;
+  private allowFeaturedPlaceholder = false;
   private disposed = false;
 
   constructor(private changed: () => void) {}
 
-  update(host: HTMLElement, contentReady = true): boolean {
+  update(host: HTMLElement, contentReady = true, allowFeaturedPlaceholder = false): boolean {
     if (this.disposed) return false;
     if (this.ready) return true;
-    this.host = host; this.contentReady = contentReady;
+    this.host = host; this.contentReady = contentReady; this.allowFeaturedPlaceholder = allowFeaturedPlaceholder;
     if (this.deadline === undefined) this.deadline = window.setTimeout(() => {
       this.expired = true; this.check();
     }, 3_500);
@@ -82,9 +83,17 @@ export class HomeReadiness {
     if (host.querySelector('.sections .centerMessage')) return true;
     const sections = host.querySelector('.sections, .homeSectionsContainer');
     if (!sections?.classList.contains('homeSectionsContainer') || !sections.childElementCount) return false;
-    if (!sections.querySelector('.itemsContainer, .homeLibraryButton, .ec-root, .sectionTitle')) return false;
-    if (host.querySelector('.ec-placeholder, .ec-bootstrap-placeholder, .sections [aria-busy="true"]')) return false;
-    if (document.querySelector('.docspinner.mdlSpinnerActive')) return false;
+    // Featured can insert its placeholder before Jellyfin creates any native
+    // rows. That placeholder alone must never mark a rebuilt Home as ready.
+    if (!Array.from(sections.querySelectorAll('.itemsContainer, .homeLibraryButton, .ec-root, .sectionTitle'))
+      .some(element => !element.closest('.ec-placeholder, .ec-bootstrap-placeholder'))) return false;
+    if (host.querySelector('.sections [aria-busy="true"]')) return false;
+    // Featured rebuilds its carousel on return and reserves the final height
+    // while fetching artwork. Warm Home rows need not wait for that artwork.
+    if (!this.allowFeaturedPlaceholder && host.querySelector('.ec-placeholder, .ec-bootstrap-placeholder')) return false;
+    // Jellyfin's document spinner is shared by every route and can retain its
+    // active class after Home has finished. Only Home's own containers and
+    // completion callbacks establish readiness; the global spinner does not.
     for (const watch of this.watches.values()) {
       // Cached inactive Home containers are deliberately paused by Jellyfin.
       // They do not represent a pending request, even if they are empty.

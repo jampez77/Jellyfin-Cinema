@@ -82,7 +82,11 @@ export class HomeCollections {
   private items = new Map<string, CollectionItems>();
   private collections?: Item[];
   private collectionRequest?: Promise<Item[]>;
+  private itemRefresh?: Promise<boolean>;
   private warmReturn = false;
+  private initialRefreshPending = false;
+  private refreshFrame?: number;
+  private refreshTimer?: number;
   private providers: ProviderHomesSettings;
   private providerStore: ProviderHomesStore;
   private initialSettingsReady = false;
@@ -107,7 +111,7 @@ export class HomeCollections {
     this.providerStore = createProviderHomesStore(api); this.providers = this.providerStore.cached;
     const cached = lastHome?.key === this.key ? lastHome : undefined;
     if (cached) {
-      this.warmReturn = true; this.collections = cached.collections || [];
+      this.warmReturn = true; this.initialRefreshPending = true; this.collections = cached.collections || [];
       this.selectedSources = new Map(cached.sources);
       for (const [id, entry] of cached.items) this.items.set(id, { ...entry, promise: Promise.resolve(entry.value) });
     }
@@ -141,14 +145,31 @@ export class HomeCollections {
     if (this.store.synced || this.providerStore.synced) {
       this.syncTimer = window.setInterval(this.onVisible, 60_000);
     }
-    if (this.warmReturn || this.store.synced || this.providerStore.synced) void this.loadInitialSettings();
+    if (!this.warmReturn && (this.store.synced || this.providerStore.synced)) void this.loadInitialSettings();
+  }
+
+  private refreshAfterPaint(): void {
+    if (!this.initialRefreshPending || this.refreshFrame !== undefined || this.refreshTimer !== undefined) return;
+    // Let the cached page paint before competing with native Home/Featured for
+    // connections. A return visit never needs these reads to render its rows.
+    this.refreshFrame = requestAnimationFrame(() => {
+      this.refreshFrame = undefined;
+      this.refreshTimer = window.setTimeout(() => {
+        this.refreshTimer = undefined;
+        if (this.disposed) return;
+        this.initialRefreshPending = false;
+        void this.loadInitialSettings();
+      }, 0);
+    });
   }
 
   /** Fetch both preferences in parallel and publish a single initial row set.
    * Cached members may already be loading, but cannot appear before a fresh
    * device knows which provider and collection rows belong to this account. */
   private async loadInitialSettings(): Promise<void> {
-    this.syncing = this.store.synced; this.providerSyncing = this.providerStore.synced;
+    const readProviders = this.providerStore.synced || this.providerRefreshPending;
+    this.providerRefreshPending = false;
+    this.syncing = this.store.synced; this.providerSyncing = readProviders;
     this.lastSync = this.providerLastSync = Date.now();
     await Promise.all([
       this.store.synced ? this.store.load().then(settings => {
@@ -156,7 +177,7 @@ export class HomeCollections {
         const changed = JSON.stringify(settings) !== JSON.stringify(this.settings); this.settings = settings;
         if (changed) void this.render();
       }).catch(() => {}).finally(() => { this.syncing = false; }) : Promise.resolve(),
-      this.providerStore.synced ? this.providerStore.load().then(settings => {
+      readProviders ? this.providerStore.load().then(settings => {
         if (this.disposed) return;
         const changed = JSON.stringify(settings) !== JSON.stringify(this.providers); this.providers = settings;
         if (changed) void this.render();
@@ -287,6 +308,7 @@ export class HomeCollections {
     if (account && account.serverId === this.api.serverId && account.userId === this.api.userId) void this.refreshProviders(true);
   };
   private async refreshProviders(force: boolean): Promise<void> {
+    if (this.initialRefreshPending) { this.providerRefreshPending ||= force; return; }
     if (this.disposed || JSON.stringify([this.api.serverId, this.api.userId]) !== this.accountIdentity
       || !force && (!this.providerStore.synced || Date.now() - this.providerLastSync < 5_000)) return;
     // A save may finish while the initial/polling read is still in flight.
@@ -308,6 +330,7 @@ export class HomeCollections {
     if (changed) await this.render();
   }
   async refreshSettings(force = false): Promise<void> {
+    if (this.initialRefreshPending) { this.providerRefreshPending ||= force; return; }
     void this.refreshProviders(force);
     if (this.disposed || !this.store.synced || this.syncing || !force && Date.now() - this.lastSync < 5_000) return;
     this.syncing = true; this.lastSync = Date.now();
@@ -359,23 +382,42 @@ export class HomeCollections {
     return listChanged && this.settings.rows.length > 0 || membersChanged;
   }
 
-  private async refreshItems(): Promise<boolean> {
+  private refreshItems(): Promise<boolean> {
+    // Focus/visibility events may arrive while the initial background batch is
+    // still running. Join it instead of creating another pair of workers.
+    if (!this.itemRefresh) {
+      const refresh = this.refreshItemsBatch().finally(() => { if (this.itemRefresh === refresh) this.itemRefresh = undefined; });
+      this.itemRefresh = refresh;
+    }
+    return this.itemRefresh;
+  }
+  private async refreshItemsBatch(): Promise<boolean> {
     // Membership and source order can change without a settings revision (for
     // example after SmartLists refreshes). Revalidate visited sources quietly;
     // keep successful data during failures and leave unchanged DOM/focus alone.
     const sources = new Set(this.settings.rows.filter(row => row.kind === 'items').flatMap(row => homeCollectionTabs(row).map(tab => tab.collectionId)));
     let changed = false;
-    await Promise.all(Array.from(this.items, async ([id, entry]) => {
-      if (!sources.has(id)) { this.items.delete(id); return; }
-      if (entry.fingerprint === undefined) return;
-      try {
-        const items = await this.api.getCollectionItems(id);
-        if (this.disposed || this.api.homeCollections && !this.api.homeCollections.isCurrent() || this.items.get(id) !== entry) return;
-        const fingerprint = JSON.stringify(items);
-        if (fingerprint === entry.fingerprint) return;
-        this.items.set(id, { promise: Promise.resolve(items), fingerprint, value: items }); changed = true;
-      } catch { /* Keep the last successfully loaded members until a later poll. */ }
-    }));
+    const pending = Array.from(this.items).filter(([id, entry]) => {
+      if (!sources.has(id)) { this.items.delete(id); return false; }
+      return entry.fingerprint !== undefined;
+    });
+    // A user can visit many collection tabs. Revalidating all of them at once
+    // saturates the server's connection pool; reserve capacity for navigation.
+    const current = () => !this.disposed && JSON.stringify([this.api.serverId, this.api.userId]) === this.accountIdentity
+      && (!this.api.homeCollections || this.api.homeCollections.isCurrent());
+    const refreshNext = async () => {
+      while (pending.length && current()) {
+        const [id, entry] = pending.shift()!;
+        try {
+          const items = await this.api.getCollectionItems(id);
+          if (!current() || this.items.get(id) !== entry) continue;
+          const fingerprint = JSON.stringify(items);
+          if (fingerprint === entry.fingerprint) continue;
+          this.items.set(id, { promise: Promise.resolve(items), fingerprint, value: items }); changed = true;
+        } catch { /* Keep the last successfully loaded members until a later poll. */ }
+      }
+    };
+    await Promise.all([refreshNext(), refreshNext()]);
     return changed;
   }
 
@@ -391,7 +433,7 @@ export class HomeCollections {
     const initialRowsReady = this.initialSettingsReady && !!staged && staged.revision === this.revision;
     // Cached content skips network waits, not native layout settlement: reveal
     // every row together, even when Jellyfin rebuilds its Home during Back.
-    if (!this.readiness.update(host, this.initialPaint || initialRowsReady)) return;
+    if (!this.readiness.update(host, this.initialPaint || initialRowsReady, this.warmReturn)) return;
     if (this.root.parentElement !== host) host.append(this.root);
     let focusId: string | undefined;
     let focusRow: string | undefined;
@@ -469,6 +511,7 @@ export class HomeCollections {
       (target || first)?.focus({ preventScroll: true });
     }
     this.restorePosition(host);
+    this.refreshAfterPaint();
   }
 
   private async prepare(staged: StagedRows): Promise<void> {
@@ -675,6 +718,8 @@ export class HomeCollections {
     window.removeEventListener('scroll', this.onScroll, true); window.removeEventListener('click', this.rememberPosition, true);
     window.removeEventListener('wheel', this.onWheel, true); if (this.restoreFrame !== undefined) cancelAnimationFrame(this.restoreFrame);
     if (this.captureFrame !== undefined) cancelAnimationFrame(this.captureFrame);
+    if (this.refreshFrame !== undefined) cancelAnimationFrame(this.refreshFrame);
+    window.clearTimeout(this.refreshTimer);
     this.sections.forEach(section => section.element.remove()); this.sections = []; this.root.remove();
   }
 }
