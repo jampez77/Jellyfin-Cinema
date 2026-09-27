@@ -188,7 +188,6 @@ test('warm native rebuild reveals native, streaming and collection rows together
     requestAnimationFrame(sample);
   });
   await returnHome(page);
-  await expect.poll(() => page.evaluate(() => (window as any).__warmHome.pendingSettings.length)).toBeGreaterThan(0);
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))));
   const pendingFrames=await page.evaluate(() => (window as any).__warmHome.frames as boolean[][]);
   expect(pendingFrames.length).toBeGreaterThan(0);
@@ -204,6 +203,8 @@ test('warm native rebuild reveals native, streaming and collection rows together
   await expect(page.locator('#homeTab .tvl-provider-tile').first()).toBeVisible();
   await expect(page.locator('#homeTab [aria-label="Latest in Movies"] button').first()).toBeVisible();
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect.poll(() => page.evaluate(() => (window as any).__warmHome.pendingSettings.length)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => (window as any).__warmHome.pendingMembers.length)).toBeGreaterThan(0);
   const observed=await page.evaluate(() => {
     const state=(window as any).__warmHome;state.stopFrames=true;
     return {frames:state.frames as boolean[][],settings:state.pendingSettings.length,members:state.pendingMembers.length,loaderMounts:state.loaderMounts};
@@ -212,4 +213,93 @@ test('warm native rebuild reveals native, streaming and collection rows together
   expect(observed.frames.filter(frame=>frame.some(Boolean) && !frame.every(Boolean))).toEqual([]);
   expect(observed.settings).toBeGreaterThan(0); expect(observed.members).toBeGreaterThan(0); expect(observed.loaderMounts).toBe(0);
   await expect(loader(page)).toHaveCount(0); await release(page);
+});
+
+test('an unrelated active global spinner cannot hide a warm Home after its rebuilt native rows settle', async ({ page }) => {
+  await fixture(page); await holdAndLeave(page);
+  await page.evaluate(() => {
+    const state=(window as any).__warmHome, sections=document.querySelector('#homeTab .sections')!;
+    const native=document.createElement('section');native.className='verticalSection';native.setAttribute('aria-label','Rebuilt library');
+    native.innerHTML='<h2 class="sectionTitle">Rebuilt library</h2><div class="itemsContainer" aria-busy="true"></div>';
+    sections.replaceChildren(native);
+    state.finishNative=()=>{
+      const cards=native.querySelector('.itemsContainer')!;
+      const button=document.createElement('button');button.textContent='Rebuilt native movie';cards.append(button);cards.removeAttribute('aria-busy');
+    };
+    const spinner=document.createElement('div');spinner.className='docspinner mdlSpinnerActive';spinner.id='unrelated-global-spinner';document.body.append(spinner);
+    state.nativeFrames=[];
+    const shown=(selector: string)=>{const node=document.querySelector<HTMLElement>(selector);return !!node?.getClientRects().length&&getComputedStyle(node).visibility==='visible';};
+    const sample=()=>{
+      state.nativeFrames.push(['#homeTab [aria-label="Rebuilt library"] button','#homeTab [data-home-row="weekend"]','#homeTab .tvl-home-provider-row'].map(shown));
+      if(!state.stopNativeFrames)requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await returnHome(page);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(row(page)).toBeHidden(); await expect(loader(page)).toHaveCount(0);
+  await page.evaluate(() => (window as any).__warmHome.finishNative());
+  await expect(row(page)).toBeVisible({timeout:1_000}); await expect(cards(page)).toHaveCount(20);
+  await expect(page.getByRole('button',{name:'Rebuilt native movie',exact:true})).toBeVisible();
+  await expect(page.locator('#homeTab .tvl-provider-tile').first()).toBeVisible();
+  await expect(page.locator('#unrelated-global-spinner')).toHaveClass(/mdlSpinnerActive/);
+  await expect.poll(() => page.evaluate(() => (window as any).__warmHome.pendingSettings.length)).toBeGreaterThan(0);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const frames=await page.evaluate(() => {const state=(window as any).__warmHome;state.stopNativeFrames=true;return state.nativeFrames as boolean[][];});
+  expect(frames.some(frame=>frame.every(Boolean))).toBe(true);
+  expect(frames.filter(frame=>frame.some(Boolean)&&!frame.every(Boolean))).toEqual([]);
+  expect(await page.evaluate(() => (window as any).__warmHome.loaderMounts)).toBe(0);
+  await release(page);
+});
+
+test('warm membership refresh waits for paint, uses two requests at a time and cancels queued work when Home closes', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`,JSON.stringify({version:1,rows:
+    Array.from({length:4},(_,i)=>({id:'pool-'+i,kind:'items',title:'Picks '+i,collectionIds:['collection-pool-'+i],ranked:false,placement:'end'}))
+  })));
+  await page.route('**/dist/demo.js',async route=>{
+    const response=await route.fetch();
+    await route.fulfill({response,body:`${await response.text()}\n(()=>{
+      const api=window.TvItemLayoutDemo.api,members=api.getCollectionItems;
+      const state=window.__warmPool={hold:false,started:[],pending:[],active:0,peak:0,finished:0};
+      const saved=JSON.parse(localStorage.getItem('jellyfin-cinema.home-collections.v1:'+encodeURIComponent(location.origin)+':demo'));
+      api.homeCollections={isCurrent:()=>true,load:async()=>({Revision:'pool',Settings:saved}),save:async()=>{throw new Error('Unexpected write');}};
+      api.getCollectionList=async()=>Array.from({length:4},(_,i)=>({Id:'collection-pool-'+i,Type:'BoxSet',Name:'Pool '+i}));
+      api.getCollectionItems=async id=>{
+        if(!id.startsWith('collection-pool-')||!state.hold)return members(id.startsWith('collection-pool-')?'collection-coast':id);
+        state.started.push(id);state.active++;state.peak=Math.max(state.peak,state.active);
+        await new Promise(resolve=>state.pending.push(resolve));
+        const result=await members('collection-coast');state.active--;state.finished++;return result;
+      };
+    })();`});
+  });
+  await page.goto('/?featured=0&layout=desktop#/home');
+  const rows=page.locator('#homeTab [data-home-row^="pool-"]');
+  await expect(rows.locator('.tvl-home-row-card')).toHaveCount(8);
+  await rows.first().locator('.tvl-home-row-card').first().click();
+  await expect(page.getByRole('dialog',{name:'After the Tide details',exact:true})).toBeVisible();
+  await page.evaluate(()=>{
+    (window as any).__warmPool.hold=true;
+    document.querySelector('#homeTab .sections .itemsContainer')!.setAttribute('aria-busy','true');
+  });
+  await page.goBack();
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())))));
+  expect(await page.evaluate(()=>(window as any).__warmPool.started)).toEqual([]);
+  await expect(rows.first()).toBeHidden();
+  await page.evaluate(()=>document.querySelector('#homeTab .sections .itemsContainer')!.removeAttribute('aria-busy'));
+  await expect(rows.first()).toBeVisible();await expect(rows.locator('.tvl-home-row-card')).toHaveCount(8);
+  await expect.poll(()=>page.evaluate(()=>(window as any).__warmPool.pending.length)).toBe(2);
+  expect(await page.evaluate(()=>(window as any).__warmPool.started.length)).toBe(2);
+  expect(await page.evaluate(()=>(window as any).__warmPool.peak)).toBe(2);
+  await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  expect(await page.evaluate(()=>(window as any).__warmPool.started.length)).toBe(2);
+  expect(await page.evaluate(()=>(window as any).__warmPool.peak)).toBe(2);
+  await page.evaluate(()=>(window as any).__warmPool.pending.shift()());
+  await expect.poll(()=>page.evaluate(()=>(window as any).__warmPool.started.length)).toBe(3);
+  expect(await page.evaluate(()=>(window as any).__warmPool.peak)).toBe(2);
+  await rows.first().locator('.tvl-home-row-card').first().click();
+  await expect(page.getByRole('dialog',{name:'After the Tide details',exact:true})).toBeVisible();
+  await page.evaluate(()=>(window as any).__warmPool.pending.splice(0).forEach((resolve:()=>void)=>resolve()));
+  await expect.poll(()=>page.evaluate(()=>(window as any).__warmPool.finished)).toBe(3);
+  expect(await page.evaluate(()=>(window as any).__warmPool.started.length)).toBe(3);
 });
