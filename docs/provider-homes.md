@@ -6,14 +6,14 @@ These pages browse titles already in your Jellyfin library and permitted for the
 
 ## Configure the pages
 
-Open **Settings → Cinema → Streaming services** in Jellyfin Web's TV or desktop layout. Editing controls stay in Settings, away from Home and the provider pages.
+On desktop, open a service page and choose **Edit service**. Its settings open directly, with **Back to service** to return. You can also use **Settings → Cinema → Streaming services** in either layout. TV service pages keep their browsing controls only.
 
 1. Select **Home row** to change its title, hide/show it, place it before a native Home section or at the end, and arrange or hide individual services, adjust tile size from 70% to 150%, and show or hide the name labels. The Home preview updates as you change these controls. Visit Home once if its native sections are not yet listed. An unavailable saved section falls back to the end.
 2. Select a provider to edit its name, logo URL, accent colour, featured artwork and rows. Blank built-in logo fields use bundled artwork; custom services and unavailable image URLs use initials. Logo URLs must use HTTP(S) without embedded credentials. Select one row to edit it in the workspace.
-3. Set the title, visibility, content source, optional collection override, item order and **Show rank artwork**. Add or remove rows as needed, up to 12 per provider.
+3. Select a content row, then choose its **Collection** by name. The row list shows its current collection or **Choose a collection**. Review the item preview, title, visibility, item order and **Show rank artwork**. Automatic Films/TV rows can retain their catalogue or use a collection override. Add or remove rows as needed, up to 12 per provider.
 4. Review the tile or content-row preview, then choose **Save changes**. **Cancel changes** restores the last loaded or saved settings in place; Back leaves without saving the draft. **Add service** creates a collection-backed service; **Remove service** removes it from your configuration. Removed built-in services can be added again, and their display/source defaults can be restored. Up to 24 services are supported.
 
-Available content sources are **Films**, **TV shows**, **Trending films**, **Trending TV shows** and **Collection**. A Collection row needs a chosen collection before it can be saved while enabled. It can contain films and TV series. Collection overrides on a Films/TV source retain that source's media-type filter.
+Available content sources are **Films**, **TV shows**, **Trending films**, **Trending TV shows** and **Collection**. Trending and Collection rows use the collection you select. An unconfigured trending row stays empty until you choose one; an enabled new Collection row requires a choice before saving. It can contain films and TV series. Collection overrides on a Films/TV source retain that source's media-type filter.
 
 ### Connect a custom service to your titles
 
@@ -32,10 +32,10 @@ Choices sync through Jellyfin for the signed-in account. Home and open provider 
 | Row source | Data | Scope and order |
 | --- | --- | --- |
 | Automatic Films / TV shows | JustWatch availability through TMDB, filtered by the service’s configured offer types | All matching, permitted library titles with usable TMDB IDs; sorted by your row preference |
-| Automatic Trending films / Trending TV shows | Existing UK chart collections maintained by SmartLists/MDBList | Library matches from the weekly top-20 chart; source-relative order when **Source order** is selected |
+| Trending films / Trending TV shows | Your selected collection, linked by its Jellyfin ID | Its permitted film or series members; chart order when **Source order** is selected |
 | Collection or collection override | Your selected Jellyfin collection | Its permitted film/series members, with your chosen display order |
 
-Automatic availability uses the **United Kingdom** (`GB`). The original six presets match subscription (`flatrate`) offers; BBC iPlayer, ITVX and Channel 4 match free and ad-supported (`free`, `ads`) offers. Rental and purchase offers are excluded. Under **Automatic catalogue matching**, configure the movie and TV watch-provider IDs separately and choose one or more offer types. IDs come from the official [TMDB movie](https://developer.themoviedb.org/reference/watch-providers-movie-list) and [TV](https://developer.themoviedb.org/reference/watch-providers-tv-list) provider directories. Empty ID lists leave automatic catalogues unconfigured; selected collections still work. Live previews use the draft configuration without saving it. NOW uses NOW Cinema for films and NOW for shows. Membership is checked from availability data, not inferred from studios, production networks or a title's presence in a trending list. A title may legitimately appear under more than one provider.
+Automatic availability uses the **United Kingdom** (`GB`). The original six presets match subscription (`flatrate`) offers; BBC iPlayer, ITVX and Channel 4 match free and ad-supported (`free`, `ads`) offers. Rental and purchase offers are excluded. Under **Automatic catalogue matching**, search the separate **Film services** and **TV services** lists and tick the names you want. The server gets these names from the official UK [movie](https://developer.themoviedb.org/reference/watch-providers-movie-list) and [TV](https://developer.themoviedb.org/reference/watch-provider-tv-list) directories; numeric IDs remain internal. The directory is cached for 24 hours, with the last successful list retained on temporary failures. Built-in choices and existing selections remain available if the full list cannot load. With no services selected, that automatic catalogue is unconfigured; collection rows still work. Live previews use the draft configuration without saving it. NOW uses NOW Cinema for films and NOW for shows. Membership is checked from availability data, not inferred from studios, production networks or a title's presence in a trending list. A title may legitimately appear under more than one provider.
 
 Cinema reads the TMDB IDs already attached to library movies and series and checks their watch-provider data on the server. It reuses the installed Jellyfin TMDB integration, including its configured key when present. There is no Cinema browser API-key field. The key stays on the server; movie/TV TMDB IDs are sent to TMDB for these requests. Cinema does not send Jellyfin user IDs, media file paths or watch history as part of those lookups.
 
@@ -45,24 +45,13 @@ Source links and attribution labels are omitted from Cinema's browsing and setti
 
 Existing version-1 preferences are upgraded in memory without overwriting saved settings: service/row choices are preserved, and the three broadcasters are appended. An explicitly empty services list remains empty. Saving writes version 2; older Cinema clients cannot overwrite that configuration.
 
-### Automatic trending collection names
+### Choose a trending collection
 
-Cinema recognises the following names, ignoring punctuation, spacing and letter case, including the optional `[Smart]` suffix added by SmartLists:
+Open the service on desktop → **Edit service** → select **Trending films** or **Trending TV shows** → choose **Collection** → **Save changes**. Choose your Daily, Weekly or ordinary collection; Cinema does not pick a chart for you.
 
-| Provider | Films collection | TV collection |
-| --- | --- | --- |
-| Netflix | Netflix — Trending Movies (UK) | Netflix — Trending Shows (UK) |
-| Prime Video | Prime Video — Trending Movies (UK) | Prime Video — Trending Shows (UK) |
-| Disney+ | Disney+ — Trending Movies (UK) | Disney+ — Trending Shows (UK) |
-| Apple TV+ | Apple TV+ — Trending Movies (UK) | Apple TV+ — Trending Shows (UK) |
-| NOW | NOW — Trending Movies (UK) | NOW — Trending Shows (UK) |
-| Paramount+ | Paramount+ — Trending Movies (UK) | Paramount+ — Trending Shows (UK) |
+The saved row contains the collection's stable Jellyfin ID. Renaming the service or collection, adding a suffix, or creating another collection with the same name does not change that link. Existing explicit links are preserved. Older rows that relied on automatic name discovery need a one-time collection choice. If you delete and recreate a collection, choose the new one, because it has a new ID. Names are display labels only.
 
-Renaming one of these services does not change its automatic chart collection name. New/custom services need an explicit collection for trending rows; Cinema does not invent an external chart feed.
-
-If your names have other extra prefixes/suffixes, or two visible collections match the same automatic name, choose the intended **Collection override** in Settings. Cinema does not pick an ambiguous collection. You can also select any ordinary film/series collection without SmartLists or MDBList.
-
-SmartLists controls when chart collections refresh. A Jellyfin library scan alone does not update them. With the documented SmartLists setup, wait for the staggered daily refresh or refresh the relevant list individually while SmartLists is idle. Cinema then reads the updated members. The automatic row preserves source-relative order but its number artwork counts visible library matches as **1, 2, 3…**; it does not preserve gaps from the original twenty source positions.
+SmartLists controls when chart collections refresh. A Jellyfin library scan alone does not update them. With the documented SmartLists setup, wait for the staggered daily refresh or refresh the relevant list individually while SmartLists is idle. Cinema then reads the updated members. The selected row preserves source-relative order but its number artwork counts visible library matches as **1, 2, 3…**; it does not preserve gaps from the original twenty source positions.
 
 ## Home loading and return position
 
@@ -77,7 +66,8 @@ A fixed cinema projector animation stays visible in the viewport while the initi
 | **Library titles need matching metadata…** | Some movies or series lack usable TMDB IDs. Correct/identify their Jellyfin metadata, then revisit the provider page. |
 | **UK availability is temporarily unavailable.** | The server cannot currently provide availability. Check its installed TMDB integration and connectivity; this is not confirmation of an empty catalogue. |
 | **Some availability could not be refreshed…** | Previously known matches remain visible while a refresh is unavailable. Requests retry with backoff. |
-| **The trending collection is unavailable for this account.** | No unique automatic collection match is visible, or the source is unconfigured. Choose a collection override or check the SmartLists source and account access. |
+| **Choose a collection for this row…** | Use **Edit service** on desktop, select the row, choose its Collection, and save. |
+| **The selected collection is unavailable for this account.** | Check the saved collection still exists and this account can access it. |
 | **This row could not be loaded.** / **could not refresh** | The row request failed. Use **Retry**; existing results remain visible when available. |
 
 The installed server plugin and client bundle must both include provider support. If Settings reports **Update Jellyfin Cinema**, update the matching server package, restart Jellyfin and fully close/reopen the web client. See [server installation and provider troubleshooting](server.md#provider-home-data-and-settings).

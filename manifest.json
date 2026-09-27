@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.23.3",
+        "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.23/TvItemLayout_0.2.23.3_jellyfin-12.0.0.zip",
+        "checksum": "cea8fc5db70089c8243e767d8054e94c",
+        "timestamp": "2026-09-27T16:00:15Z"
+      },
+      {
+        "version": "0.2.23.2",
+        "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.23/TvItemLayout_0.2.23.2_jellyfin-10.11.0.zip",
+        "checksum": "134eab330b61a2bb05dd8bb13738ef2d",
+        "timestamp": "2026-09-27T16:00:15Z"
+      },
+      {
+        "version": "0.2.23.1",
+        "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.23/TvItemLayout_0.2.23.1_jellyfin-10.10.7.zip",
+        "checksum": "e863c94ef707b12c1bc9b60545d9d44b",
+        "timestamp": "2026-09-27T16:00:15Z"
+      },
+      {
         "version": "0.2.22.3",
         "changelog": "Remove data-source links and credits from service browsing and settings. New and empty custom services offer a Collection chooser immediately, with automatic row names and title previews. Content controls sit above artwork; Add collection row and Refresh collections make setup clearer without discarding drafts. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

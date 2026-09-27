@@ -21,11 +21,11 @@ test('TV overview opens episodes, marks progress, and switches seasons', async (
   await expect(seasons.getByRole('button')).toHaveCount(3);
   await expect(root.getByRole('button', { name: /^S1 · E\d/ })).toHaveCount(6);
   await expect(root.getByRole('button', { name: 'S1 · E1 The Long Way Home, watched' })).toContainText('Watched');
-  await expect(root.getByRole('button', { name: 'S1 · E2 A Line in the Snow' })).toContainText('Continue watching');
+  await expect(root.getByRole('button', { name: 'S1 · E2 A Line in the Snow', exact: true })).toContainText('Continue watching');
   await seasons.getByRole('button', { name: /^Season 2/ }).click();
   await expect(root.getByRole('heading', { name: 'Season 2', exact: true })).toBeVisible();
   await expect(root.getByRole('button', { name: /^S2 · E\d/ })).toHaveCount(6);
-  await expect(root.getByRole('button', { name: 'S2 · E1 First Light' })).toBeVisible();
+  await expect(root.getByRole('button', { name: 'S2 · E1 First Light', exact: true })).toBeVisible();
   await expect(root.getByRole('button', { name: /^S1 · E\d/ })).toHaveCount(0);
   await expect(seasons.getByRole('button', { name: /^Season 2/ })).toHaveAttribute('aria-pressed', 'true');
   await root.getByRole('button', { name: 'Overview', exact: true }).click();
@@ -46,7 +46,7 @@ test('remote arrows, OK and Back navigate seasons and restore the entry focus', 
   const season2 = root.getByRole('navigation', { name: 'Seasons' }).getByRole('button', { name: /^Season 2/ });
   await expect(season2).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(root.getByRole('button', { name: 'S2 · E1 First Light' })).toBeVisible();
+  await expect(root.getByRole('button', { name: 'S2 · E1 First Light', exact: true })).toBeVisible();
   await page.keyboard.press('ArrowRight');
   await expect(root.locator('button[data-episode]:focus')).toHaveCount(1);
   await page.keyboard.press('Escape');
@@ -428,7 +428,7 @@ test('rapid season changes cannot let a slower response replace the chosen seaso
   const seasons = root.getByRole('navigation', { name: 'Seasons' });
   await seasons.getByRole('button', { name: /^Season 2/ }).click();
   await seasons.getByRole('button', { name: /^Season 3/ }).click();
-  await expect(root.getByRole('button', { name: 'S3 · E1 Open Country' })).toBeVisible();
+  await expect(root.getByRole('button', { name: 'S3 · E1 Open Country', exact: true })).toBeVisible();
   // The fixture resolves Season 2 after 1700ms, versus 800ms for Season 3.
   // Observe beyond that response, which must be discarded rather than changing the view.
   await page.waitForTimeout(1100);
@@ -491,7 +491,7 @@ test('detail rendering remains functional without post-Chromium-79 replaceChildr
   await root.getByRole('button', { name: 'Episodes & seasons', exact: true }).click();
   await expect(root.getByRole('button', { name: 'S1 · E1 The Long Way Home, watched' })).toBeVisible();
   await root.getByRole('navigation', { name: 'Seasons' }).getByRole('button', { name: /^Season 3/ }).click();
-  await expect(root.getByRole('button', { name: 'S3 · E1 Open Country' })).toBeVisible();
+  await expect(root.getByRole('button', { name: 'S3 · E1 Open Country', exact: true })).toBeVisible();
   await root.getByRole('button', { name: 'Overview', exact: true }).click();
   await root.getByRole('button', { name: 'More like this', exact: true }).click();
   await root.getByRole('button', { name: /After the Tide/ }).click();

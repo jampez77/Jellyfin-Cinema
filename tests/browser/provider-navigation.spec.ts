@@ -38,6 +38,7 @@ for (const layout of ['desktop', 'tv']) {
     await section(page, 'Films', 'movies');
     await section(page, 'TV shows', 'shows');
     await section(page, 'Trending films', 'trending-movies');
+    await expect(provider(page).locator('[data-provider-row="trending-movies"] .tvl-home-row-card')).toHaveCount(2);
     await section(page, 'Home');
     await section(page, 'Home');
     expect(await page.evaluate(() => ({ state: history.state, length: history.length }))).toEqual(before);

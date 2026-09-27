@@ -39,7 +39,8 @@ public sealed class ProviderItemsController(
     ILibraryManager libraryManager,
     IDtoService dtoService,
     IProviderAvailability availability,
-    IApplicationPaths paths) : ControllerBase
+    IApplicationPaths paths,
+    TmdbProviderSource source) : ControllerBase
 {
     private async Task<User?> CurrentUser()
     {
@@ -56,6 +57,14 @@ public sealed class ProviderItemsController(
             || !deviceManager.CanAccessDevice(caller, authorization.DeviceId)
             || (!networkManager.IsInLocalNetwork(remoteIp) && !caller.HasPermission(PermissionKind.EnableRemoteAccess))) return null;
         return caller;
+    }
+
+    [HttpGet("Catalogue")]
+    public async Task<IActionResult> GetProviderDirectory(CancellationToken cancellationToken = default)
+    {
+        if (await CurrentUser() is null) return Unauthorized();
+        try { return Ok(await source.DirectoryAsync(cancellationToken)); }
+        catch (ProviderLookupException) { return StatusCode(503, "Streaming service list is temporarily unavailable. Try again."); }
     }
 
     [HttpGet("{providerId}/Items")]

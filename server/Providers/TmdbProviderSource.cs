@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace Jellyfin.Plugin.TvItemLayout.Providers;
 
 /// <summary>Streaming availability is supplied by TMDB/JustWatch, not studio or network names.</summary>
-public sealed class TmdbProviderSource(IHttpClientFactory clients)
+public sealed partial class TmdbProviderSource(IHttpClientFactory clients, TimeProvider? directoryClock = null)
 {
     public const string Region = "GB";
     private long rateLimitedUntil;

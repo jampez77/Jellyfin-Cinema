@@ -6,7 +6,7 @@ Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netf
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB.
 
-**0.2.22 is available as a prerelease** ([release notes](docs/releases/v0.2.22.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It removes data-source links and credits from the frontend and makes collection setup immediate for custom services, with content controls above artwork, automatic row names and item previews. The faster Home loading from 0.2.21 is retained. Physical LG webOS testing remains pending.
+**0.2.23 is available as a prerelease** ([release notes](docs/releases/v0.2.23.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It restores Watched / Unwatched controls, links service rows to your chosen collection IDs, adds a desktop Edit service shortcut, replaces numeric catalogue fields with named choices, and uses one service-colour focus ring on TV. Faster Home loading is retained. Physical LG webOS testing remains pending.
 
 ## The layouts
 
@@ -62,9 +62,9 @@ Select a tile in **Streaming services** on Home. The provider logo and name rema
 
 Open **Settings → Cinema → Streaming services** to arrange the tiles, set their size (70–150%), show or hide their name labels, rename or move the Home row, and choose a provider to edit. Add custom services and edit service names, logos, colours and catalogue sources; restore built-in defaults or remove services as needed. Each provider supports up to 12 rows: rename, reorder, show/hide, choose a source or collection override, select title/release-year sorting, and enable rank artwork. The editor previews the Home tiles and selected content row, including unsaved source changes. BBC iPlayer, ITVX and Channel 4 start with Films and TV shows; use your own collections for their trending rows. Changes apply only after **Save changes**, and sync to the same account on other devices. Native Home preferences and collection-row settings remain separate.
 
-Automatic **Films** and **TV shows** check the library's TMDB metadata IDs against UK availability. The original six presets include subscription (`flatrate`) offers; BBC iPlayer, ITVX and Channel 4 include free and ad-supported offers. Each service has editable movie/TV provider IDs and offer types under **Catalogue source**. Cinema reuses the installed Jellyfin TMDB integration on the server; no extra key belongs in the browser. The first lookup fills rows progressively, and successful availability results are cached for seven days. Titles offered only for rent or purchase are excluded. Studios and production networks are not used to guess a streaming service.
+Automatic **Films** and **TV shows** check the library's TMDB metadata IDs against UK availability. The original six presets include subscription (`flatrate`) offers; BBC iPlayer, ITVX and Channel 4 include free and ad-supported offers. Under **Automatic catalogue matching**, choose services by name in searchable **Film services** and **TV services** lists, and select the offer types. Cinema reuses the installed Jellyfin TMDB integration on the server; no extra key belongs in the browser. The first lookup fills rows progressively, and successful availability results are cached for seven days. Titles offered only for rent or purchase are excluded. Studios and production networks are not used to guess a streaming service.
 
-Automatic **Trending films** and **Trending TV shows** read the matching UK chart collections, such as **Netflix — Trending Movies (UK)**, including SmartLists’ optional **[Smart]** suffix. These are the library matches from the weekly top-20 source, not a service's full catalogue. SmartLists/MDBList remains responsible for refreshing those collections. Choose an explicit collection override if your collection names differ. Number artwork counts the visible items in the selected order; it does not claim to preserve the external chart's original rank numbers. See the [provider Home guide](docs/provider-homes.md) for setup, source links and empty/loading states.
+**Trending films** and **Trending TV shows** use the collection you choose, saved by its stable Jellyfin ID. On a desktop service page, choose **Edit service**, select a row, pick **Collection** by name, review its preview and **Save changes**. Renaming a collection will not break the link. Older rows that relied on automatic name matching need a one-time choice; Cinema no longer guesses from names. SmartLists/MDBList still owns chart refreshes. Number artwork counts the visible items in the selected order. See the [provider Home guide](docs/provider-homes.md) for setup and loading states.
 
 ## Preview locally
 
@@ -78,7 +78,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.22 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.22) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.22 release notes](docs/releases/v0.2.22.md) for changes and validation status.
+The [v0.2.23 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.23) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.23 release notes](docs/releases/v0.2.23.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -94,7 +94,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.22.1` for 10.10.7, `0.2.22.2` for 10.11.x and `0.2.22.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.23.1` for 10.10.7, `0.2.23.2` for 10.11.x and `0.2.23.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

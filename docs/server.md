@@ -2,7 +2,7 @@
 
 Jellyfin Cinema, formerly TV Item Layout, is an independent server plugin that loads the bundled client into **Jellyfin Web**. The layout activates in the web client's TV and desktop display modes; mobile retains its native pages. Native clients that do not load the server's Jellyfin Web assets cannot use this plugin.
 
-The current prerelease is **0.2.22**, available through the catalogue and manual downloads below. It removes data-source links and credits from the frontend and makes collection setup immediate for custom services, with content controls above artwork, automatic row names and item previews. The faster Home loading from 0.2.21 is retained. Physical LG webOS testing remains pending.
+The current prerelease is **0.2.23**, available through the catalogue and manual downloads below. It restores Watched / Unwatched controls, links service rows to your chosen collection IDs, adds a desktop Edit service shortcut, replaces numeric catalogue fields with named choices, and uses one service-colour focus ring on TV. Faster Home loading is retained. Physical LG webOS testing remains pending.
 
 The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). It has a separate name, assembly, API route, and plugin ID (`1a06b74f-7609-4af9-899d-430c9b5a52b1`), so it can be installed alongside that plugin. The inherited MIT notice is included in every archive.
 
@@ -21,19 +21,19 @@ Jellyfin Cinema retains TV Item Layout’s plugin ID, `Jellyfin.Plugin.TvItemLay
 4. Restart Jellyfin. Check Dashboard → Plugins for **Jellyfin Cinema**. The server log should contain `Jellyfin Cinema registered with File Transformation`.
 5. Reload Jellyfin Web, using **Desktop** or **TV** display mode in your user's display settings. Fully close and reopen a web-based TV app to clear its loaded client. Open a movie, series, or Live TV item.
 
-Choose the build from the [v0.2.22 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.22) that matches your Jellyfin server:
+Choose the build from the [v0.2.23 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.23) that matches your Jellyfin server:
 
 | Jellyfin server | Jellyfin Cinema version |
 | --- | --- |
-| 10.10.7 | `0.2.22.1` |
-| 10.11.x | `0.2.22.2` |
-| 12.x | `0.2.22.3` |
+| 10.10.7 | `0.2.23.1` |
+| 10.11.x | `0.2.23.2` |
+| 12.x | `0.2.23.3` |
 
 The repository lists all three targets and Jellyfin filters them by server compatibility. This is a server-testing prerelease. Physical Mac mini/TV deployment, remote controls and real-server playback have not been tested by this release work.
 
 If a newly published version is missing, Jellyfin 12’s dashboard can reuse its [cached catalogue for 15 minutes](https://github.com/jellyfin/jellyfin-web/blob/v12.0/src/apps/dashboard/features/plugins/api/usePackages.ts#L19-L25), even after a page reload. Leave and reopen **Catalogue** after that interval. To refresh immediately, remove only the **Jellyfin Cinema repository entry** from **Repositories**, then add it again using the same catalogue URL above. This refreshes the listing without uninstalling the plugin or clearing your Home row preferences.
 
-If TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace the old TV Item Layout catalogue entry with the Jellyfin Cinema URL above. Update the existing plugin to the matching 0.2.22 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV and desktop display modes, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Mobile layouts retain Jellyfin's normal pages.
+If TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace the old TV Item Layout catalogue entry with the Jellyfin Cinema URL above. Update the existing plugin to the matching 0.2.23 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV and desktop display modes, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Mobile layouts retain Jellyfin's normal pages.
 
 Theme videos use Jellyfin’s existing background player and follow its theme-video preference. If there is no playable theme video, the static backdrop remains. Collections list actual membership and open styled collection pages. The Collections library, explicit BoxSet list, and Movies → Collections tab also use the new layout. The Movies and TV Shows libraries also use the new style, including Jellyfin suggestions, favourites, genres, search and A–Z/# browsing. Native Upcoming, Networks and Episodes TV routes remain available through Jellyfin. Unrelated library lists and unsupported URL filters retain their native pages.
 
@@ -60,13 +60,13 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.22.1` for Jellyfin 10.10.7, `0.2.22.2` for 10.11.x and `0.2.22.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.23.1` for Jellyfin 10.10.7, `0.2.23.2` for 10.11.x and `0.2.23.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
 1. In Dashboard → Plugins → Repositories, add the repository from the [File Transformation installation instructions](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation#installation): `https://www.iamparadox.dev/jellyfin/plugins/manifest.json`.
 2. Install **File Transformation** from the catalogue, choosing a release compatible with your Jellyfin version.
-3. Download the matching archive from the [0.2.22 release assets](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.22), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.22.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
+3. Download the matching archive from the [0.2.23 release assets](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.23), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.23.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
 4. Start Jellyfin. Check Dashboard → Plugins for **Jellyfin Cinema** and the File Transformation registration message.
 5. Reload Jellyfin Web, using Desktop or TV display mode in your user's display settings. Open a movie, series, or Live TV item.
 
@@ -126,11 +126,11 @@ Use **Add to collection** on a media detail page to choose an existing collectio
 
 ## Provider Home data and settings
 
-Home includes branded streaming-service tiles for Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, BBC iPlayer, ITVX and Channel 4, plus custom services. Each opens its configured rows; broadcaster presets begin with Films and TV shows. Configure the tile row and provider pages in **Settings → Cinema → Streaming services**. This is a personal account preference, not an administrator-only dashboard action. No editing buttons are added to Home or provider pages. The [provider Home guide](https://github.com/jampez77/Jellyfin-Cinema/blob/main/docs/provider-homes.md) covers row sources, overrides, sorting, rank artwork and previews.
+Home includes branded streaming-service tiles for Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, BBC iPlayer, ITVX and Channel 4, plus custom services. Each opens its configured rows; broadcaster presets begin with Films and TV shows. Configure the tile row and provider pages in **Settings → Cinema → Streaming services**. This is a personal account preference, not an administrator-only dashboard action. Desktop provider pages offer **Edit service**, which opens that service directly in Settings; TV pages keep browsing controls only. The [provider Home guide](https://github.com/jampez77/Jellyfin-Cinema/blob/main/docs/provider-homes.md) covers row sources, overrides, sorting, rank artwork and previews.
 
 Automatic catalogue rows need Jellyfin's installed TMDB integration, outbound HTTPS access to `api.themoviedb.org`, and usable TMDB metadata IDs on library movies/series. Cinema reuses the native TMDB integration's configured or bundled key on the server. It does not expose that key through the client or settings endpoints. Availability requests send movie/TV TMDB IDs to TMDB; they do not include Jellyfin user IDs, file paths or watch history. Catalogue lookups do not use MDBList and need no additional browser credential.
 
-Catalogues match every permitted library title against **UK availability** (`GB`) for configured TMDB watch-provider IDs and offer types. The original six presets use subscription (`flatrate`) offers, and BBC iPlayer/ITVX/Channel 4 use free and ad-supported offers (`free`, `ads`) supplied by JustWatch through TMDB. Rental/purchase-only offers are excluded, and studios/networks are not used as provider guesses. This is separate from the optional weekly top-20 SmartLists/MDBList chart collections. Trending rows read those collections and their source order; Cinema does not run SmartLists refreshes or treat a chart as a full catalogue. Account library access and parental restrictions are applied again on each catalogue request.
+Catalogues match every permitted library title against **UK availability** (`GB`) for configured TMDB watch-provider IDs and offer types. The original six presets use subscription (`flatrate`) offers, and BBC iPlayer/ITVX/Channel 4 use free and ad-supported offers (`free`, `ads`) supplied by JustWatch through TMDB. Rental/purchase-only offers are excluded, and studios/networks are not used as provider guesses. This is separate from the optional weekly top-20 SmartLists/MDBList chart collections. Trending rows use the collection explicitly selected by ID and preserve its source order; Cinema does not run SmartLists refreshes or treat a chart as a full catalogue. Account library access and parental restrictions are applied again on each catalogue request.
 
 The first visit fills rows progressively as the background worker checks missing availability. Successful responses are cached for seven days in `jellyfin-cinema/providers/GB-v2.json` under the Jellyfin data directory. On upgrade, old `GB-v1.json` subscription results are imported as incomplete entries, preserving existing catalogue matches while new offer categories refresh; the old file remains untouched. Incomplete entries never report ready. The cache is shared by provider pages, contains TMDB lookup keys/provider memberships rather than user preferences, and is disposable. Stale successful entries remain usable during refresh failures; failed requests retry with backoff. Newly added titles are checked when their permitted library contents are next requested. An open provider page checks pending work every five seconds, otherwise every minute, and refreshes when it regains focus. Provider configuration is also checked every minute and on focus, so desktop settings changes reach an already-open TV page.
 
@@ -139,6 +139,7 @@ The authenticated endpoints are:
 | Endpoint | Purpose |
 | --- | --- |
 | `GET/PUT TvItemLayout/ProviderHomes` | Read/save the current account's service order, tile size/name labels, Home position, provider names/artwork/colours, source IDs/offer types and rows using `{ Revision, Settings }` with conditional revisions |
+| `GET TvItemLayout/Providers/Catalogue` | Named UK film/TV services for configuration; the server caches the public directory for 24 hours and keeps stale results on temporary failures |
 | `POST TvItemLayout/Providers/Preview` | Read-only authenticated draft catalogue preview: complete version-2 provider object in JSON body, `mediaType=Movie` or `Series` plus the same paging/sort query; never saves preferences |
 | `GET TvItemLayout/Providers/{providerId}/Items` | Paginated matching library items with `type=Movie` or `Series`, `startIndex`, `limit` and `sort=title`, `title-desc`, `newest` or `oldest` |
 
@@ -151,7 +152,7 @@ For missing provider content:
 - **Checking UK availability** is progress, not a stalled library scan. Let the background checks complete; the same cached results serve all service pages.
 - **UK availability is temporarily unavailable** means the native TMDB integration, connectivity or upstream data is unavailable. Verify the TMDB plugin is installed and loaded and that Jellyfin can reach its API. Previously known matches remain visible when possible.
 - A **needs TMDB metadata** message identifies library entries that cannot be matched yet. Correct their metadata IDs in Jellyfin; Cinema does not guess by title.
-- An unavailable **trending collection** needs a unique recognised collection name or an explicit collection override, plus access for the current user. The [source setup](https://github.com/jampez77/Jellyfin-Cinema/blob/main/docs/platform-trending.md) covers SmartLists refresh timing; a library scan alone does not refresh those lists.
+- An unconfigured **trending collection** needs a one-time choice: on desktop open the service → **Edit service** → select its row → **Collection** → **Save changes**. Rows store the selected collection ID; names and later renames are not used for matching. Existing explicit choices are retained, and each account must have access to its selected collection. The [source setup](https://github.com/jampez77/Jellyfin-Cinema/blob/main/docs/platform-trending.md) covers SmartLists refresh timing; a library scan alone does not refresh those lists.
 - A settings endpoint 404 usually means the client and server plugin versions differ. Update the matching package, restart Jellyfin and fully reopen the client. A row request error offers **Retry** without replacing existing results with a misleading empty row.
 
 ## Music and recordings refinements in 0.2.1

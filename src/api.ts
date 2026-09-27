@@ -1,4 +1,4 @@
-import type { Item, ItemPage, LibraryQuery, MediaApi, PlaybackContext, SuggestionSection } from './types';
+import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection } from './types';
 import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 import { createHomeCollectionTransport } from './home-collection-transport';
@@ -24,6 +24,8 @@ interface JellyfinClient extends PlaybackClient {
   getLiveTvChannels(query: Query): Promise<ItemResult>;
   getLiveTvPrograms(query: Query): Promise<ItemResult>;
   updateFavoriteStatus(userId: string, id: string, favorite: boolean): Promise<unknown>;
+  markPlayed(userId: string, id: string, date: Date): Promise<unknown>;
+  markUnplayed(userId: string, id: string): Promise<unknown>;
   getImageUrl(id: string, options: Query): string;
 }
 
@@ -246,6 +248,18 @@ export function createJellyfinApi(): MediaApi | null {
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     homeCollections: createHomeCollectionTransport(client, sessionCurrent),
     providerHomes: createProviderHomesTransport(client, sessionCurrent),
+    getProviderDirectory: () => read(async () => {
+      const data = await client.getJSON(client.getUrl('TvItemLayout/Providers/Catalogue')) as ProviderDirectory | null;
+      const valid = (items: unknown): items is ProviderDirectoryEntry[] => Array.isArray(items) && items.length <= 2000
+        && items.every(item => item && Number.isInteger(item.Id) && item.Id > 0 && item.Id <= 1_000_000
+          && typeof item.Name === 'string' && item.Name.length <= 120 && item.Name.trim().length > 0
+          && !/[\u0000-\u001f\u007f-\u009f]/.test(item.Name))
+        && new Set(items.map(item => item.Id)).size === items.length;
+      if (!data || data.Region !== 'GB' || !valid(data.Movies) || !valid(data.Shows)) {
+        throw new Error('Jellyfin returned an invalid streaming service list. Try again.');
+      }
+      return data;
+    }),
     getProviderItems: (provider, query) => read(async () => {
       if (!validProviderId(provider) || !['Movie', 'Series'].includes(query.type)) throw new Error('Unknown streaming provider or media type.');
       const data = await client.getJSON(client.getUrl(`TvItemLayout/Providers/${encodeURIComponent(provider)}/Items`, {
@@ -429,6 +443,16 @@ export function createJellyfinApi(): MediaApi | null {
       }), 'programme')).sort((a, b) => Date.parse(a.StartDate || '') - Date.parse(b.StartDate || ''));
     }),
     setFavorite: (id, favorite) => read(async () => { await client.updateFavoriteStatus(userId, id, favorite); }),
+    setPlayed: (id, played) => read(async () => {
+      // The native client uses the server's PlayedItems routes and returns the
+      // updated UserData, including any resume-position changes made by Jellyfin.
+      const data = await (played ? client.markPlayed(userId, id, new Date()) : client.markUnplayed(userId, id)) as ItemUserData | null;
+      if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.Played !== 'boolean'
+        || (data.ItemId !== undefined && (typeof data.ItemId !== 'string' || identity(data.ItemId) !== identity(id)))) {
+        throw new Error('Jellyfin returned an invalid watched status. Refresh this item and try again.');
+      }
+      return data;
+    }),
     play: (item, ticks, isCurrent) => read(() => dispatchPlayback(client, item, ticks,
       () => isCurrent() && sessionCurrent())),
     playPlaylist: (playlist, entryId, isCurrent) => read(async () => {

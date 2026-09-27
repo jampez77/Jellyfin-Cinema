@@ -63,6 +63,9 @@ test('desktop collection tabs, ranked cards and live row editor retain their sav
   await editor.getByRole('button', { name: 'Save rows', exact: true }).click();
   await page.evaluate(() => { location.hash = '/home'; });
   await expect(row).toHaveAttribute('aria-label', 'Desktop favourites');
+  await expect(row.getByRole('tab', { name: 'Shows', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(row.locator('.tvl-home-rank')).toHaveCount(3);
+  await row.getByRole('tab', { name: 'Movies', exact: true }).click();
   await expect(row.locator('.tvl-home-rank')).toHaveCount(2);
   await expect(page.locator('.layout-tv')).toHaveCount(0);
 });

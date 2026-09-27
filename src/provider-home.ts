@@ -35,7 +35,7 @@ export type ProviderHomeState = { loadedCount: number; scrollTop: number };
 type Options = {
   provider: ProviderId; rowId?: string; focusId?: string;
   state?: ProviderHomeState; onState?(state: ProviderHomeState): void;
-  back(): void; navigate(id: string): void; openRow(id?: string): void;
+  back(): void; navigate(id: string): void; openRow(id?: string): void; edit?(): void;
 };
 type RowState = { config: ProviderRow; element: HTMLElement; cards: HTMLElement; status: HTMLElement;
   more: HTMLButtonElement; result?: ProviderRowResult; items: Item[]; busy: boolean; fingerprint: string; restoreCount: number; };
@@ -69,6 +69,10 @@ export class ProviderHomeView {
     const back = button('Back', 'back', 'tvl-back', options.back); back.dataset.focusId = 'provider-back';
     const identity = el('div', 'tvl-provider-identity');
     this.header.append(back, identity);
+    if (options.edit) {
+      const edit = button('Edit service', '', 'tvl-provider-edit', options.edit);
+      edit.dataset.focusId = 'provider-edit'; this.header.append(edit); this.header.classList.add('tvl-provider-editable');
+    }
     this.content.append(this.hero, this.rowsHost);
     this.element.append(this.header, this.content);
     this.rowsHost.append(el('p', 'tvl-provider-message', 'Loading…'));
@@ -202,7 +206,7 @@ export class ProviderHomeView {
       if (result.pending) messages.push(`Checking UK availability: ${Math.max(0, result.totalToCheck - result.pending)} of ${result.totalToCheck} titles.`);
       if (result.status === 'unavailable' && !result.missingSource) messages.push(result.items.length ? 'Some availability could not be refreshed. Showing the last available results.' : 'UK availability is temporarily unavailable.');
       if (result.missingSource) messages.push(row.config.source === 'collection' || row.config.collectionId
-        ? 'The selected collection is unavailable for this account.' : 'The trending collection is unavailable for this account.');
+        ? 'The selected collection is unavailable for this account.' : 'Choose a collection for this row in Streaming services settings.');
       if (result.missingIds) messages.push(`${result.missingIds} library titles need matching metadata before their availability can be checked.`);
       if (!messages.length && !row.items.length) messages.push('No matching titles in your library.');
       row.status.textContent = messages.join(' ');
