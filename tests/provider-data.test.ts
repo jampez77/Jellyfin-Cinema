@@ -68,9 +68,27 @@ test('auto charts accept the six installed UK names and keep the saved rank orde
   assert.equal(listReads, 1); assert.deepEqual(members.map(member => member.Id), ['rank-one', 'rank-two', 'rank-two', 'not-film', 'rank-three']);
 });
 
+test('all twelve live SmartLists chart names resolve with their terminal [Smart] decoration and retain media-specific ranks', async () => {
+  const charts = providerBrands.flatMap(brand => [
+    collection(`${brand.id}-Movie`, `${brand.name} — Trending Movies (UK) [Smart]`),
+    collection(`${brand.id}-Series`, `${brand.name} — Trending Shows (UK) [Smart]`)
+  ]);
+  const reads: string[] = [];
+  const data = new ProviderData(api({ getCollectionList: async () => charts, getCollectionItems: async id => {
+    reads.push(id); const type = id.endsWith('-Movie') ? 'Movie' : 'Series';
+    return [item(`${id}-first`, type, 'Zulu'), item(`${id}-second`, type, 'Alpha')];
+  } }));
+  for (const brand of providerBrands) for (const [source, type] of [['trending-movies', 'Movie'], ['trending-shows', 'Series']] as const) {
+    const result = await data.load(brand.id, row(source));
+    assert.deepEqual(ids(result), [`${brand.id}-${type}-first`, `${brand.id}-${type}-second`]);
+    assert.equal(result.status, 'ready'); assert.equal(result.missingSource, undefined);
+  }
+  assert.equal(new Set(reads).size, 12);
+});
+
 test('punctuation and case are ignored, Apple TV aliases match, and NOW movies and shows link to their separate UK charts', async () => {
   const data = new ProviderData(api({
-    getCollectionList: async () => [collection('apple', 'APPLE TV - TRENDING MOVIES [UK]'), collection('movies', 'now trending movies uk'), collection('shows', 'NOW: Trending Shows (UK)')],
+    getCollectionList: async () => [collection('apple', 'APPLE TV - TRENDING MOVIES [UK] [sMaRt]  '), collection('movies', 'now trending movies uk'), collection('shows', 'NOW: Trending Shows (UK)')],
     getCollectionItems: async id => [item(id, id === 'shows' ? 'Series' : 'Movie')]
   }));
   assert.deepEqual(ids(await data.load('apple', row('trending-movies'))), ['apple']);
@@ -79,7 +97,11 @@ test('punctuation and case are ignored, Apple TV aliases match, and NOW movies a
 });
 
 test('missing, wrong-country, approximate and ambiguous chart names never pick a plausible substitute', async () => {
-  for (const names of [[], ['Netflix — Trending Movies (US)'], ['Netflix Popular Movies (UK)'], ['Netflix — Trending Movies (UK) archive'], ['Netflix — Trending Movies (UK)', 'Netflix Trending Movies UK']]) {
+  for (const names of [[], ['Netflix — Trending Movies (US)'], ['Netflix Popular Movies (UK)'], ['Netflix — Trending Movies (UK) archive'], ['Netflix — Trending Movies (UK)', 'Netflix Trending Movies UK'],
+    ['Netflix — Trending Movies (US) [Smart]'], ['Netflix — Trending Shows (UK) [Smart]'], ['Prime Video — Trending Movies (UK) [Smart]'],
+    ['Netflix — Trending Movies (UK) [Smart] archive'], ['Netflix — Trending Movies (UK) archive [Smart]'], ['Netflix — Trending Movies (UK) [Smart] [Smart]'],
+    ['Netflix — Trending Movies (UK) Smart'], ['Netflix — Trending Movies (UK) [SmartLists]'], ['[Smart] Netflix — Trending Movies (UK)'],
+    ['Netflix — Trending Movies (UK)', 'Netflix — Trending Movies (UK) [Smart]']]) {
     let reads = 0;
     const data = new ProviderData(api({ getCollectionList: async () => names.map((name, index) => collection(String(index), name)),
       getCollectionItems: async () => { reads++; return [item('wrong-film')]; } }));
@@ -90,7 +112,7 @@ test('missing, wrong-country, approximate and ambiguous chart names never pick a
 
 test('duplicate listings of the same collection are not ambiguous, including equivalent Jellyfin GUID formats', async () => {
   const guid = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
-  const data = new ProviderData(api({ getCollectionList: async () => [collection(guid, 'Netflix Trending Movies UK'), collection(guid.replace(/-/g, '').toUpperCase(), 'Netflix Trending Movies UK')],
+  const data = new ProviderData(api({ getCollectionList: async () => [collection(guid, 'Netflix Trending Movies UK'), collection(guid.replace(/-/g, '').toUpperCase(), 'Netflix Trending Movies UK [Smart]')],
     getCollectionItems: async () => [item('film')] }));
   assert.deepEqual(ids(await data.load('netflix', row('trending-movies'))), ['film']);
 });

@@ -9,11 +9,20 @@ type ProfileLayout = 'tv' | 'desktop' | 'mobile';
 async function setup(page: Page, layout: ProfileLayout = 'tv') {
   if (layout !== 'tv') await page.addInitScript(layout => document.addEventListener('DOMContentLoaded', () => document.body.classList.replace('layout-tv', 'layout-' + layout)), layout);
   await page.goto('/?featured=0#/home');
-  // Navigation's load event precedes both native Home's initial focus restore
-  // and Cinema's first scheduled refresh. Wait for those observable states so
-  // a synthetic remote command is not sent before the profile menu is enabled.
-  await expect(page.getByRole('region', { name: 'My Media', exact: true }).getByRole('button', { name: 'Movies', exact: true })).toBeFocused();
-  if (layout === 'tv') await expect(page.locator('body')).toHaveClass(/\btvl-home\b/);
+  // Wait for Home's initial reveal before installing the avatar. Its first TV
+  // control may belong to a provider row; profile behavior does not depend on
+  // the native Movies card being the first row in this account's Home order.
+  await expect(page.getByRole('region', { name: 'My Media', exact: true }).getByRole('button', { name: 'Movies', exact: true })).toBeVisible();
+  await expect(page.locator('#homeTab')).not.toHaveClass(/\btvl-home-initial-loading\b/);
+  await expect(page.locator('body')).toHaveClass(new RegExp(`\\blayout-${layout}\\b`));
+  if (layout === 'tv') {
+    await expect(page.locator('body')).toHaveClass(/\btvl-home\b/);
+    await expect.poll(() => page.evaluate(() => {
+      const active = document.activeElement;
+      return active instanceof HTMLElement && !!document.querySelector('#homeTab')?.contains(active)
+        && active.matches('button,a[href],[tabindex="0"]') && active.getClientRects().length > 0;
+    })).toBe(true);
+  }
   await page.evaluate(() => {
     const state = { nativeClicks: 0, logout: 0, routes: [] as string[] };
     (window as any).__profileState = state;

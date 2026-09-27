@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { build } from 'esbuild';
+import { defaultProviderHomes } from '../../src/provider-settings';
 
 // Native refreshItems/onDataFetched/afterRefresh behavior comes from the actual
 // GPL-2.0 Jellyfin web checkout, not a vendored copy or a synthetic loading flag.
@@ -24,9 +25,9 @@ test.beforeAll(async () => {
 
 const settings = (placement = 'native:next up:1') => ({ version: 1, rows: [{ id: 'staged', kind: 'items', title: 'Weekend picks', collectionIds: ['collection-coast'], ranked: true, placement }] });
 const rows = (page: Page) => page.locator('#homeTab [data-home-row="staged"]');
-async function fixture(page: Page, options: { inflight?: boolean; placement?: string; synced?: boolean } = {}) {
+async function fixture(page: Page, options: { inflight?: boolean; placement?: string; synced?: boolean; fresh?: boolean; holdSettings?: boolean; holdProviders?: boolean; holdItems?: boolean; failedSettings?: boolean } = {}) {
   const saved = settings(options.placement);
-  await page.addInitScript(saved => localStorage.setItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`, JSON.stringify(saved)), saved);
+  if (!options.fresh) await page.addInitScript(saved => localStorage.setItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`, JSON.stringify(saved)), saved);
   await page.route('**/dist/demo.js', async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}\n(() => {
@@ -35,14 +36,21 @@ async function fixture(page: Page, options: { inflight?: boolean; placement?: st
       ${native}
       if(register) document.registerElement = register; else delete document.registerElement;
       const api = window.TvItemLayoutDemo.api, list = api.getCollectionList, members = api.getCollectionItems;
-      const state = window.__nativeHome = { listCalls: 0, itemCalls: 0, nativeAfter: 0, failures: 0, nodes: [], originals: [], fetchCalls: [], deferred: [], settings: ${JSON.stringify(saved)} };
+      const state = window.__nativeHome = { listCalls: 0, itemCalls: 0, nativeAfter: 0, failures: 0, nodes: [], originals: [], fetchCalls: [], deferred: [], settings: ${JSON.stringify(saved)}, providers: ${JSON.stringify(defaultProviderHomes())}, holdItems: ${!!options.holdItems} };
       api.getCollectionList = async (...args) => {
         state.listCalls++;
         if(state.holdList) await new Promise(resolve => {state.releaseList=resolve;});
         return list(...args);
       };
-      api.getCollectionItems = async (...args) => {const items=await members(...args);state.itemCalls++;return items;};
-      if(${!!options.synced}) api.homeCollections = {isCurrent:()=>true, load:async()=>({Revision:'1',Settings:state.settings}), save:async()=>{throw new Error('Unexpected save')}};
+      api.getCollectionItems = async (...args) => {const items=await members(...args);state.itemCalls++;if(state.holdItems)await new Promise(resolve=>{state.releaseItems=resolve;});return items;};
+      if(${!!options.synced}) api.homeCollections = {isCurrent:()=>true, load:async()=>{
+        if(${!!options.holdSettings})await new Promise(resolve=>{state.releaseSettings=resolve;});
+        if(${!!options.failedSettings})throw new Error('Offline settings');
+        return {Revision:'1',Settings:state.settings};
+      }, save:async()=>{throw new Error('Unexpected save')}};
+      if(${!!options.holdProviders}) api.providerHomes = {isCurrent:()=>true, load:async()=>{
+        await new Promise(resolve=>{state.releaseProviders=resolve;});return {Revision:'1',Settings:state.providers};
+      },save:async()=>{throw new Error('Unexpected save')}};
       const host = document.querySelector('#homeTab .sections');
       host.replaceChildren(); host.classList.remove('homeSectionsContainer');
       state.build = () => {
@@ -85,12 +93,13 @@ test('custom rows stay detached until slow native sections settle, then appear d
   await fixture(page); await page.goto('/?featured=0#/home'); await built(page);
   await expect(rows(page)).toHaveCount(0); await expect(page.getByText('Loading your collection rows…')).toHaveCount(0);
   await buildNative(page); await page.evaluate(() => (window as any).__nativeHome.resolve(0));
-  await expect(page.getByRole('button', { name: 'Native item 0', exact: true })).toBeVisible(); await expect(rows(page)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Native item 0', exact: true }).focus(); await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-id="native-0"]')).toBeAttached(); await expect(page.locator('[data-id="native-0"]')).toBeHidden(); await expect(rows(page)).toHaveCount(0);
+  await page.locator('.skinHeader').getByRole('link', { name: 'Settings', exact: true }).focus();
   await page.evaluate(() => (window as any).__nativeHome.resolve(1));
   await expect(rows(page)).toBeVisible();
   expect(await rows(page).evaluate(node => node.nextElementSibling?.querySelector('h2')?.textContent)).toBe('Next up');
-  await expect(page.getByRole('button', { name: 'Native item 0', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Native item 0', exact: true })).toBeVisible();
+  await expect(page.locator('.skinHeader').getByRole('link', { name: 'Settings', exact: true })).toBeFocused();
   expect(await page.evaluate(() => (window as any).__nativeHome.fetchCalls)).toEqual([1, 1]);
   expect(await page.evaluate(() => {const s=(window as any).__nativeHome;return s.nodes.every((node:any,i:number)=>node.fetchData===s.originals[i].fetchData&&node.afterRefresh===s.originals[i].afterRefresh);})).toBe(true);
 });
@@ -117,8 +126,8 @@ test('native empty-state markup releases immediately, while an unknown stalled H
   await page.evaluate(() => {document.querySelector('#homeTab .sections')!.innerHTML='<div class="centerMessage"><h2>Nothing here</h2></div>';});
   await expect(rows(page)).toBeVisible();
   await page.reload(); await built(page); await expect(rows(page)).toHaveCount(0);
-  await page.clock.fastForward(7_000); await expect(rows(page)).toHaveCount(0);
-  await page.clock.fastForward(1_200); await page.clock.runFor(50); await expect(rows(page)).toBeVisible();
+  await page.clock.fastForward(3_000); await expect(rows(page)).toHaveCount(0);
+  await page.clock.fastForward(600); await page.clock.runFor(50); await expect(rows(page)).toBeVisible();
 });
 
 test('spinner and Featured placeholder completion are observed; a later anchor keeps the selected custom card focused', async ({ page }) => {
@@ -144,9 +153,31 @@ test('navigation destroys native observers and a late completion cannot reattach
   await fixture(page); await page.goto('/?featured=0#/home'); await built(page); await buildNative(page);
   await page.evaluate(() => {window.TvItemLayoutDemo!.api.userId='another-account';location.hash='/movies';window.TvItemLayout!.refresh();});
   await expect(page.getByRole('dialog',{name:'Movies',exact:true})).toBeVisible();
+  await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
+  await expect(page.locator('#homeTab')).not.toHaveAttribute('aria-busy');
+  await expect(page.locator('.tvl-home-loading-status')).toHaveCount(0);
   expect(await page.evaluate(() => {const s=(window as any).__nativeHome;return s.nodes.every((node:any,i:number)=>node.fetchData===s.originals[i].fetchData&&node.afterRefresh===s.originals[i].afterRefresh);})).toBe(true);
   await finishNative(page); await expect(rows(page)).toHaveCount(0);
   await page.evaluate(() => {location.hash='/home';});await expect(rows(page)).toHaveCount(0);
+});
+
+for (const layout of ['tv', 'desktop']) test(`${layout}: a reused Home host never adopts the previous account’s native focus`, async ({ page }) => {
+  await fixture(page, { fresh: true }); await page.goto(`/?featured=0&providers=1&layout=${layout}#/home`);
+  await buildNative(page); await finishNative(page);
+  const previous = page.getByRole('button', { name: 'Native item 1', exact: true });
+  await expect(previous).toBeVisible(); await previous.focus();
+  await page.evaluate(() => {
+    (window as any).__nativeHome.previousHost = document.querySelector('#homeTab');
+    window.TvItemLayoutDemo!.api.userId = 'another-account'; window.TvItemLayout!.refresh();
+    // The native controller can blur the outgoing target before replacing its
+    // cached DOM. Cinema must not relabel that target for the new account.
+    (document.activeElement as HTMLElement).blur();
+  });
+  await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
+  expect(await page.evaluate(() => document.querySelector('#homeTab') === (window as any).__nativeHome.previousHost)).toBe(true);
+  await expect(previous).not.toBeFocused();
+  if (layout === 'tv') await expect(page.locator('#homeTab .tvl-provider-tile').first()).toBeFocused();
+  else await expect(page.locator('body')).toBeFocused();
 });
 
 test('saved row refresh leaves current cards mounted and usable until the replacement is ready', async ({ page }) => {
@@ -156,9 +187,94 @@ test('saved row refresh leaves current cards mounted and usable until the replac
   await page.clock.fastForward(5_100);await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect.poll(() => page.evaluate(() => typeof (window as any).__nativeHome.releaseList)).toBe('function');
   await expect(rows(page)).toHaveAttribute('aria-label','Weekend picks');
+  await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
+  await expect(page.locator('[data-id="native-0"]')).toBeVisible();
   expect(await rows(page).evaluate(node => node===(window as any).__nativeHome.originalRow)).toBe(true);
   const selected=rows(page).getByRole('button',{name:'Rank 1: After the Tide',exact:true});await selected.focus();
   await page.evaluate(() => (window as any).__nativeHome.releaseList());
   await expect(rows(page)).toHaveAttribute('aria-label','Updated picks');await expect(selected).toBeFocused();
   await expect(page.getByText('Loading your collection rows…')).toHaveCount(0);
+});
+
+test('fresh account preferences and slow members join native and streaming rows in the same first paint', async ({ page }) => {
+  await fixture(page, { synced: true, fresh: true, holdSettings: true, holdProviders: true, holdItems: true });
+  await page.goto('/?featured=0#/home'); await buildNative(page); await finishNative(page);
+  await expect(page.locator('[data-id="native-0"]')).toBeAttached();
+  await expect(page.locator('[data-id="native-0"]')).toBeHidden();
+  await page.evaluate(() => {
+    const state = (window as any).__nativeHome; state.frames = [];
+    const shown = (selector: string) => { const node = document.querySelector<HTMLElement>(selector); return !!node && !!node.getClientRects().length && getComputedStyle(node).visibility === 'visible'; };
+    const sample = () => { state.frames.push(['[data-id="native-0"]', '[data-home-row="staged"]', '.tvl-home-provider-row'].map(shown)); if (!state.stopFrames) requestAnimationFrame(sample); };
+    requestAnimationFrame(sample); state.releaseProviders();
+  });
+  await expect(rows(page)).toHaveCount(0); await expect(page.locator('[data-id="native-0"]')).toBeHidden();
+  await page.evaluate(() => (window as any).__nativeHome.releaseSettings());
+  await expect.poll(() => page.evaluate(() => typeof (window as any).__nativeHome.releaseItems)).toBe('function');
+  await expect(page.locator('[data-id="native-0"]')).toBeHidden(); await expect(rows(page)).toHaveCount(0);
+  await page.evaluate(() => {const s=(window as any).__nativeHome;s.holdItems=false;s.releaseItems();});
+  await expect(rows(page)).toBeVisible(); await expect(page.locator('.tvl-home-provider-row')).toBeVisible();
+  await expect(page.locator('[data-id="native-0"]')).toBeVisible();
+  const frames = await page.evaluate(() => {const s=(window as any).__nativeHome;s.stopFrames=true;return s.frames as boolean[][];});
+  expect(frames.some(frame => frame.every(Boolean))).toBe(true);
+  expect(frames.filter(frame => frame.some(Boolean) && !frame.every(Boolean))).toEqual([]);
+  await expect(page.locator('#homeTab')).not.toHaveAttribute('aria-busy');
+});
+
+test('failed initial account preferences use cached rows promptly without an error banner', async ({ page }) => {
+  await page.clock.install(); await fixture(page, { synced: true, failedSettings: true });
+  await page.goto('/?featured=0#/home'); await built(page); await buildNative(page); await finishNative(page);
+  await page.clock.runFor(100); await expect(rows(page)).toBeVisible();
+  await expect(page.locator('[data-id="native-0"]')).toBeVisible();
+  await expect(page.getByText(/could not sync|Retry row sync|Offline settings/)).toHaveCount(0);
+});
+
+test('a hung preference read has a bounded fallback using the other fresh settings, and late results never remask Home', async ({ page }) => {
+  await page.clock.install(); await fixture(page, { synced: true, fresh: true, holdProviders: true });
+  await page.goto('/?featured=0#/home'); await built(page); await buildNative(page); await finishNative(page);
+  await page.clock.runFor(100); await expect(page.locator('[data-id="native-0"]')).toBeHidden();
+  await page.clock.fastForward(3_600); await page.clock.runFor(50);
+  await expect(rows(page)).toBeVisible(); await expect(page.locator('[data-id="native-0"]')).toBeVisible();
+  await expect(page.locator('.tvl-home-provider-row')).toBeVisible();
+  await page.getByRole('button', { name: 'Native item 0', exact: true }).focus();
+  await page.evaluate(() => {const s=(window as any).__nativeHome;s.providers={...s.providers,title:'My streaming services'};s.releaseProviders();});
+  await expect(page.locator('.tvl-home-provider-row')).toHaveAttribute('aria-label', 'My streaming services');
+  await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
+  await expect(page.getByRole('button', { name: 'Native item 0', exact: true })).toBeFocused();
+});
+
+test('slow collection members cannot keep native Home hidden beyond the initial deadline', async ({ page }) => {
+  await page.clock.install(); await fixture(page, { holdItems: true });
+  await page.goto('/?featured=0#/home'); await built(page); await buildNative(page); await finishNative(page);
+  await expect(page.locator('[data-id="native-0"]')).toBeHidden();
+  await page.clock.fastForward(3_600); await page.clock.runFor(50);
+  await expect(page.locator('[data-id="native-0"]')).toBeVisible(); await expect(rows(page)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Native item 0', exact: true }).focus();
+  await page.evaluate(() => {const s=(window as any).__nativeHome;s.holdItems=false;s.releaseItems();});
+  await expect(rows(page)).toBeVisible(); await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
+  await expect(page.getByRole('button', { name: 'Native item 0', exact: true })).toBeFocused();
+});
+
+test('paused inactive empty native rows and an account without custom rows do not wait for the deadline', async ({ page }) => {
+  await page.clock.install(); await fixture(page, { fresh: true }); await page.goto('/?featured=0#/home');
+  await page.evaluate(() => (window as any).__nativeHome.build());
+  await expect.poll(() => page.evaluate(() => {const s=(window as any).__nativeHome;return s.nodes.every((node:any,i:number)=>node.fetchData!==s.originals[i].fetchData);})).toBe(true);
+  await page.evaluate(() => {const s=(window as any).__nativeHome;s.nodes[1].paused=true;void s.nodes[0].resume({refresh:true});s.resolve(0);});
+  await page.clock.runFor(100); await expect(page.locator('[data-id="native-0"]')).toBeVisible();
+  await expect(page.locator('.tvl-home-provider-row')).toBeVisible(); await expect(rows(page)).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__nativeHome.fetchCalls)).toEqual([1]);
+});
+
+test('native host replacement releases the old initial mask and paints all rows into the new host', async ({ page }) => {
+  await fixture(page, { holdItems: true }); await page.goto('/?featured=0#/home'); await built(page); await buildNative(page);
+  await page.evaluate(() => {
+    const s=(window as any).__nativeHome; s.oldHost=document.querySelector('#homeTab');
+    const host=document.createElement('div');host.id='homeTab';
+    host.innerHTML='<div class="sections homeSectionsContainer"><section class="verticalSection"><h2 class="sectionTitle">Next up</h2><div class="itemsContainer"><button>Replacement native item</button></div></section></div>';
+    s.oldHost.replaceWith(host);
+  });
+  await expect(page.locator('#homeTab')).toHaveClass(/tvl-home-initial-loading/);
+  expect(await page.evaluate(() => {const host=(window as any).__nativeHome.oldHost;return {held:host.classList.contains('tvl-home-initial-loading'),busy:host.getAttribute('aria-busy')};})).toEqual({held:false,busy:null});
+  await page.evaluate(() => {const s=(window as any).__nativeHome;s.holdItems=false;s.releaseItems();});
+  await expect(rows(page)).toBeVisible(); await expect(page.getByRole('button', {name:'Replacement native item'})).toBeVisible();
+  await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
 });

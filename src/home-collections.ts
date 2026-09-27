@@ -10,10 +10,15 @@ import { createProviderHomesStore, type ProviderHomesStore } from './provider-se
 import type { ProviderHomesSettings } from './provider-settings';
 import type { ProviderBrandId } from './provider-brands';
 import { providerHomeRow } from './provider-home';
+import { isDesktopLayout } from './layout';
 
 type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void> };
 type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement; retry?: boolean };
 type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string };
+
+// Native Home is DOM-cached. Its controller can attempt Back restoration while
+// the initial row batch is masked, so remember its last native target by account.
+const nativeReturnFocus = new WeakMap<HTMLElement, { key: string; element: HTMLElement }>();
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
 export class HomeCollections {
@@ -39,7 +44,11 @@ export class HomeCollections {
   private items = new Map<string, CollectionItems>();
   private providers: ProviderHomesSettings;
   private providerStore: ProviderHomesStore;
-  private providerReady = false;
+  private initialSettingsReady = false;
+  private initialPaint = false;
+  private loadingHost?: HTMLElement;
+  private previousBusy: string | null = null;
+  private loadingStatus = el('div', 'tvl-home-loading-status', 'Loading…');
   private providerSyncing = false;
   private providerLastSync = 0;
 
@@ -47,10 +56,12 @@ export class HomeCollections {
     private openProvider?: (id: ProviderBrandId) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
     this.providerStore = createProviderHomesStore(api); this.providers = this.providerStore.cached;
-    this.providerReady = !this.providerStore.synced;
+    this.initialSettingsReady = !this.store.synced && !this.providerStore.synced;
+    this.loadingStatus.setAttribute('role', 'status');
     window.addEventListener('keydown', this.onKey, true);
     window.addEventListener('command', this.onCommand, true);
     window.addEventListener('pointerdown', this.onPointer, true);
+    window.addEventListener('focusin', this.rememberNativeFocus, true);
     this.observer = new MutationObserver(records => {
       // Native row order can change without replacing a node. Ignore scroller
       // transform updates so animated TV focus does not keep reattaching rows.
@@ -61,15 +72,66 @@ export class HomeCollections {
     this.attach(); void this.render();
     if (this.store.synced || this.providerStore.synced) {
       window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
-      this.syncTimer = window.setInterval(this.onVisible, 60_000); void this.refreshSettings(true);
+      this.syncTimer = window.setInterval(this.onVisible, 60_000); void this.loadInitialSettings();
     }
   }
+
+  /** Fetch both preferences in parallel and publish a single initial row set.
+   * Cached members may already be loading, but cannot appear before a fresh
+   * device knows which provider and collection rows belong to this account. */
+  private async loadInitialSettings(): Promise<void> {
+    this.syncing = this.store.synced; this.providerSyncing = this.providerStore.synced;
+    this.lastSync = this.providerLastSync = Date.now();
+    await Promise.all([
+      this.store.synced ? this.store.load().then(settings => {
+        if (this.disposed) return;
+        const changed = JSON.stringify(settings) !== JSON.stringify(this.settings); this.settings = settings;
+        if (changed) void this.render();
+      }).catch(() => {}).finally(() => { this.syncing = false; }) : Promise.resolve(),
+      this.providerStore.synced ? this.providerStore.load().then(settings => {
+        if (this.disposed) return;
+        const changed = JSON.stringify(settings) !== JSON.stringify(this.providers); this.providers = settings;
+        if (changed) void this.render();
+      }).catch(() => {}).finally(() => { this.providerSyncing = false; }) : Promise.resolve()
+    ]);
+    if (this.disposed) return;
+    this.initialSettingsReady = true; this.attach();
+  }
+
+  private holdInitialHome(host: HTMLElement): void {
+    if (this.initialPaint) return;
+    if (this.loadingHost !== host) {
+      this.releaseInitialHome(); this.loadingHost = host; this.previousBusy = host.getAttribute('aria-busy');
+      host.setAttribute('aria-busy', 'true');
+    }
+    if (!host.classList.contains('tvl-home-initial-loading')) host.classList.add('tvl-home-initial-loading');
+    if (this.loadingStatus.parentElement !== host) host.append(this.loadingStatus);
+  }
+  private releaseInitialHome(): void {
+    const host = this.loadingHost;
+    if (host) {
+      host.classList.remove('tvl-home-initial-loading');
+      if (host.getAttribute('aria-busy') === 'true') {
+        if (this.previousBusy === null) host.removeAttribute('aria-busy'); else host.setAttribute('aria-busy', this.previousBusy);
+      }
+    }
+    this.loadingStatus.remove(); this.loadingHost = undefined;
+  }
+
+  private rememberNativeFocus = (): void => {
+    const host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab');
+    const active = document.activeElement;
+    if (host && active instanceof HTMLElement && host.contains(active)
+      && !active.closest('.tvl-home-collection-row, .tvl-home-provider-row, .tvl-home-collections')) {
+      nativeReturnFocus.set(host, { key: this.key, element: active });
+    }
+  };
 
   private onVisible = (): void => { if (document.visibilityState !== 'hidden') void this.refreshSettings(); };
   private async refreshProviders(force: boolean): Promise<void> {
     if (this.disposed || !this.providerStore.synced || this.providerSyncing || !force && Date.now() - this.providerLastSync < 5_000) return;
     this.providerSyncing = true; this.providerLastSync = Date.now();
-    let changed = !this.providerReady;
+    let changed = false;
     try {
       const settings = await this.providerStore.load();
       if (this.disposed) return;
@@ -78,7 +140,6 @@ export class HomeCollections {
     } catch { /* Home keeps its account-scoped cache when sync is unavailable. */ }
     finally { this.providerSyncing = false; }
     if (this.disposed) return;
-    this.providerReady = true;
     if (changed) await this.render();
   }
   async refreshSettings(force = false): Promise<void> {
@@ -136,12 +197,15 @@ export class HomeCollections {
   private attach(): void {
     if (this.disposed) return;
     const host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab');
-    if (!host || !this.readiness.update(host)) return;
-    if (this.root.parentElement !== host) host.append(this.root);
+    if (!host) return;
+    this.holdInitialHome(host);
     let staged = this.staged;
     if (staged?.sections && staged.sourceRevision !== this.sourceRevision) {
       void this.prepare(staged); staged = undefined;
     }
+    const initialRowsReady = this.initialSettingsReady && !!staged && staged.revision === this.revision;
+    if (!this.readiness.update(host, this.initialPaint || initialRowsReady)) return;
+    if (this.root.parentElement !== host) host.append(this.root);
     let focusId: string | undefined;
     let focusRow: string | undefined;
     let movedFocus: HTMLElement | undefined;
@@ -194,6 +258,10 @@ export class HomeCollections {
       const cards = element.querySelector<HTMLElement>('.tvl-home-row-cards');
       if (cards?.dataset.restoreScroll !== undefined) { cards.scrollLeft = Number(cards.dataset.restoreScroll); delete cards.dataset.restoreScroll; }
     }
+    // Commit and position every owned row before revealing either row family.
+    // Readiness has a bounded fallback, so an unavailable source cannot trap Home.
+    const firstPaint = !this.initialPaint;
+    this.initialPaint = true; this.releaseInitialHome();
     if (focusId || focusRow) {
       const target = this.sections.flatMap(section => Array.from(section.element.querySelectorAll<HTMLElement>('[data-focus-id]'))).find(node => node.dataset.focusId === focusId);
       const retainedRow = this.sections.find(section => section.row.id === focusRow)?.element;
@@ -203,6 +271,16 @@ export class HomeCollections {
         || nearby.find(node => !retainedRow || !!(retainedRow.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) || nearby[nearby.length - 1]);
     }
     else if (movedFocus?.isConnected) this.focus(movedFocus);
+    else if (firstPaint && !this.inputRevision && document.activeElement === document.body) {
+      const saved = nativeReturnFocus.get(host);
+      const usable = (node: HTMLElement): boolean => !node.closest('.hide,[hidden]') && node.getClientRects().length > 0 && getComputedStyle(node).visibility !== 'hidden';
+      const target = saved?.key === this.key && saved.element.isConnected && host.contains(saved.element) && usable(saved.element)
+        ? saved.element : undefined;
+      // Preserve native Back restoration before TV's first-control fallback;
+      // neither path takes focus from a header control or subsequent user input.
+      const first = !target && !isDesktopLayout() ? Array.from(host.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex="0"]')).find(usable) : undefined;
+      (target || first)?.focus({ preventScroll: true });
+    }
   }
 
   private async prepare(staged: StagedRows): Promise<void> {
@@ -274,7 +352,7 @@ export class HomeCollections {
     const revision = ++this.revision;
     const inputRevision = this.inputRevision;
     this.staged = undefined;
-    const providerElement = this.providerReady && this.openProvider ? providerHomeRow(this.providers, this.openProvider) : null;
+    const providerElement = this.openProvider ? providerHomeRow(this.providers, this.openProvider) : null;
     const providerRows: RenderedRow[] = providerElement ? [{ row: { id: 'provider-homes:brands', placement: this.providers.placement },
       element: providerElement, reconcileSource: async () => {} }] : [];
     if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: providerRows }; this.attach(); return; }
@@ -380,12 +458,14 @@ export class HomeCollections {
   }
 
   destroy(): void {
+    this.rememberNativeFocus();
     this.disposed = true; this.revision++; this.observer.disconnect();
-    this.staged = undefined; this.readiness.destroy();
+    this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);
     window.removeEventListener('pointerdown', this.onPointer, true);
+    window.removeEventListener('focusin', this.rememberNativeFocus, true);
     this.sections.forEach(section => section.element.remove()); this.sections = []; this.root.remove();
   }
 }

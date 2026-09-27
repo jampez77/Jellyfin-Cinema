@@ -1,3 +1,12 @@
+/* Keep the native Home mounted for its controllers and geometry while the first
+   provider/collection batch settles. This ends as soon as both sides are ready,
+   or after the short failure deadline; background refreshes never apply it. */
+.tvl-home #homeTab.tvl-home-initial-loading,
+.tvl-home #homeTab.tvl-home-initial-loading * { visibility:hidden !important; }
+.tvl-home #homeTab.tvl-home-initial-loading .tvl-home-loading-status {
+  visibility:visible !important;position:fixed;top:42vh;left:4.5vw;right:4.5vw;
+  text-align:center;color:#b9c4bd;font-size:1rem;pointer-events:none;
+}
 /* Saved rows and the editor preview share card artwork and focus geometry. */
 .tvl-home-collection-row { margin:0 0 2.2em; }
 .tvl-home-row-title { font-size:1.25em;font-weight:600;letter-spacing:-.015em;margin:0 0 1rem; }

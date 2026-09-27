@@ -70,6 +70,9 @@ const providerStates=new Map<string,ProviderHomeState>();
 const recordingOrigins=new Set<string>();
 const movieCollectionOrigins=new Map<string,string>();
 const detailOrigins=new Set<string>();
+const providerHistoryKey='jellyfinCinemaProviderVisit';
+type ProviderVisit={version:1;scope:string;provider:ProviderBrandId;home:string};
+let pendingProviderVisit:(ProviderVisit&{hash:string})|undefined;
 // Classification only: item data and access are still fetched for each view.
 const verifiedLibraries=new Map<string,'collections'|'recordings'>();
 let stopThemeVideo: (() => void) | undefined;
@@ -153,6 +156,43 @@ function back():void{
   if(history.length>1)history.back();
   else location.hash='/home';
 }
+function nativeHistoryState():Record<string,unknown>{
+  return history.state&&typeof history.state==='object'?history.state:{};
+}
+function providerVisit(api:MediaApi,provider:ProviderBrandId):ProviderVisit|undefined{
+  const visit=nativeHistoryState()[providerHistoryKey] as Partial<ProviderVisit>|undefined;
+  if(!visit||visit.version!==1||visit.scope!==scopeOf(api)||visit.provider!==provider||typeof visit.home!=='string')return;
+  const [path,query='']=visit.home.split('?');const params=new URLSearchParams(query);
+  if(!/^#\/?home\/?$/i.test(path)||!onlyParams(params,['serverId','tab'])||params.has('tab')&&!['0','1'].includes(params.get('tab')!))return;
+  return visit as ProviderVisit;
+}
+function markProviderVisit(api:MediaApi,provider:ProviderBrandId,home:string):void{
+  const visit:ProviderVisit={version:1,scope:scopeOf(api)!,provider,home};
+  history.replaceState({...nativeHistoryState(),[providerHistoryKey]:visit},'',location.href);
+}
+function ensureProviderVisit(api:MediaApi,provider:ProviderBrandId):void{
+  // Chromium may deliver popstate synchronously while assigning the hash,
+  // before the caller can attach state to the new entry.
+  if(pendingProviderVisit?.hash===location.hash&&pendingProviderVisit.scope===scopeOf(api)&&pendingProviderVisit.provider===provider){
+    markProviderVisit(api,provider,pendingProviderVisit.home);pendingProviderVisit=undefined;return;
+  }
+  if(providerVisit(api,provider))return;
+  // Bookmarks and externally opened provider links need an in-app destination
+  // for browser Back too. Seed it once, without emitting native route events:
+  // Jellyfin already owns /home and should not rebuild it for our section tabs.
+  const hash=location.hash;const params=new URLSearchParams();
+  const serverId=new URLSearchParams(hash.split('?')[1]||'').get('serverId')||api.serverId;
+  if(serverId)params.set('serverId',serverId);
+  const home=`#/home${params.toString()?`?${params}`:''}`;
+  const state={...nativeHistoryState()};delete state[providerHistoryKey];
+  history.replaceState(state,'',home);
+  const next={...state};
+  // React Router stores its position and location key here. The replacement
+  // keeps every native field; the newly inserted entry has its own position.
+  if(typeof next.idx==='number')next.idx++;
+  if(typeof next.key==='string')next.key=Math.random().toString(36).slice(2,10);
+  history.pushState(next,'',hash);markProviderVisit(api,provider,home);
+}
 function hideNativeHost(route:Route):void{
   if(route.kind==='home')return;
   if(route.kind==='provider'||route.kind==='provider-settings'){
@@ -172,6 +212,7 @@ function updateAccount(api:MediaApi|null):void{
   probeRevision++;pendingHash='';close(false);accountScope=scope;dismissed='';previousFocus=null;
   returnFocus.clear();libraryStates.clear();browseStates.clear();providerStates.clear();
   recordingOrigins.clear();movieCollectionOrigins.clear();detailOrigins.clear();verifiedLibraries.clear();
+  pendingProviderVisit=undefined;
 }
 function refresh():void{
   if(disposed)return;
@@ -260,10 +301,21 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   close(false);activeKey=key;openedHash=location.hash;previousFocus=document.activeElement as HTMLElement;
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
   const openProvider=(provider:ProviderBrandId,rowId?:string)=>{
-    rememberFocus();const params=new URLSearchParams({cinemaProvider:provider});
+    const params=new URLSearchParams({cinemaProvider:provider});
     if(rowId)params.set('cinemaRow',rowId);
-    if(api.serverId)params.set('serverId',api.serverId);
-    location.hash=`/home?${params}`;
+    const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;
+    if(serverId)params.set('serverId',serverId);
+    const hash=`#/home?${params}`;if(hash===location.hash)return;
+    rememberFocus();
+    if(route.kind==='provider'){
+      // A provider's tabs share one history entry. Keep Jellyfin's history
+      // state intact and only refresh our overlay, not the native Home route.
+      history.replaceState(history.state,'',hash);refreshNavigation();
+    }else{
+      const home=location.hash;
+      pendingProviderVisit={version:1,scope:scopeOf(api)!,provider,home,hash};
+      location.hash=hash;markProviderVisit(api,provider,home);pendingProviderVisit=undefined;
+    }
   };
   if(route.kind==='home'){
     // Keep Jellyfin's Home in place. Its controllers own user/device settings,
@@ -284,6 +336,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
     location.hash=path+(params.toString()?`?${params}`:'');
   };
   if(route.kind==='provider'){
+    ensureProviderVisit(api,route.provider);
     const hash=location.hash;
     view=new ProviderHomeView(api,{provider:route.provider,rowId:route.rowId,focusId,back,navigate:go,openRow:id=>openProvider(route.provider,id),state:providerStates.get(hash),onState:state=>{
       providerStates.set(hash,state);if(providerStates.size>100)providerStates.delete(providerStates.keys().next().value!);

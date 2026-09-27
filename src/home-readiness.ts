@@ -1,5 +1,5 @@
 type NativeCallback = (...args: unknown[]) => unknown;
-type NativeItems = HTMLElement & { fetchData?: NativeCallback; afterRefresh?: NativeCallback | null };
+type NativeItems = HTMLElement & { fetchData?: NativeCallback; afterRefresh?: NativeCallback | null; paused?: boolean };
 type FetchWatch = { element: NativeItems; original: NativeCallback; wrapped: NativeCallback;
   originalAfter: NativeItems['afterRefresh']; wrappedAfter: NativeCallback; hadAfter: boolean; pending: number; done: boolean };
 
@@ -18,17 +18,18 @@ export class HomeReadiness {
   private frame?: number;
   private expired = false;
   private ready = false;
+  private contentReady = false;
   private disposed = false;
 
   constructor(private changed: () => void) {}
 
-  update(host: HTMLElement): boolean {
+  update(host: HTMLElement, contentReady = true): boolean {
     if (this.disposed) return false;
     if (this.ready) return true;
-    this.host = host;
+    this.host = host; this.contentReady = contentReady;
     if (this.deadline === undefined) this.deadline = window.setTimeout(() => {
       this.expired = true; this.check();
-    }, 8_000);
+    }, 3_500);
     this.watch(host);
     this.check();
     return this.ready;
@@ -77,6 +78,7 @@ export class HomeReadiness {
     const host = this.host;
     if (!host?.isConnected) return false;
     if (this.expired) return true;
+    if (!this.contentReady) return false;
     if (host.querySelector('.sections .centerMessage')) return true;
     const sections = host.querySelector('.sections, .homeSectionsContainer');
     if (!sections?.classList.contains('homeSectionsContainer') || !sections.childElementCount) return false;
@@ -84,7 +86,9 @@ export class HomeReadiness {
     if (host.querySelector('.ec-placeholder, .ec-bootstrap-placeholder, .sections [aria-busy="true"]')) return false;
     if (document.querySelector('.docspinner.mdlSpinnerActive')) return false;
     for (const watch of this.watches.values()) {
-      if (!host.contains(watch.element)) continue;
+      // Cached inactive Home containers are deliberately paused by Jellyfin.
+      // They do not represent a pending request, even if they are empty.
+      if (!host.contains(watch.element) || watch.element.paused === true && !watch.pending) continue;
       if (watch.pending || !watch.done && !watch.element.childElementCount) return false;
     }
     return true;
