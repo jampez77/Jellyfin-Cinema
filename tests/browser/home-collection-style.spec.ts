@@ -73,6 +73,45 @@ for(const desktop of [false,true])test(`${desktop?'desktop':'TV'} ranked and pla
   }
 });
 
+for(const desktop of [false,true])test(`${desktop?'desktop':'TV'} row ends reserve focus space without relying on scrollable end padding`,async({page})=>{
+  await setup(page,desktop);
+  // Older flex scrollers can omit trailing padding from their scrollable area.
+  // Removing it exercises that geometry without depending on a legacy engine.
+  await page.addStyleTag({content:'.tvl-home-row-cards{padding-right:0!important}'});
+  for(const id of ['plain','ranked']){
+    await focusWithoutClipping(cards(page,id).first());
+    for(let index=1;index<12;index++)await page.keyboard.press('ArrowRight');
+    const last=cards(page,id).last();
+    await expect(last).toBeFocused();
+    expect((await focusWithoutClipping(last,false)).right).toBeGreaterThanOrEqual(0);
+    // A pointer/trackpad can reach the absolute end independently of focus.
+    await row(page,id).locator('.tvl-home-row-cards').evaluate(node=>{node.scrollLeft=node.scrollWidth;});
+    expect((await focusWithoutClipping(last,false)).right).toBeGreaterThanOrEqual(0);
+    await page.screenshot({path:test.info().outputPath(`${desktop?'desktop':'tv'}-${id}-end-gutter.png`)});
+  }
+  const tiles=page.locator('#homeTab .tvl-provider-tile');
+  await tiles.first().focus();
+  for(let index=1;index<await tiles.count();index++)await page.keyboard.press('ArrowRight');
+  await expect(tiles.last()).toBeFocused();
+  for(const atEnd of [false,true])expect(await tiles.last().evaluate((tile,atEnd)=>{
+    const strip=tile.closest<HTMLElement>('.tvl-home-row-cards')!;
+    if(atEnd)strip.scrollLeft=strip.scrollWidth;
+    const art=tile.querySelector('.tvl-provider-tile-mark')!,style=getComputedStyle(art);
+    return strip.getBoundingClientRect().right-art.getBoundingClientRect().right-parseFloat(style.outlineWidth)-parseFloat(style.outlineOffset);
+  },atEnd)).toBeGreaterThanOrEqual(0);
+
+  await tiles.first().click();
+  const serviceCards=page.locator('.tvl-provider-home [data-provider-row="trending-movies"] .tvl-home-row-card');
+  await expect(serviceCards).toHaveCount(12);
+  await focusWithoutClipping(serviceCards.first());
+  for(let index=1;index<12;index++)await page.keyboard.press('ArrowRight');
+  await expect(serviceCards.last()).toBeFocused();
+  expect((await focusWithoutClipping(serviceCards.last(),false)).right).toBeGreaterThanOrEqual(0);
+  await serviceCards.last().evaluate(node=>{const strip=node.closest('.tvl-home-row-cards')!;strip.scrollLeft=strip.scrollWidth;});
+  expect((await focusWithoutClipping(serviceCards.last(),false)).right).toBeGreaterThanOrEqual(0);
+  await page.screenshot({path:test.info().outputPath(`${desktop?'desktop':'tv'}-service-end-gutter.png`)});
+});
+
 test('custom row gaps match adjacent native rows without accumulating extra top padding',async({page})=>{
   await setup(page);
   const gaps=await page.locator('#homeTab').evaluate(home=>{

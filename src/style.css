@@ -105,7 +105,10 @@ body.tvl-open { overflow: hidden !important; }
 .tvl-movie-hero .tvl-synopsis { display:none; }
 .tvl-movie-hero .tvl-title-wrap { margin-bottom:1.7em; }
 .tvl-actions-movie { flex-direction:row; align-items:center; width:auto; min-width:0; }
-.tvl-actions-movie > .tvl-button { width:auto; margin:0 .8em 0 0; white-space:nowrap; font-size:.8em; }
+/* Margins reserve space between wrapped rows and the focused Resume outline.
+   Flex gap is not supported on older WebOS browsers. */
+.tvl-actions-movie > .tvl-button, .tvl-actions-movie > .tvl-playback-actions > .tvl-button { width:auto; margin:.45em .8em .45em 0; white-space:nowrap; font-size:.8em; }
+.tvl-actions-movie > .tvl-playback-actions { max-width:100%; }
 .tvl-actions-movie .tvl-primary { min-width:9em; justify-content:center; }
 .tvl-actions-movie > .tvl-trailer { border:1px solid #b1b9b3; background:rgba(24,30,29,.6); padding:.6em 1.1em; min-height:3em; }
 .tvl-actions-movie > .tvl-trailer:hover { background:rgba(255,255,255,.16); }

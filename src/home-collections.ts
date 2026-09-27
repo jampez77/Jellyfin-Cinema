@@ -6,6 +6,7 @@ import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { HomeReadiness } from './home-readiness';
+import { HomeChannelArtwork, clearHomeChannelArtwork } from './home-channel-artwork';
 import { createProviderHomesStore, type ProviderHomesStore } from './provider-settings-store';
 import type { ProviderHomesSettings, ProviderId } from './provider-settings';
 import { providerHomeRow } from './provider-home';
@@ -18,7 +19,7 @@ type HomeSnapshot = { key: string; collections?: Item[]; items: Map<string, { va
 // Reuse successful data, never DOM handlers or promises owned by a disposed view.
 // Only the last account is retained, in memory, until sign-out/server change.
 let lastHome: HomeSnapshot | undefined;
-export function clearHomeSession(): void { lastHome = undefined; }
+export function clearHomeSession(): void { lastHome = undefined; clearHomeChannelArtwork(); }
 
 // Native Home is DOM-cached. Its controller can attempt Back restoration while
 // the initial row batch is masked, so remember its last native target by account.
@@ -68,6 +69,7 @@ export class HomeCollections {
   private sourceRevision = 0;
   private displayedRevision = 0;
   private readiness = new HomeReadiness(() => this.attach());
+  private channelArtwork: HomeChannelArtwork;
   private settings = emptyHomeCollections();
   private key: string;
   private store: HomeCollectionStore;
@@ -117,6 +119,7 @@ export class HomeCollections {
     }
     this.initialSettingsReady = this.warmReturn || !this.store.synced && !this.providerStore.synced;
     this.accountIdentity = JSON.stringify([api.serverId, api.userId]);
+    this.channelArtwork = new HomeChannelArtwork(api);
     this.positionToRestore = homePositions.get(this.key);
     if (this.warmReturn) this.nativePositionToRestore = this.positionToRestore;
     if (!this.warmReturn) {
@@ -706,6 +709,7 @@ export class HomeCollections {
     }
     this.rememberNativeFocus();
     this.disposed = true; this.revision++; this.observer.disconnect();
+    this.channelArtwork.destroy();
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);

@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.24.3",
+        "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.24/TvItemLayout_0.2.24.3_jellyfin-12.0.0.zip",
+        "checksum": "0afa0c5ddb519c924d6c5a00e56b9c31",
+        "timestamp": "2026-09-27T17:11:19Z"
+      },
+      {
+        "version": "0.2.24.2",
+        "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.24/TvItemLayout_0.2.24.2_jellyfin-10.11.0.zip",
+        "checksum": "42997a50bb654f45521c6f77e4c26fa6",
+        "timestamp": "2026-09-27T17:11:19Z"
+      },
+      {
+        "version": "0.2.24.1",
+        "changelog": "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.24/TvItemLayout_0.2.24.1_jellyfin-10.10.7.zip",
+        "checksum": "e186a4cc844e4ca7b77f665fcb1885b8",
+        "timestamp": "2026-09-27T17:11:19Z"
+      },
+      {
         "version": "0.2.23.3",
         "changelog": "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

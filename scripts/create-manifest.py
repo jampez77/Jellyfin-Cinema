@@ -27,7 +27,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Restore Watched / Unwatched controls. Link service rows to explicitly selected collection IDs so renames cannot break them. Desktop service pages offer Edit service with a named Collection chooser and preview; older automatic trending rows need a one-time choice. Replace numeric film/TV provider fields with searchable service names and use one service-colour focus ring on TV. Faster Home loading is retained. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Home Live TV cards without thumbnails now show their channel logo, fitted without cropping. Existing and lazy-loading programme artwork is preserved. Playlists from My Media and Jellyfin navigation now open Cinema's playlist layout. Movies with Resume offer Play from beginning. Movie actions have more vertical space on TV, and row-end focus borders remain visible. Cached channel lookups do not delay Home. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

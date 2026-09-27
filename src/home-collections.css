@@ -43,10 +43,13 @@
   display:flex;overflow-x:auto;align-items:flex-start;
   /* Keep the 2px outline + 3px offset inside both scroll edges. Negative
      margins keep the first artwork aligned with its heading. */
-  padding:.5rem 6px .25rem;margin:0 -6px;
-  scroll-padding-left:6px;scroll-padding-right:6px;
+  padding:.5rem 0 .25rem 6px;margin:0 -6px;
+  scroll-padding-left:6px;scroll-padding-right:8px;
   scrollbar-width:none;-ms-overflow-style:none;
 }
+/* A real flex item preserves end space in older scrollers that omit trailing
+   padding from scrollable overflow. Leave room for the ring and pixel rounding. */
+.tvl-home-row-cards::after { content:'';flex:0 0 8px; }
 /* webOS 6 uses Chromium 79, before scrollbar-width was supported. */
 .tvl-home-row-cards::-webkit-scrollbar { display:none;width:0;height:0; }
 .tvl-home-row-entry { flex:0 0 auto;margin-right:1.15rem; }

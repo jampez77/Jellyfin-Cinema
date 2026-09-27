@@ -223,6 +223,7 @@ const playlistMembers = new Map<string, Item[]>([
   ['playlist-night', [songs[3], songs[4]].map((item, index) => ({...item, PlaylistItemId:`night-entry-${index + 1}`}))],
 ]);
 register({Id:'library-music',Type:'CollectionFolder',Name:'Music',CollectionType:'music'},'forest');
+register({Id:'library-playlists',Type:'UserView',Name:'Playlists',CollectionType:'playlists',IsFolder:true},'forest');
 register({Id:'library-live',Type:'CollectionFolder',Name:'Live TV',CollectionType:'livetv'},'ocean');
 const musicGenres=[...new Set(albums.flatMap(item=>item.Genres||[]))].sort().map(Name=>({Id:`music-genre-${Name.toLowerCase()}`,Type:'Genre',Name}));
 const recordings=[
@@ -537,7 +538,7 @@ homeTab.addEventListener('focusin',event=>{homeFocused=event.target as HTMLEleme
 
 function nativeLibraryRoute(item:Item):string{
   if(item.CollectionType==='livetv')return '#/livetv?collectionType=livetv';
-  if(item.CollectionType==='boxsets')return `#/list?parentId=${item.Id}`;
+  if(item.CollectionType==='boxsets'||item.CollectionType==='playlists')return `#/list?parentId=${item.Id}`;
   const path=item.CollectionType==='tvshows'?'tv':item.CollectionType;
   return `#/${path}?topParentId=${item.Id}&collectionType=${item.CollectionType}`;
 }
@@ -630,11 +631,12 @@ function syncRoute() {
   const movies = location.hash.startsWith('#/movies');
   const shows = /^#\/tv(?:\?|$)/.test(location.hash);
   const music = /^#\/music(?:\?|$)/.test(location.hash);
+  const playlists = /^#\/playlists(?:\?|$)/.test(location.hash) || /^#\/list(?:\?|$)/.test(location.hash) && params.get('parentId')==='library-playlists';
   const home = /^#\/home(?:\?|$)/.test(location.hash);
   const preferences = /^#\/mypreferencesmenu(?:\?|$)/.test(location.hash);
   document.querySelector('.demo-switcher')?.classList.toggle('hide', params.has('cinemaProvider') || params.has('cinemaProviders'));
   nativeSettings.classList.toggle('hide', !preferences);
-  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':music?'musicRecommendedPage':guide?'liveTvSuggestedPage':'';
+  nativePage.id=movies?'moviesPage':shows?'tvRecommendedPage':music?'musicRecommendedPage':/^#\/playlists(?:\?|$)/.test(location.hash)?'playlistsPage':guide?'liveTvSuggestedPage':'';
   const homeActive=home&&params.get('tab')!=='1';
   nativeHome.classList.toggle('hide',!home);nativeHeader.classList.toggle('hide',!home);nativePage.classList.toggle('hide',home || preferences);
   selectNativeHomeTab(homeActive?0:1);
@@ -645,8 +647,8 @@ function syncRoute() {
   },30);
   const collection = location.hash.startsWith('#/details') && current?.Type === 'BoxSet';
   const collectionList = /^#\/(list|boxsets)\?/.test(location.hash) && (params.get('parentId')==='library-collections'||location.hash.startsWith('#/boxsets')||params.get('type')==='BoxSet');
-  nativePage.classList.toggle('mainAnimatedPage',collectionList);
-  nativePage.classList.toggle('libraryPage',collectionList);
+  nativePage.classList.toggle('mainAnimatedPage',collectionList || playlists);
+  nativePage.classList.toggle('libraryPage',collectionList || playlists);
   nativePage.classList.toggle('demo-collection-page',collection);
   if (collection) {
     const content = el('div','demo-collection-content');
@@ -660,14 +662,14 @@ function syncRoute() {
       grid.append(link);
     }
     content.append(grid);replace(nativePage,content);
-  } else if (collectionList) {
-    const content=el('div','demo-collection-content');content.append(el('h1','','Collections'));
+  } else if (collectionList || playlists) {
+    const content=el('div','demo-collection-content');content.append(el('h1','',playlists?'Playlists':'Collections'));
     const items=el('div','itemsContainer');items.dataset.parentid=params.get('parentId')||'';content.append(items);replace(nativePage,content);
   } else if (nativePage.querySelector('.demo-collection-content')) nativePage.innerHTML=originalNativeContent;
   const recordingPage = guide && params.get('tab')==='3' || /^#\/list(?:\?|$)/.test(location.hash) && params.get('type')==='Recordings';
-  const type = home?'home':music||['MusicAlbum','MusicArtist','Audio','Playlist'].includes(current?.Type||'')?'music':recordingPage||recordings.some(item=>item.Id===current?.Id)?'recordings':collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
+  const type = home?'home':music||playlists||['MusicAlbum','MusicArtist','Audio','Playlist'].includes(current?.Type||'')?'music':recordingPage||recordings.some(item=>item.Id===current?.Id)?'recordings':collection||collectionList?'collections':movies?'movie':guide ? 'live' : current?.Type === 'Movie' ? 'movie' : current?.Type === 'TvChannel' || current?.Type === 'Program' ? 'live' : 'series';
   document.querySelectorAll<HTMLAnchorElement>('[data-demo-type]').forEach((link) => {
-    if (link.dataset.demoType === type && (home || music || guide || movies || shows || recordingPage || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
+    if (link.dataset.demoType === type && (home || music || playlists || guide || movies || shows || recordingPage || collectionList || location.hash.startsWith('#/details'))) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();
