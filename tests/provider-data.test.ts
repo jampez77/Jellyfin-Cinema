@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ProviderData, ProviderDataError, type ProviderItemsPage } from '../src/provider-data.ts';
 import { providerBrands } from '../src/provider-brands.ts';
-import type { ProviderRow } from '../src/provider-settings.ts';
+import { defaultProviderConfig, defaultCustomProvider, type ProviderRow } from '../src/provider-settings.ts';
 import type { Item, MediaApi } from '../src/types.ts';
 
+const chartBrands = providerBrands.filter(brand => !['bbc', 'itvx', 'channel4'].includes(brand.id));
 const item = (Id: string, Type = 'Movie', Name = Id): Item => ({ Id, Name, Type });
 const collection = (Id: string, Name: string): Item => item(Id, 'BoxSet', Name);
 const row = (source: ProviderRow['source'], change: Partial<ProviderRow> = {}): ProviderRow => ({ id: source, title: source, source, collectionId: '', enabled: true, ranked: false, itemSort: 'collection', ...change });
@@ -61,7 +62,7 @@ test('auto charts accept the six installed UK names and keep the saved rank orde
     getCollectionList: async () => { listReads++; return providerBrands.map(brand => collection(brand.id, `${brand.name} — Trending Movies (UK)`)); },
     getCollectionItems: async () => members
   }));
-  for (const brand of providerBrands) {
+  for (const brand of chartBrands) {
     const first = await data.load(brand.id, row('trending-movies'), 0, 2), second = await data.load(brand.id, row('trending-movies'), 2, 2);
     assert.deepEqual(ids(first), ['rank-one', 'rank-two']); assert.deepEqual(ids(second), ['rank-three']); assert.equal(first.total, 3);
   }
@@ -69,7 +70,7 @@ test('auto charts accept the six installed UK names and keep the saved rank orde
 });
 
 test('all twelve live SmartLists chart names resolve with their terminal [Smart] decoration and retain media-specific ranks', async () => {
-  const charts = providerBrands.flatMap(brand => [
+  const charts = chartBrands.flatMap(brand => [
     collection(`${brand.id}-Movie`, `${brand.name} — Trending Movies (UK) [Smart]`),
     collection(`${brand.id}-Series`, `${brand.name} — Trending Shows (UK) [Smart]`)
   ]);
@@ -78,7 +79,7 @@ test('all twelve live SmartLists chart names resolve with their terminal [Smart]
     reads.push(id); const type = id.endsWith('-Movie') ? 'Movie' : 'Series';
     return [item(`${id}-first`, type, 'Zulu'), item(`${id}-second`, type, 'Alpha')];
   } }));
-  for (const brand of providerBrands) for (const [source, type] of [['trending-movies', 'Movie'], ['trending-shows', 'Series']] as const) {
+  for (const brand of chartBrands) for (const [source, type] of [['trending-movies', 'Movie'], ['trending-shows', 'Series']] as const) {
     const result = await data.load(brand.id, row(source));
     assert.deepEqual(ids(result), [`${brand.id}-${type}-first`, `${brand.id}-${type}-second`]);
     assert.equal(result.status, 'ready'); assert.equal(result.missingSource, undefined);
@@ -221,4 +222,35 @@ test('page bounds are finite integers and a cancelled queued request never reach
   await data.load('apple', row('shows', { itemSort: 'title-desc' }), 2.8, 10_000);
   assert.deepEqual(calls, [{ type: 'Movie', startIndex: 0, limit: 60, sort: 'title' }, { type: 'Series', startIndex: 2, limit: 100, sort: 'title-desc' }]);
   const loading = data.load('apple', row('movies')); data.destroy(); await assert.rejects(loading, stale); assert.equal(calls.length, 2);
+});
+
+
+test('renaming a built-in service preserves its original chart source and rank order', async () => {
+  const config = { ...defaultProviderConfig('netflix'), name: 'Family cinema' };
+  const data = new ProviderData(api({ getCollectionList: async () => [collection('chart', 'Netflix — Trending Movies (UK) [Smart]')],
+    getCollectionItems: async () => [item('zulu'), item('alpha')] }));
+  assert.deepEqual(ids(await data.load(config, row('trending-movies'))), ['zulu', 'alpha']);
+});
+
+test('custom services use selected collections and do not invent automatic chart feeds', async () => {
+  const config = defaultCustomProvider('custom-family');
+  let reads = 0;
+  const data = new ProviderData(api({ getCollectionItems: async () => { reads++; return [item('two'), item('one')]; } }));
+  assert.deepEqual(ids(await data.load(config, row('collection', { collectionId: 'family' }))), ['two', 'one']);
+  const missing = await data.load(config, row('trending-movies'));
+  assert.equal(missing.missingSource, true); assert.equal(missing.sourceUrl, undefined); assert.equal(reads, 1);
+  for (const id of ['bbc', 'itvx', 'channel4'] as const) assert.equal((await data.load(id, row('trending-movies'))).missingSource, true);
+});
+
+test('unsaved catalogue previews use their exact draft and isolate source edits from pending requests', async () => {
+  const first = deferred<ProviderItemsPage>(), second = deferred<ProviderItemsPage>();
+  const calls: number[][] = [];
+  const data = new ProviderData(api({ getProviderItems: async () => { throw new Error('Must not read the saved configuration'); },
+    previewProviderItems: async config => { calls.push(config.movieProviderIds); return calls.length === 1 ? first.promise : second.promise; } }));
+  const draft = { ...defaultCustomProvider('custom-free'), movieProviderIds: [38], offerTypes: ['free' as const] };
+  const a = data.load(draft, row('movies'), 0, 8, true);
+  const b = data.load({ ...draft, movieProviderIds: [103] }, row('movies'), 0, 8, true);
+  await tick(); assert.deepEqual(calls, [[38], [103]]);
+  second.resolve(page([item('channel4')])); first.resolve(page([item('bbc')]));
+  assert.deepEqual(ids(await a), ['bbc']); assert.deepEqual(ids(await b), ['channel4']);
 });

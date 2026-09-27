@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Jellyfin.Data.Enums;
 #if JELLYFIN_1010
@@ -9,6 +11,7 @@ using User = Jellyfin.Database.Implementations.Entities.User;
 #endif
 using Jellyfin.Plugin.TvItemLayout.Providers;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Dto;
@@ -35,7 +38,8 @@ public sealed class ProviderItemsController(
     INetworkManager networkManager,
     ILibraryManager libraryManager,
     IDtoService dtoService,
-    IProviderAvailability availability) : ControllerBase
+    IProviderAvailability availability,
+    IApplicationPaths paths) : ControllerBase
 {
     private async Task<User?> CurrentUser()
     {
@@ -61,9 +65,40 @@ public sealed class ProviderItemsController(
     {
         var user = await CurrentUser();
         if (user is null) return Unauthorized();
-        if (!TmdbProviderSource.ValidProvider(providerId) || type is not ("Movie" or "Series")
-            || startIndex < 0 || limit is < 1 or > 200 || sort is not ("title" or "title-desc" or "newest" or "oldest"))
+        if (!ProviderHomesSchema.ValidProvider(providerId) || !ValidQuery(type, startIndex, limit, sort))
             return BadRequest("Invalid provider catalogue query.");
+        var settings = await ProviderHomesController.ReadForUser(paths, user.Id, cancellationToken);
+        var configured = ProviderHomesSchema.Resolve(settings.Settings, providerId);
+        if (configured is null || !configured.Enabled) return NotFound("This streaming service is not enabled for the current account.");
+        return await Items(user, configured, type, startIndex, limit, sort, cancellationToken);
+    }
+
+    [HttpPost("Preview")]
+    [RequestSizeLimit(ProviderHomesController.MaximumBytes)]
+    public async Task<IActionResult> PreviewProviderItems([FromBody] JsonElement provider, [FromQuery] string mediaType = "Movie",
+        [FromQuery] int startIndex = 0, [FromQuery] int limit = 60, [FromQuery] string sort = "title",
+        CancellationToken cancellationToken = default)
+    {
+        var user = await CurrentUser();
+        if (user is null) return Unauthorized();
+        if (!ValidQuery(mediaType, startIndex, limit, sort)) return BadRequest("Invalid provider preview query.");
+        if (provider.ValueKind == JsonValueKind.Undefined) return BadRequest("Invalid provider preview settings.");
+        if (Encoding.UTF8.GetByteCount(provider.GetRawText()) > ProviderHomesController.MaximumBytes - 1024)
+            return StatusCode(413, "Provider preview settings are too large.");
+        var draft = JsonSerializer.SerializeToElement(new { version = 2, enabled = true, title = "", placement = "start", tileScale = 100, showNames = true, providers = new[] { provider } });
+        if (!ProviderHomesSchema.ValidSettings(draft)) return BadRequest("Invalid provider preview settings.");
+        var configured = ProviderHomesSchema.Resolve(draft, provider.GetProperty("id").GetString()!)!;
+        return await Items(user, configured, mediaType, startIndex, limit, sort, cancellationToken);
+    }
+
+    private static bool ValidQuery(string type, int startIndex, int limit, string sort) => type is "Movie" or "Series"
+        && startIndex >= 0 && limit is >= 1 and <= 200 && sort is "title" or "title-desc" or "newest" or "oldest";
+
+    private async Task<IActionResult> Items(User user, ConfiguredProvider configured, string type, int startIndex, int limit, string sort, CancellationToken cancellationToken)
+    {
+        var acceptedIds = type == "Movie" ? configured.MovieProviderIds : configured.ShowProviderIds;
+        if (acceptedIds.Length == 0)
+            return Ok(new ProviderItemsResponse([], 0, 0, 0, null, "unavailable", TmdbProviderSource.Region, 0, 0));
         // Construct with the current User (not merely UserId) to apply parental ratings,
         // blocked/unrated content and tags. Leave all explicit item/parent constraints empty:
         // ILibraryManager then applies that user's permitted library roots on every request.
@@ -78,7 +113,7 @@ public sealed class ProviderItemsController(
         var identified = permitted.Select(item => (Item: item, Key: LookupKey(item, type))).ToArray();
         var snapshot = await availability.ReadAsync(identified.Where(item => item.Key is not null).Select(item => item.Key!), cancellationToken);
         var matching = identified.Where(item => item.Key is not null && snapshot.Memberships.TryGetValue(item.Key, out var providers)
-            && TmdbProviderSource.Includes(providerId, type, providers)).Select(item => item.Item);
+            && providers.Includes(acceptedIds, configured.OfferTypes)).Select(item => item.Item);
         IOrderedEnumerable<BaseItem> ordered = sort switch
         {
             "title-desc" => matching.OrderByDescending(item => item.SortName, StringComparer.OrdinalIgnoreCase),

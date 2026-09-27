@@ -1,6 +1,8 @@
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using Jellyfin.Plugin.TvItemLayout.Providers;
 #if JELLYFIN_1010
 using Jellyfin.Data.Entities;
 using Jellyfin.Data.Enums;
@@ -106,6 +108,45 @@ public static class ProviderHomesChecks
             assert(await controller.PutProviderHomes(new(cleared.Revision, unicodeSettings)) is ObjectResult { StatusCode: 413 }
                 && Value(await controller.GetProviderHomes()).Revision == cleared.Revision,
                 "Oversized valid provider settings cannot replace a readable saved revision");
+            var customized = JsonSerializer.SerializeToElement(new { version = 2, enabled = false, title = "My services", placement = "end", tileScale = 125, showNames = false,
+                providers = new[] { new { id = "custom-family", name = "Family streaming", logoUrl = "https://example.com/logo.png", accent = "#AABBCC", movieProviderIds = new[] { 8, 1000000 }, showProviderIds = Array.Empty<int>(), offerTypes = new[] { "free", "ads" }, enabled = true, hero = false, rows = Array.Empty<object>() } } });
+            var upgraded = Value(await controller.PutProviderHomes(new(cleared.Revision, customized)));
+            assert(upgraded.Settings!.Value.GetRawText() == customized.GetRawText(), "Schema2 appearance, custom service identity and availability mappings persist exactly");
+            assert(await controller.PutProviderHomes(new(upgraded.Revision, settings)) is ConflictObjectResult
+                && Value(await controller.GetProviderHomes()).Revision == upgraded.Revision,
+                "An older schema1 client cannot overwrite schema2 even with the current revision");
+            cleared = upgraded;
+            var invalidEdits = new Action<JsonNode>[] {
+                node => node["tileScale"] = 69, node => node["tileScale"] = 151, node => node["tileScale"] = 100.5,
+                node => node["showNames"] = "false", node => node["providers"]![0]!["id"] = "custom-UPPER", node => node["providers"]![0]!["id"] = "custom-line\n",
+                node => node["providers"]![0]!["id"] = "custom-" + new string('a', 58),
+                node => node["providers"]![0]!["name"] = "", node => node["providers"]![0]!["name"] = new string('a', 81),
+                node => node["providers"]![0]!["logoUrl"] = "file:///etc/passwd", node => node["providers"]![0]!["logoUrl"] = "https://user:secret@example.com/logo.png",
+                node => node["providers"]![0]!["logoUrl"] = new string('a', 2049), node => node["providers"]![0]!["accent"] = "#FFF",
+                node => node["providers"]![0]!["movieProviderIds"] = new JsonArray(8, 8), node => node["providers"]![0]!["movieProviderIds"] = new JsonArray(0),
+                node => node["providers"]![0]!["movieProviderIds"] = new JsonArray(1000001), node => node["providers"]![0]!["movieProviderIds"] = new JsonArray(1.5),
+                node => node["providers"]![0]!["movieProviderIds"] = JsonSerializer.SerializeToNode(Enumerable.Range(1, 21).ToArray()),
+                node => node["providers"]![0]!["offerTypes"] = new JsonArray(), node => node["providers"]![0]!["offerTypes"] = new JsonArray("rent"),
+                node => node["providers"]![0]!["offerTypes"] = new JsonArray("ads", "ads"), node => node["providers"]![0]!["unexpected"] = true
+            };
+            foreach (var edit in invalidEdits)
+            {
+                var node = JsonNode.Parse(customized.GetRawText())!; edit(node);
+                assert(await controller.PutProviderHomes(new(cleared.Revision, JsonSerializer.SerializeToElement(node))) is BadRequestObjectResult,
+                    "Schema2 rejects invalid appearance, URL, IDs, offer categories or extra fields without changing saved preferences");
+            }
+            var many = JsonNode.Parse(customized.GetRawText())!;
+            many["providers"] = new JsonArray(Enumerable.Range(0, 24).Select(i => { var item = JsonNode.Parse(customized.GetProperty("providers")[0].GetRawText())!; item["id"] = "custom-" + i; return item; }).ToArray());
+            assert(ProviderHomesSchema.ValidSettings(JsonSerializer.SerializeToElement(many)), "Schema2 accepts all 24 unique configured providers");
+            var overflow = JsonNode.Parse(customized.GetProperty("providers")[0].GetRawText())!;
+            ((JsonArray)many["providers"]!).Add(overflow);
+            assert(!ProviderHomesSchema.ValidSettings(JsonSerializer.SerializeToElement(many)), "Schema2 rejects more than 24 providers");
+            var legacyNetflix = ProviderHomesSchema.Resolve(settings, "netflix");
+            assert(legacyNetflix is not null && legacyNetflix.MovieProviderIds.SequenceEqual(new[] { 8, 175, 1796 }) && legacyNetflix.OfferTypes.SequenceEqual(new[] { "flatrate" })
+                && ProviderHomesSchema.Resolve(settings, "bbc")!.MovieProviderIds.SequenceEqual(new[] { 38 })
+                && ProviderHomesSchema.Resolve(settings, "itvx")!.OfferTypes.SequenceEqual(new[] { "free", "ads" })
+                && ProviderHomesSchema.Resolve(empty, "bbc") is null && ProviderHomesSchema.Resolve(empty, "netflix") is null,
+                "Catalogue migration appends verified broadcasters to populated legacy settings while preserving an explicitly empty account");
             auth.IsApiKey = true;
             assert(await controller.GetProviderHomes() is UnauthorizedResult && await controller.PutProviderHomes(request) is UnauthorizedResult, "API keys cannot read or modify personal Provider Homes");
             auth.IsApiKey = false; session.DeviceId = "other-device";

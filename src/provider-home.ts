@@ -1,31 +1,32 @@
 import { button, el, picture, replace } from './dom';
 import { attachRemote } from './remote';
 import type { Item, MediaApi } from './types';
-import { providerBrand, type ProviderBrandId } from './provider-brands';
+import { providerAppearance, providerLogo } from './provider-appearance';
 import { createProviderHomesStore } from './provider-settings-store';
-import type { ProviderHomeConfig, ProviderHomesSettings, ProviderRow } from './provider-settings';
+import type { ProviderHomeConfig, ProviderHomesSettings, ProviderRow, ProviderId } from './provider-settings';
 import { ProviderData, type ProviderRowResult } from './provider-data';
 import { homeRowCard } from './home-row-card';
 import { plainText } from './utils';
 import { tmdbLogo } from './provider-attribution';
 
-export function providerHomeRow(settings: ProviderHomesSettings, navigate: (id: ProviderBrandId) => void): HTMLElement | null {
-  const providers = settings.providers.filter(provider => provider.enabled && providerBrand(provider.id));
+export function providerHomeRow(settings: ProviderHomesSettings, navigate: (id: ProviderId) => void): HTMLElement | null {
+  const providers = settings.providers.filter(provider => provider.enabled);
   if (!settings.enabled || !providers.length) return null;
   const title = settings.title.trim() || 'Streaming services';
   const section = el('section', 'verticalSection tvl-home-provider-row');
+  section.style.setProperty('--provider-tile-scale', String(settings.tileScale / 100));
   section.dataset.homeRow = 'provider-homes:brands'; section.setAttribute('aria-label', title);
   section.append(el('h2', 'tvl-home-row-title', title));
   const cards = el('div', 'tvl-home-row-cards tvl-provider-tiles focuscontainer-x'); cards.setAttribute('role', 'list');
   for (const provider of providers) {
-    const brand = providerBrand(provider.id)!;
+    const brand = providerAppearance(provider);
     const entry = el('div', 'tvl-home-row-entry'); entry.setAttribute('role', 'listitem');
     const tile = el('button', 'tvl-provider-tile'); tile.type = 'button'; tile.setAttribute('aria-label', brand.name);
     tile.dataset.focusId = `provider:${provider.id}`; tile.dataset.provider = provider.id;
     tile.style.setProperty('--provider-accent', brand.accent);
     const mark = el('span', 'tvl-provider-tile-mark');
-    const logo = el('img'); logo.src = brand.logo; logo.alt = ''; logo.draggable = false;
-    mark.append(logo); tile.append(mark, el('span', 'tvl-provider-tile-name', brand.name));
+    mark.append(providerLogo(provider)); tile.append(mark);
+    if (settings.showNames) tile.append(el('span', 'tvl-provider-tile-name', brand.name));
     tile.addEventListener('click', () => navigate(provider.id)); entry.append(tile); cards.append(entry);
   }
   section.append(cards); return section;
@@ -33,7 +34,7 @@ export function providerHomeRow(settings: ProviderHomesSettings, navigate: (id: 
 
 export type ProviderHomeState = { loadedCount: number; scrollTop: number };
 type Options = {
-  provider: ProviderBrandId; rowId?: string; focusId?: string;
+  provider: ProviderId; rowId?: string; focusId?: string;
   state?: ProviderHomeState; onState?(state: ProviderHomeState): void;
   back(): void; navigate(id: string): void; openRow(id?: string): void;
 };
@@ -64,15 +65,11 @@ export class ProviderHomeView {
 
   constructor(private api: MediaApi, private options: Options) {
     this.store = createProviderHomesStore(api); this.data = new ProviderData(api); this.focusPending = options.focusId;
-    const brand = providerBrand(options.provider)!;
     this.element.setAttribute('role', 'dialog'); this.element.setAttribute('aria-modal', 'true');
-    this.element.setAttribute('aria-label', `${brand.name} home`); this.element.dataset.provider = brand.id;
-    this.element.style.setProperty('--provider-accent', brand.accent);
+    this.element.setAttribute('aria-label', 'Streaming service'); this.element.dataset.provider = options.provider;
     const back = button('Back', 'back', 'tvl-back', options.back); back.dataset.focusId = 'provider-back';
     const identity = el('div', 'tvl-provider-identity');
-    const logo = el('img', 'tvl-provider-header-logo'); logo.src = brand.logo; logo.alt = '';
-    const label = el('div'); label.append(el('h1', '', brand.name), el('p', '', 'Your library · United Kingdom'));
-    identity.append(logo, label); this.header.append(back, identity);
+    this.header.append(back, identity);
     this.content.append(this.hero, this.rowsHost);
     this.element.append(this.header, this.content);
     this.rowsHost.append(el('p', 'tvl-provider-message', 'Loading…'));
@@ -109,12 +106,16 @@ export class ProviderHomeView {
       this.hero.hidden = true; this.rowsHost.append(el('p', 'tvl-provider-message', 'This provider home is turned off.'));
       this.focusPending = undefined; this.findFocus('provider-back')?.focus({ preventScroll: true }); return;
     }
+    const appearance = providerAppearance(this.config);
+    this.element.setAttribute('aria-label', `${appearance.name} home`);
+    this.element.style.setProperty('--provider-accent', appearance.accent);
+    const label = el('div'); label.append(el('h1', '', appearance.name), el('p', '', 'Your library · United Kingdom'));
+    replace(this.header.querySelector<HTMLElement>('.tvl-provider-identity')!, providerLogo(this.config, 'tvl-provider-header-logo'), label);
     const rows = this.config.rows.filter(row => row.enabled && (!this.options.rowId || row.id === this.options.rowId));
     this.element.classList.toggle('tvl-provider-library', !!this.options.rowId);
     this.hero.hidden = !this.config.hero || !!this.options.rowId;
     if (!this.hero.hidden) {
-      const brand = providerBrand(this.options.provider)!;
-      replace(this.hero, el('p', 'tvl-provider-eyebrow', 'IN YOUR LIBRARY'), el('h2', 'tvl-provider-welcome', `Explore ${brand.name}`));
+      replace(this.hero, el('p', 'tvl-provider-eyebrow', 'IN YOUR LIBRARY'), el('h2', 'tvl-provider-welcome', `Explore ${this.config.name}`));
     }
     const nav = el('nav', 'tvl-provider-nav'); nav.setAttribute('aria-label', 'Provider sections');
     const home = button('Home', '', '', () => this.options.openRow()); home.dataset.focusId = 'provider-home';
@@ -131,7 +132,7 @@ export class ProviderHomeView {
     const credit = el('footer', 'tvl-provider-credit');
     const tmdb = this.creditLink('', 'https://www.themoviedb.org/');
     const logo = el('img'); logo.src = tmdbLogo; logo.alt = 'TMDB'; tmdb.append(logo);
-    credit.append(document.createTextNode('UK subscription availability from '), tmdb,
+    credit.append(document.createTextNode('UK streaming availability from '), tmdb,
       document.createTextNode(' and '), this.creditLink('JustWatch', 'https://www.justwatch.com/uk'), document.createTextNode('. Only titles in your Jellyfin library are shown.'));
     credit.append(el('p', '', 'This product uses the TMDB API but is not endorsed or certified by TMDB.'));
     this.content.append(credit);
@@ -180,11 +181,11 @@ export class ProviderHomeView {
       const offset = append ? row.items.length : 0;
       // Preserve an expanded grid during background refreshes.
       const limit = this.options.rowId ? Math.max(60, append ? 60 : Math.max(row.items.length, row.restoreCount, this.options.state?.loadedCount || 0)) : 40;
-      let result = await this.data.load(this.options.provider, row.config, offset, Math.min(100, limit));
+      let result = await this.data.load(this.config!, row.config, offset, Math.min(100, limit));
       if (!append && this.options.rowId && limit > 100) {
         const items = [...result.items];
         while (current() && items.length < Math.min(limit, result.total)) {
-          const next = await this.data.load(this.options.provider, row.config, items.length, Math.min(100, limit - items.length));
+          const next = await this.data.load(this.config!, row.config, items.length, Math.min(100, limit - items.length));
           if (!next.items.length) break; items.push(...next.items);
         }
         result = { ...result, items };
@@ -210,6 +211,7 @@ export class ProviderHomeView {
       }
       row.more.hidden = !this.options.rowId || row.items.length >= result.total;
       const messages: string[] = [];
+      if (result.status === 'refreshing' && !result.pending) messages.push('Refreshing UK availability…');
       if (result.pending) messages.push(`Checking UK availability: ${Math.max(0, result.totalToCheck - result.pending)} of ${result.totalToCheck} titles.`);
       if (result.status === 'unavailable' && !result.missingSource) messages.push(result.items.length ? 'Some availability could not be refreshed. Showing the last available results.' : 'UK availability is temporarily unavailable.');
       if (result.missingSource) messages.push(row.config.source === 'collection' || row.config.collectionId
@@ -232,8 +234,7 @@ export class ProviderHomeView {
     this.featureId = item.Id;
     const backdrop = picture(this.api.image(item, 'backdrop'), 'tvl-provider-feature-backdrop');
     const copy = el('div', 'tvl-provider-feature-copy');
-    const brand = providerBrand(this.options.provider)!;
-    copy.append(el('p', 'tvl-provider-eyebrow', `${brand.name.toLocaleUpperCase()} · IN YOUR LIBRARY`), el('h2', 'tvl-provider-feature-title', item.Name));
+    copy.append(el('p', 'tvl-provider-eyebrow', `${this.config!.name.toLocaleUpperCase()} · IN YOUR LIBRARY`), el('h2', 'tvl-provider-feature-title', item.Name));
     if (item.Overview) copy.append(el('p', 'tvl-provider-feature-description', plainText(item.Overview)));
     const details = button('Details', 'info', 'tvl-primary', () => this.options.navigate(item.Id)); details.dataset.focusId = 'provider-feature'; copy.append(details);
     replace(this.hero, backdrop, copy);
@@ -259,7 +260,7 @@ export class ProviderHomeView {
   }
   private scheduleRefresh(): void {
     window.clearTimeout(this.refreshTimer);
-    const pending = this.states.some(row => row.result?.pending);
+    const pending = this.states.some(row => row.result?.pending || row.result?.status === 'refreshing');
     this.refreshTimer = window.setTimeout(() => { void this.refreshRows(); }, pending ? 5_000 : 60_000);
   }
   private async refreshConfiguration(force: boolean): Promise<boolean> {

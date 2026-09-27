@@ -7,8 +7,7 @@ import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { HomeReadiness } from './home-readiness';
 import { createProviderHomesStore, type ProviderHomesStore } from './provider-settings-store';
-import type { ProviderHomesSettings } from './provider-settings';
-import type { ProviderBrandId } from './provider-brands';
+import type { ProviderHomesSettings, ProviderId } from './provider-settings';
 import { providerHomeRow } from './provider-home';
 import { isDesktopLayout } from './layout';
 
@@ -19,6 +18,40 @@ type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string };
 // Native Home is DOM-cached. Its controller can attempt Back restoration while
 // the initial row batch is masked, so remember its last native target by account.
 const nativeReturnFocus = new WeakMap<HTMLElement, { key: string; element: HTMLElement }>();
+type NativeScroller = HTMLElement & { getScrollPosition?(): number; scrollToPosition?(position: number, immediate: boolean): void };
+type HomePosition = {
+  vertical: { element: HTMLElement; top: number; left: number }[];
+  rows: Map<string, { left: number; position?: number }[]>;
+  focusId?: string; nativeFocus?: HTMLElement;
+};
+// Session-only, bounded and account-scoped. Native node references are checked
+// again on return; custom rows are resolved by their stable saved identifiers.
+const homePositions = new Map<string, HomePosition>();
+
+function loadingCinema(): HTMLElement {
+  const status = el('div', 'tvl-home-loading-status');
+  status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-label', 'Loading Home');
+  const art = el('div', 'tvl-home-loading-projector'); art.setAttribute('aria-hidden', 'true');
+  art.append(el('div', 'tvl-home-loading-beam'));
+  for (const side of ['left', 'right']) {
+    const reel = el('div', `tvl-home-loading-reel tvl-home-loading-reel-${side}`);
+    for (let index = 0; index < 3; index++) reel.append(el('i'));
+    art.append(reel);
+  }
+  art.append(el('div', 'tvl-home-loading-camera'), el('div', 'tvl-home-loading-lens'), el('div', 'tvl-home-loading-foot'));
+  const copy = el('div', 'tvl-home-loading-copy');
+  copy.append(el('span', 'tvl-home-loading-brand', 'JELLYFIN CINEMA'), el('span', 'tvl-home-loading-label', 'Preparing your cinema'));
+  const dots = el('span', 'tvl-home-loading-dots'); dots.setAttribute('aria-hidden', 'true');
+  for (let index = 0; index < 3; index++) dots.append(el('i'));
+  status.append(art, copy, dots); return status;
+}
+
+function showingHome(host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab')): boolean {
+  // Home and Favourites share a route/controller. A body-level status must
+  // follow the actual selected tab, even while hidden Home rows keep loading.
+  return host ? !host.closest('.hide,[hidden],[aria-hidden="true"]') && host.getClientRects().length > 0
+    : new URLSearchParams(location.hash.split('?')[1] || '').get('tab') !== '1';
+}
 
 /** Insert owned rows between native Home rows without moving or rebuilding them. */
 export class HomeCollections {
@@ -48,20 +81,32 @@ export class HomeCollections {
   private initialPaint = false;
   private loadingHost?: HTMLElement;
   private previousBusy: string | null = null;
-  private loadingStatus = el('div', 'tvl-home-loading-status', 'Loading…');
+  private loadingStatus = loadingCinema();
+  private loadingTimer?: number;
+  private restoreFrame?: number;
+  private captureFrame?: number;
+  private positionToRestore?: HomePosition;
+  private lastPosition?: HomePosition;
+  private accountIdentity: string;
   private providerSyncing = false;
   private providerLastSync = 0;
 
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string,
-    private openProvider?: (id: ProviderBrandId) => void) {
+    private openProvider?: (id: ProviderId) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
     this.providerStore = createProviderHomesStore(api); this.providers = this.providerStore.cached;
     this.initialSettingsReady = !this.store.synced && !this.providerStore.synced;
-    this.loadingStatus.setAttribute('role', 'status');
+    this.accountIdentity = JSON.stringify([api.serverId, api.userId]);
+    this.positionToRestore = homePositions.get(this.key);
+    if (showingHome()) document.body.append(this.loadingStatus);
+    this.loadingTimer = window.setTimeout(() => { if (!this.loadingHost) this.loadingStatus.remove(); }, 3_500);
     window.addEventListener('keydown', this.onKey, true);
     window.addEventListener('command', this.onCommand, true);
     window.addEventListener('pointerdown', this.onPointer, true);
     window.addEventListener('focusin', this.rememberNativeFocus, true);
+    window.addEventListener('scroll', this.onScroll, true);
+    window.addEventListener('click', this.rememberPosition, true);
+    window.addEventListener('wheel', this.onWheel, { capture: true, passive: true });
     this.observer = new MutationObserver(records => {
       // Native row order can change without replacing a node. Ignore scroller
       // transform updates so animated TV focus does not keep reattaching rows.
@@ -105,7 +150,10 @@ export class HomeCollections {
       host.setAttribute('aria-busy', 'true');
     }
     if (!host.classList.contains('tvl-home-initial-loading')) host.classList.add('tvl-home-initial-loading');
-    if (this.loadingStatus.parentElement !== host) host.append(this.loadingStatus);
+    // A native page can be transformed or scrolled. Its fixed descendants are
+    // not viewport-fixed, so the animation always belongs directly to body.
+    if (!showingHome(host)) this.loadingStatus.remove();
+    else if (this.loadingStatus.parentElement !== document.body) document.body.append(this.loadingStatus);
   }
   private releaseInitialHome(): void {
     const host = this.loadingHost;
@@ -115,7 +163,7 @@ export class HomeCollections {
         if (this.previousBusy === null) host.removeAttribute('aria-busy'); else host.setAttribute('aria-busy', this.previousBusy);
       }
     }
-    this.loadingStatus.remove(); this.loadingHost = undefined;
+    this.loadingStatus.remove(); this.loadingHost = undefined; window.clearTimeout(this.loadingTimer);
   }
 
   private rememberNativeFocus = (): void => {
@@ -125,7 +173,72 @@ export class HomeCollections {
       && !active.closest('.tvl-home-collection-row, .tvl-home-provider-row, .tvl-home-collections')) {
       nativeReturnFocus.set(host, { key: this.key, element: active });
     }
+    this.rememberPosition();
   };
+
+  private positionRows(host: HTMLElement): { key: string; elements: NativeScroller[] }[] {
+    return [...nativeHomeRows(host).map(row => ({ key: row.key,
+      elements: Array.from(row.element.querySelectorAll<NativeScroller>('.emby-scroller, .itemsContainer')) })),
+    ...this.sections.map(section => ({ key: `owned:${section.row.id}`,
+      elements: Array.from(section.element.querySelectorAll<NativeScroller>('.tvl-home-row-cards')) }))];
+  }
+  private rememberPosition = (): void => {
+    const host = this.root.parentElement;
+    if (this.disposed || !this.initialPaint || !host || !/^#\/?home(?:\/?\?|\/?$)/i.test(location.hash)
+      || JSON.stringify([this.api.serverId, this.api.userId]) !== this.accountIdentity
+      || this.api.homeCollections && !this.api.homeCollections.isCurrent() || this.api.providerHomes && !this.api.providerHomes.isCurrent()
+      || host.closest('.hide,[hidden]') || !host.getClientRects().length || getComputedStyle(host).visibility === 'hidden') return;
+    const owners = new Set<HTMLElement>();
+    if (document.scrollingElement instanceof HTMLElement) owners.add(document.scrollingElement);
+    for (let element: HTMLElement | null = host; element; element = element.parentElement) {
+      if (element.scrollTop || /auto|scroll/.test(getComputedStyle(element).overflowY)) owners.add(element);
+    }
+    const active = document.activeElement as HTMLElement | null;
+    this.lastPosition = {
+      vertical: [...owners].map(element => ({ element, top: element.scrollTop, left: element.scrollLeft })),
+      rows: new Map(this.positionRows(host).map(({ key, elements }) => [key, elements.map(element => {
+        const position = element.getScrollPosition?.(); return { left: element.scrollLeft, ...(Number.isFinite(position) ? { position } : {}) };
+      })])),
+      focusId: active && host.contains(active) ? active.dataset.focusId : undefined,
+      nativeFocus: active && host.contains(active) && !this.owns(active) ? active : undefined
+    };
+  };
+  private restorePosition(host: HTMLElement): void {
+    const saved = this.positionToRestore;
+    if (!saved || this.displayedRevision !== this.revision || !showingHome(host)) return;
+    const active = document.activeElement;
+    if (this.inputRevision || active !== document.body && !host.contains(active)) { this.positionToRestore = undefined; return; }
+    this.positionToRestore = undefined;
+    const target = saved.focusId ? Array.from(host.querySelectorAll<HTMLElement>('[data-focus-id]')).find(node => node.dataset.focusId === saved.focusId)
+      : saved.nativeFocus?.isConnected && host.contains(saved.nativeFocus) ? saved.nativeFocus : undefined;
+    if (target && !target.closest('.hide,[hidden]') && target.getClientRects().length
+      && getComputedStyle(target).visibility !== 'hidden' && !target.matches(':disabled')) target.focus({ preventScroll: true });
+    const apply = () => {
+      for (const { key, elements } of this.positionRows(host)) elements.forEach((element, index) => {
+        const position = saved.rows.get(key)?.[index]; if (!position) return;
+        if (position.position !== undefined && element.scrollToPosition) element.scrollToPosition(position.position, true);
+        element.scrollLeft = position.left;
+      });
+      for (const { element, top, left } of saved.vertical) if (element.isConnected) {
+        // Defeat an optional native smooth-scroll rule for this one restoration.
+        const behavior = element.style.scrollBehavior; element.style.scrollBehavior = 'auto';
+        element.scrollTop = top; element.scrollLeft = left; element.style.scrollBehavior = behavior;
+      }
+    };
+    apply();
+    // Native focus centering may finish in the next animation frame. Restore
+    // once more, then leave scrolling entirely to the user/native controllers.
+    const inputRevision = this.inputRevision;
+    this.restoreFrame = requestAnimationFrame(() => {
+      this.restoreFrame = undefined;
+      if (!this.disposed && inputRevision === this.inputRevision && (document.activeElement === document.body || host.contains(document.activeElement))) apply();
+    });
+  }
+  private onScroll = (): void => {
+    if (this.captureFrame !== undefined) return;
+    this.captureFrame = requestAnimationFrame(() => { this.captureFrame = undefined; this.rememberPosition(); });
+  };
+  private onWheel = (): void => { this.inputRevision++; this.positionToRestore = undefined; };
 
   private onVisible = (): void => { if (document.visibilityState !== 'hidden') void this.refreshSettings(); };
   private async refreshProviders(force: boolean): Promise<void> {
@@ -281,6 +394,7 @@ export class HomeCollections {
       const first = !target && !isDesktopLayout() ? Array.from(host.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex="0"]')).find(usable) : undefined;
       (target || first)?.focus({ preventScroll: true });
     }
+    this.restorePosition(host);
   }
 
   private async prepare(staged: StagedRows): Promise<void> {
@@ -333,12 +447,14 @@ export class HomeCollections {
     return !!next;
   }
   private onKey = (event: KeyboardEvent): void => {
+    this.rememberPosition();
     this.inputRevision++;
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const direction: Record<string, string> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     if (direction[event.key] && this.move(direction[event.key])) { event.preventDefault(); event.stopImmediatePropagation(); }
   };
   private onCommand = (event: Event): void => {
+    this.rememberPosition();
     this.inputRevision++;
     const command = (event as CustomEvent).detail?.command?.toLowerCase();
     if (['left', 'right', 'up', 'down'].includes(command) && this.move(command)) { event.preventDefault(); event.stopImmediatePropagation(); }
@@ -346,7 +462,7 @@ export class HomeCollections {
       event.preventDefault(); event.stopImmediatePropagation(); (document.activeElement as HTMLElement).click();
     }
   };
-  private onPointer = (): void => { this.inputRevision++; };
+  private onPointer = (): void => { this.rememberPosition(); this.inputRevision++; };
   private current(revision: number): boolean { return !this.disposed && (revision === this.revision || revision === this.displayedRevision); }
   private async render(): Promise<void> {
     const revision = ++this.revision;
@@ -458,6 +574,11 @@ export class HomeCollections {
   }
 
   destroy(): void {
+    this.rememberPosition();
+    if (this.lastPosition) {
+      homePositions.set(this.key, this.lastPosition);
+      if (homePositions.size > 20) homePositions.delete(homePositions.keys().next().value!);
+    }
     this.rememberNativeFocus();
     this.disposed = true; this.revision++; this.observer.disconnect();
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
@@ -466,6 +587,9 @@ export class HomeCollections {
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('command', this.onCommand, true);
     window.removeEventListener('pointerdown', this.onPointer, true);
     window.removeEventListener('focusin', this.rememberNativeFocus, true);
+    window.removeEventListener('scroll', this.onScroll, true); window.removeEventListener('click', this.rememberPosition, true);
+    window.removeEventListener('wheel', this.onWheel, true); if (this.restoreFrame !== undefined) cancelAnimationFrame(this.restoreFrame);
+    if (this.captureFrame !== undefined) cancelAnimationFrame(this.captureFrame);
     this.sections.forEach(section => section.element.remove()); this.sections = []; this.root.remove();
   }
 }

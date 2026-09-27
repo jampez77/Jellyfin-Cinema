@@ -6,7 +6,7 @@ All images are embedded as data URIs in `src/provider-brands.ts`, so provider na
 
 ## SVG marks
 
-Netflix, Apple TV, NOW and Paramount+ are from [Simple Icons](https://github.com/simple-icons/simple-icons) at commit [`d4e6ba93e48f178898707f0145ec285f28b64b38`](https://github.com/simple-icons/simple-icons/tree/d4e6ba93e48f178898707f0145ec285f28b64b38), retrieved 27 September 2026. Simple Icons distributes its icon data under [CC0 1.0](SIMPLE-ICONS-LICENSE.md). Paths are unchanged. The view boxes remove unused square padding, and fills are red for Netflix and white for the other marks on dark Cinema tiles.
+Netflix, Apple TV, NOW, Paramount+, ITVX and Channel 4 are from [Simple Icons](https://github.com/simple-icons/simple-icons) at commit [`d4e6ba93e48f178898707f0145ec285f28b64b38`](https://github.com/simple-icons/simple-icons/tree/d4e6ba93e48f178898707f0145ec285f28b64b38), retrieved 27 September 2026. Simple Icons distributes its icon data under [CC0 1.0](SIMPLE-ICONS-LICENSE.md). Paths are unchanged. The view boxes remove unused square padding, and fills are red for Netflix, lime for ITVX, mint for Channel 4 and white for the other marks on dark Cinema tiles.
 
 | Local file | Pinned source | Brand source recorded by Simple Icons |
 | --- | --- | --- |
@@ -14,6 +14,9 @@ Netflix, Apple TV, NOW and Paramount+ are from [Simple Icons](https://github.com
 | `apple.svg` | [Apple TV icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/appletv.svg) | [Apple TV logo](https://en.wikipedia.org/wiki/File:Apple_TV_(logo).svg) |
 | `now.svg` | [NOW icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/now.svg) | [NOW](https://www.nowtv.com) |
 | `paramount.svg` | [Paramount+ icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/paramountplus.svg) | [Paramount+ brand](https://www.paramount.com/brand/paramount-plus) |
+
+| `itvx.svg` | [ITVX icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/itvx.svg) | [ITVX](https://www.itv.com/) |
+| `channel4.svg` | [Channel 4 icon](https://github.com/simple-icons/simple-icons/blob/d4e6ba93e48f178898707f0145ec285f28b64b38/icons/channel4.svg) | [Channel 4](https://www.channel4.com/) |
 
 ## Official website marks
 
@@ -25,6 +28,12 @@ These two transparent PNG images are unmodified assets from the providers' publi
 | `disney.png` | [Disney+ UK](https://www.disneyplus.com/en-gb) | [White Disney+ wordmark](https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/C17497FEB6E396BC29C6A790A01C34FEAC1E56F78A0AEAD93D6390B42C95C05E/compose?format=png&width=640) | 640 × 350 |
 
 The interface uses a separate text label for each provider, including Apple TV+, rather than altering any logo's lettering. Accent colors decorate Cinema's own tiles and are not part of the logo artwork.
+
+## BBC iPlayer
+
+`bbc.png` is the unmodified BBC iPlayer watch-provider mark returned by the official TMDB provider directory for GB, provider ID 38, retrieved 27 September 2026. Its [image source](https://image.tmdb.org/t/p/original/vi6XJCpJ9GpAPD3rDSRzMC812Z.png) is embedded locally, like the other marks. It is a proprietary identifying trademark, not covered by the Simple Icons dedication.
+
+The official [movie provider directory](https://developer.themoviedb.org/reference/watch-providers-movie-list) and [TV provider directory](https://developer.themoviedb.org/reference/watch-providers-tv-list), queried for GB on the same date, confirmed BBC iPlayer **38**, ITVX **41**, and Channel 4 **103** for both media types. These presets match free and ad-supported offers. Premium variants are separate providers and are not silently included.
 
 ## TMDB data attribution
 

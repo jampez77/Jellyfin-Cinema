@@ -14,6 +14,7 @@ using User = Jellyfin.Database.Implementations.Entities.User;
 using Jellyfin.Plugin.TvItemLayout.Api;
 using Jellyfin.Plugin.TvItemLayout.Providers;
 using MediaBrowser.Common.Net;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
@@ -30,9 +31,12 @@ public static class ProviderChecks
 {
     public static async Task Run(Action<bool, string> assert)
     {
-        using var json = JsonDocument.Parse("""{"results":{"US":{"flatrate":[{"provider_id":350}]},"GB":{"flatrate":[{"provider_id":8},{"provider_id":337}],"buy":[{"provider_id":9}],"rent":[{"provider_id":350}],"ads":[{"provider_id":531}]}}}""");
+        using var json = JsonDocument.Parse("""{"results":{"US":{"flatrate":[{"provider_id":350}]},"GB":{"flatrate":[{"provider_id":8},{"provider_id":337}],"buy":[{"provider_id":9}],"rent":[{"provider_id":350}],"ads":[{"provider_id":531}],"free":[{"provider_id":38}]}}}""");
         var subscriptions = TmdbProviderSource.Parse(json.RootElement);
-        assert(subscriptions.SequenceEqual(new[] { 8, 337 }), "Provider catalogue accepts only GB subscriptions, excluding foreign, rental, purchase and ad tiers");
+        assert(subscriptions.Flatrate.SequenceEqual(new[] { 8, 337 }) && subscriptions.Ads.SequenceEqual(new[] { 531 }) && subscriptions.Free.SequenceEqual(new[] { 38 }), "Provider cache separates GB subscription and ad tiers, excluding foreign, rental and purchase offers");
+        assert(subscriptions.Includes([531], ["ads"]) && !subscriptions.Includes([531], ["flatrate"])
+            && subscriptions.Includes([38], ["free"]) && !subscriptions.Includes([9, 350], ["flatrate", "free", "ads"]),
+            "Selected offer categories include free/ad-supported services without turning a store or ad-only tier into a subscription");
         assert(TmdbProviderSource.Includes("now", "Movie", [591]) && !TmdbProviderSource.Includes("now", "Series", [591])
             && TmdbProviderSource.Includes("now", "Series", [39]) && !TmdbProviderSource.Includes("now", "Movie", [39]),
             "NOW respects separate movie and TV availability IDs");
@@ -40,9 +44,9 @@ public static class ProviderChecks
             && TmdbProviderSource.Includes("paramount", "Series", [2304])
             && !TmdbProviderSource.Includes("paramount", "Movie", [582]) && !TmdbProviderSource.Includes("apple", "Movie", [2]),
             "Provider subscription variants match without treating add-on channels or storefronts as the main subscription");
-        assert(TmdbProviderSource.Parse(JsonDocument.Parse("{\"results\":{}}").RootElement).Length == 0,
+        assert(TmdbProviderSource.Parse(JsonDocument.Parse("{\"results\":{}}").RootElement).Flatrate.Length == 0,
             "An authoritative absent GB offer is a successful empty membership");
-        foreach (var invalid in new[] { "{}", "{\"results\":null}", "{\"results\":{\"GB\":{\"flatrate\":null}}}" })
+        foreach (var invalid in new[] { "{}", "{\"results\":null}", "{\"results\":{\"GB\":{\"flatrate\":null}}}", "{\"results\":{\"GB\":{\"free\":null}}}", "{\"results\":{\"GB\":{\"ads\":[{\"provider_id\":0}]}}}" })
         {
             var threw = false;
             try { TmdbProviderSource.Parse(JsonDocument.Parse(invalid).RootElement); }
@@ -51,6 +55,7 @@ public static class ProviderChecks
         }
         await SourceChecks(assert);
         await CacheChecks(assert);
+        await LegacyCacheChecks(assert);
         await ControllerChecks(assert);
     }
 
@@ -80,10 +85,10 @@ public static class ProviderChecks
         var factory = InterfaceStub.Create<IHttpClientFactory>((_, _) => client);
         var source = new TmdbProviderSource(factory);
         var subscriptions = await source.FetchAsync("movie:123", default);
-        assert(subscriptions.SequenceEqual(new[] { 8 }) && handler.Path == "/3/movie/123/watch/providers" && handler.Authenticated,
+        assert(subscriptions.Flatrate.SequenceEqual(new[] { 8 }) && handler.Path == "/3/movie/123/watch/providers" && handler.Authenticated,
             "Actual TMDB request uses the type-specific availability endpoint and native server credential");
         handler.Status = HttpStatusCode.NotFound;
-        assert((await source.FetchAsync("tv:456", default)).Length == 0, "Removed TMDB IDs are successful negative availability results");
+        assert((await source.FetchAsync("tv:456", default)).Flatrate.Length == 0, "Removed TMDB IDs are successful negative availability results");
         handler.Status = HttpStatusCode.ServiceUnavailable;
         var failed = false;
         try { await source.FetchAsync("movie:123", default); }
@@ -134,7 +139,7 @@ public static class ProviderChecks
             {
                 await release.Task.WaitAsync(token);
                 if (fail) throw new ProviderLookupException("Fixture failure", TimeSpan.FromMinutes(3));
-                return key == "movie:2" ? [] : [8];
+                return key == "movie:2" ? ProviderMembership.Empty : new ProviderMembership([8], [38], [41]);
             }
             finally { Interlocked.Decrement(ref active); }
         }, () => canFetch, () => current);
@@ -151,19 +156,26 @@ public static class ProviderChecks
             release.SetResult();
             await WaitUntil(async () => (await cache.ReadAsync(["movie:1", "movie:2", "tv:1"], default)).Status == "ready");
             var complete = await cache.ReadAsync(["movie:1", "movie:2", "tv:1"], default);
-            assert(complete is { Pending: 0, Total: 3 } && complete.Memberships["movie:1"].SequenceEqual(new[] { 8 })
-                && complete.Memberships["movie:2"].Length == 0 && complete.Memberships.ContainsKey("tv:1"),
+            assert(complete is { Pending: 0, Total: 3 } && complete.Memberships["movie:1"].Flatrate.SequenceEqual(new[] { 8 })
+                && complete.Memberships["movie:2"].Flatrate.Length == 0 && complete.Memberships.ContainsKey("tv:1"),
                 "Successful negatives are cached separately from missing data, and movie/TV IDs never collide");
             await cache.FlushAsync(default);
             var restored = new ProviderAvailabilityCache(path, (_, _) => throw new Exception("Fresh persisted cache must not refetch"), () => true, () => current);
             var persisted = await restored.ReadAsync(["movie:1", "movie:2", "tv:1"], default);
-            assert(persisted.Status == "ready" && persisted.Memberships.Count == 3, "Successful availability survives a server restart without another lookup");
+            assert(persisted.Status == "ready" && persisted.Memberships.Count == 3
+                && persisted.Memberships["movie:1"].Free.SequenceEqual(new[] { 38 }) && persisted.Memberships["movie:1"].Ads.SequenceEqual(new[] { 41 }), "Successful availability survives a server restart without another lookup");
+            var legacyPath = Path.Combine(directory, "old-format.json");
+            await File.WriteAllTextAsync(legacyPath, JsonSerializer.Serialize(new Dictionary<string, object> { ["movie:1"] = new { Providers = new[] { 8 }, UpdatedAt = current, RetryAt = DateTimeOffset.MinValue, Failures = 0 } }));
+            var oldCache = new ProviderAvailabilityCache(legacyPath, (_, _) => Task.FromResult(ProviderMembership.Empty), () => true, () => current);
+            var ignored = await oldCache.ReadAsync(["movie:1"], default);
+            assert(ignored is { Pending: 1, Status: "refreshing" } && ignored.Memberships.Count == 0,
+                "Legacy subscription-only cache data cannot masquerade as complete free/ad-supported availability");
             current += TimeSpan.FromDays(8); fail = true;
             var stale = await cache.ReadAsync(["movie:1"], default);
-            assert(stale.Status == "refreshing" && stale.Memberships["movie:1"].Contains(8), "Expired availability remains usable while refreshing");
+            assert(stale.Status == "refreshing" && stale.Memberships["movie:1"].Flatrate.Contains(8), "Expired availability remains usable while refreshing");
             await WaitUntil(async () => (await cache.ReadAsync(["movie:1"], default)).Status == "unavailable");
             var failed = await cache.ReadAsync(["movie:1", "movie:3"], default);
-            assert(failed.Memberships["movie:1"].Contains(8), "A failed refresh preserves the last successful provider membership");
+            assert(failed.Memberships["movie:1"].Flatrate.Contains(8), "A failed refresh preserves the last successful provider membership");
             await WaitUntil(async () => (await cache.ReadAsync(["movie:3"], default)).Status == "unavailable");
             var failedNew = await cache.ReadAsync(["movie:3"], default);
             var afterFailure = calls;
@@ -180,6 +192,38 @@ public static class ProviderChecks
         finally { stop.Cancel(); await running; if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
+    private static async Task LegacyCacheChecks(Action<bool, string> assert)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "cinema-cache-migration-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var oldPath = Path.Combine(directory, "GB-v1.json"); var path = Path.Combine(directory, "GB-v2.json");
+        var now = DateTimeOffset.UtcNow;
+        var oldData = JsonSerializer.Serialize(new Dictionary<string, object> { ["movie:1"] = new { Providers = new[] { 8 }, UpdatedAt = now, RetryAt = DateTimeOffset.MinValue, Failures = 0 } });
+        await File.WriteAllTextAsync(oldPath, oldData);
+        var release = new TaskCompletionSource<ProviderMembership>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cache = new ProviderAvailabilityCache(path, (_, token) => release.Task.WaitAsync(token), () => true, () => now, oldPath);
+        using var stop = new CancellationTokenSource(); var running = cache.RunAsync(stop.Token);
+        try
+        {
+            var imported = await cache.ReadAsync(["movie:1"], default);
+            assert(imported.Status == "refreshing" && imported.Memberships["movie:1"].Flatrate.SequenceEqual(new[] { 8 }),
+                "Upgrade preserves freshly cached subscription memberships while queuing unknown offer categories");
+            await cache.FlushAsync(default);
+            var offline = new ProviderAvailabilityCache(path, (_, _) => throw new Exception("No fetch without native integration"), () => false, () => now, oldPath);
+            var incomplete = await offline.ReadAsync(["movie:1"], default);
+            assert(incomplete.Status == "unavailable" && incomplete.Memberships["movie:1"].Flatrate.SequenceEqual(new[] { 8 })
+                && incomplete.Memberships["movie:1"].Free.Length == 0,
+                "Persisted incomplete migration cannot report unknown broadcaster availability ready after a restart");
+            release.SetResult(new([8], [38], [41]));
+            await WaitUntil(async () => (await cache.ReadAsync(["movie:1"], default)).Status == "ready");
+            var complete = await cache.ReadAsync(["movie:1"], default);
+            assert(complete.Memberships["movie:1"].Free.SequenceEqual(new[] { 38 }) && complete.Memberships["movie:1"].Ads.SequenceEqual(new[] { 41 })
+                && await File.ReadAllTextAsync(oldPath) == oldData,
+                "Successful refresh completes migrated offer categories without modifying the old cache");
+        }
+        finally { stop.Cancel(); await running; Directory.Delete(directory, true); }
+    }
+
     private static async Task ControllerChecks(Action<bool, string> assert)
     {
         var user = new User("provider-check", "default", "reset") { Id = Guid.NewGuid() };
@@ -192,7 +236,8 @@ public static class ProviderChecks
         SessionInfo? session = null;
         var sessions = InterfaceStub.Create<ISessionManager>((method, args) => Task.FromResult(session!));
         session = new SessionInfo(sessions, NullLogger.Instance) { UserId = user.Id, DeviceId = auth.DeviceId };
-        var users = InterfaceStub.Create<IUserManager>((_, args) => (Guid)args![0]! == user.Id ? user : throw new Exception("No other user may be queried"));
+        var knownUsers = new Dictionary<Guid, User> { [user.Id] = user };
+        var users = InterfaceStub.Create<IUserManager>((_, args) => knownUsers[(Guid)args![0]!]);
         var allowedDevice = true;
         var devices = InterfaceStub.Create<IDeviceManager>((_, _) => allowedDevice);
         var local = true;
@@ -229,9 +274,11 @@ public static class ProviderChecks
         var availability = InterfaceStub.Create<IProviderAvailability>((_, args) =>
         {
             lookedUp = ((IEnumerable<string>)args![0]!).ToArray();
-            return Task.FromResult(new ProviderCacheSnapshot(new Dictionary<string, int[]> { ["movie:1"] = [8], ["movie:2"] = [337], ["movie:3"] = [8] }, 0, 0, 3, DateTimeOffset.UtcNow, "ready"));
+            return Task.FromResult(new ProviderCacheSnapshot(new Dictionary<string, ProviderMembership> { ["movie:1"] = new([8], [38], []), ["movie:2"] = new([337], [8], [41]), ["movie:3"] = new([8], [], [103]) }, 0, 0, 3, DateTimeOffset.UtcNow, "ready"));
         });
-        var controller = new ProviderItemsController(authorization, sessions, users, devices, network, library, dtos, availability)
+        var directory = Path.Combine(Path.GetTempPath(), "cinema-catalogue-check-" + Guid.NewGuid().ToString("N"));
+        var paths = InterfaceStub.Create<IApplicationPaths>((method, _) => method.Name == "get_DataPath" ? directory : throw new Exception("Unexpected path"));
+        var controller = new ProviderItemsController(authorization, sessions, users, devices, network, library, dtos, availability, paths)
         { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         controller.HttpContext.Connection.RemoteIpAddress = IPAddress.Loopback;
         ProviderItemsResponse Value(IActionResult result) => (ProviderItemsResponse)((OkObjectResult)result).Value!;
@@ -263,9 +310,58 @@ public static class ProviderChecks
             && await controller.GetProviderItems("netflix", startIndex: -1) is BadRequestObjectResult
             && await controller.GetProviderItems("netflix", limit: 201) is BadRequestObjectResult,
             "Malformed or unbounded provider requests fail before accessing the library");
+        visible = [alpha, beta, gamma];
+        assert(Value(await controller.GetProviderItems("bbc")).Items.Single().Id == alpha.Id
+            && Value(await controller.GetProviderItems("itvx")).Items.Single().Id == beta.Id
+            && Value(await controller.GetProviderItems("channel4")).Items.Single().Id == gamma.Id,
+            "Unsaved accounts immediately expose BBC iPlayer, ITVX and Channel 4 through their verified GB free/ad-supported IDs");
+        JsonElement Draft(string id, int[] movieIds, int[] showIds, string[] offers, bool enabled = true) => JsonSerializer.SerializeToElement(new {
+            id, name = "Fixture service", logoUrl = "", accent = "#112233", movieProviderIds = movieIds, showProviderIds = showIds, offerTypes = offers, enabled, hero = true, rows = Array.Empty<object>() });
+        JsonElement Settings(params JsonElement[] providers) => JsonSerializer.SerializeToElement(new { version = 2, enabled = false, title = "Hidden shortcuts", placement = "end", tileScale = 70, showNames = false, providers });
+        var settingsController = new ProviderHomesController(authorization, sessions, users, devices, network, paths) { ControllerContext = controller.ControllerContext };
+        var configuredA = Settings(Draft("custom-family", [8], [337], ["flatrate"]), Draft("netflix", [337], [337], ["flatrate"]),
+            Draft("custom-collection", [], [], ["flatrate"]), Draft("custom-disabled", [8], [8], ["flatrate"], false));
+        var accountA = (ProviderHomesResponse)((OkObjectResult)await settingsController.PutProviderHomes(new(null, configuredA))).Value!;
+        assert(Value(await controller.GetProviderItems("custom-family")).Items.Select(item => item.Id).SequenceEqual(new[] { alpha.Id, gamma.Id })
+            && Value(await controller.GetProviderItems("netflix")).Items.Single().Id == beta.Id,
+            "Saved custom mappings and edited built-ins control catalogue membership even when the Home shortcut row is hidden");
+        var noLookup = libraryCalls;
+        assert(Value(await controller.GetProviderItems("custom-collection")) is { Status: "unavailable", Total: 0, TotalRecordCount: 0 }
+            && await controller.GetProviderItems("custom-disabled") is NotFoundObjectResult
+            && await controller.GetProviderItems("custom-other") is NotFoundObjectResult && await controller.GetProviderItems("bbc") is NotFoundObjectResult
+            && libraryCalls == noLookup,
+            "Empty, disabled and omitted configurations do not fall back to another service or inspect the library");
+        var draft = Draft("custom-unsaved", [41], [38], ["ads"], false);
+        var preview = Value(await controller.PreviewProviderItems(draft));
+        assert(preview.Items.Single().Id == beta.Id && ReferenceEquals(seen!.User, user)
+            && ((ProviderHomesResponse)((OkObjectResult)await settingsController.GetProviderHomes()).Value!).Revision == accountA.Revision
+            && await controller.GetProviderItems("custom-unsaved") is NotFoundObjectResult,
+            "Draft preview uses its unsaved ID/offer mapping with current-user permissions without publishing settings");
+        assert(await controller.PreviewProviderItems(JsonDocument.Parse("{\"id\":\"custom-bad\",\"url\":\"http://localhost\"}").RootElement) is BadRequestObjectResult
+            && await controller.PreviewProviderItems(draft, mediaType: "Episode") is BadRequestObjectResult,
+            "Draft preview validates the complete service schema and rejects unsupported media before lookup");
+        var accountB = new User("second-provider-check", "default", "reset") { Id = Guid.NewGuid() };
+        accountB.SetPermission(PermissionKind.IsDisabled, false); accountB.SetPermission(PermissionKind.EnableRemoteAccess, true);
+        knownUsers.Add(accountB.Id, accountB); auth.User = accountB; session.UserId = accountB.Id;
+        assert(await controller.GetProviderItems("custom-family") is NotFoundObjectResult, "A second account cannot resolve another account's private custom service definition");
+        await settingsController.PutProviderHomes(new(null, Settings(Draft("custom-family", [337], [], ["flatrate"]))));
+        visible = [beta];
+        assert(Value(await controller.GetProviderItems("custom-family")).Items.Single().Id == beta.Id && ReferenceEquals(seen!.User, accountB)
+            && dtoUsers.Last() == accountB.Id && lookedUp!.SequenceEqual(new[] { "movie:2" }),
+            "Two accounts can reuse a custom service ID with distinct source mappings and distinct permitted-library queries");
+        auth.User = user; session.UserId = user.Id; visible = [alpha, gamma];
+        assert(Value(await controller.GetProviderItems("custom-family")).Items.Length == 2 && ReferenceEquals(seen!.User, user),
+            "Switching back restores only the original account's configured source mapping");
+        visible = [beta];
+        await ProviderItemsHttpChecks.Run(assert, services =>
+        {
+            services.AddSingleton(authorization); services.AddSingleton(sessions); services.AddSingleton(users); services.AddSingleton(devices);
+            services.AddSingleton(network); services.AddSingleton(library); services.AddSingleton(dtos); services.AddSingleton(availability); services.AddSingleton(paths);
+        }, value => auth.IsApiKey = value, draft, beta.Id);
+        visible = [alpha, gamma];
         var beforeUnauthorized = libraryCalls;
         auth.IsApiKey = true;
-        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult, "API keys cannot access personal provider catalogues");
+        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.PreviewProviderItems(draft) is UnauthorizedResult, "API keys cannot access personal provider catalogues or draft previews");
         auth.IsApiKey = false; session.DeviceId = "different";
         assert(await controller.GetProviderItems("netflix") is UnauthorizedResult, "Provider catalogue rejects a mismatched authenticated device");
         session.DeviceId = auth.DeviceId; allowedDevice = false;
@@ -275,6 +371,7 @@ public static class ProviderChecks
         user.SetPermission(PermissionKind.IsDisabled, false); local = false; user.SetPermission(PermissionKind.EnableRemoteAccess, false);
         assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && libraryCalls == beforeUnauthorized,
             "Revoked remote access is rejected before any user media or public-ID lookup");
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
 }
 

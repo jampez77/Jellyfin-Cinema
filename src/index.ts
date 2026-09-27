@@ -24,7 +24,7 @@ import { HomeCollections } from './home-collections';
 import { ProviderHomeView, type ProviderHomeState } from './provider-home';
 import { ProviderSettingsEditor } from './provider-settings-editor';
 import { ProviderData } from './provider-data';
-import { providerBrand, type ProviderBrandId } from './provider-brands';
+import { validProviderId, type ProviderId } from './provider-settings';
 import providerHomeStyles from './provider-home.css';
 import providerSettingsStyles from './provider-settings.css';
 import pauseStyles from './pause-screen.css';
@@ -71,7 +71,7 @@ const recordingOrigins=new Set<string>();
 const movieCollectionOrigins=new Map<string,string>();
 const detailOrigins=new Set<string>();
 const providerHistoryKey='jellyfinCinemaProviderVisit';
-type ProviderVisit={version:1;scope:string;provider:ProviderBrandId;home:string};
+type ProviderVisit={version:1;scope:string;provider:ProviderId;home:string};
 let pendingProviderVisit:(ProviderVisit&{hash:string})|undefined;
 // Classification only: item data and access are still fetched for each view.
 const verifiedLibraries=new Map<string,'collections'|'recordings'>();
@@ -79,7 +79,7 @@ let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
 type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderBrandId;rowId?:string}|{kind:'provider-settings'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
+type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderId;rowId?:string}|{kind:'provider-settings'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
   homeCollections?.destroy();homeCollections=null;
   providerPreview?.destroy();providerPreview=undefined;
@@ -97,8 +97,8 @@ function currentRoute():Route|null{
     &&onlyParams(params,['cinemaProviders','serverId']))return {kind:'provider-settings'};
   if(/^home\/?$/i.test(path)){
     const provider=params.get('cinemaProvider');
-    if(provider&&providerBrand(provider)&&onlyParams(params,['serverId','cinemaProvider','cinemaRow']))
-      return {kind:'provider',provider:provider as ProviderBrandId,rowId:params.get('cinemaRow')||undefined};
+    if(provider&&validProviderId(provider)&&onlyParams(params,['serverId','cinemaProvider','cinemaRow']))
+      return {kind:'provider',provider:provider as ProviderId,rowId:params.get('cinemaRow')||undefined};
     // Home/Favourites switch native controllers without changing the URL.
     // Both retain their native tabs, focus handling and content ownership.
     if(!onlyParams(params,['serverId','tab'])||(params.has('tab')&&!['0','1'].includes(params.get('tab')!)))return null;
@@ -159,18 +159,18 @@ function back():void{
 function nativeHistoryState():Record<string,unknown>{
   return history.state&&typeof history.state==='object'?history.state:{};
 }
-function providerVisit(api:MediaApi,provider:ProviderBrandId):ProviderVisit|undefined{
+function providerVisit(api:MediaApi,provider:ProviderId):ProviderVisit|undefined{
   const visit=nativeHistoryState()[providerHistoryKey] as Partial<ProviderVisit>|undefined;
   if(!visit||visit.version!==1||visit.scope!==scopeOf(api)||visit.provider!==provider||typeof visit.home!=='string')return;
   const [path,query='']=visit.home.split('?');const params=new URLSearchParams(query);
   if(!/^#\/?home\/?$/i.test(path)||!onlyParams(params,['serverId','tab'])||params.has('tab')&&!['0','1'].includes(params.get('tab')!))return;
   return visit as ProviderVisit;
 }
-function markProviderVisit(api:MediaApi,provider:ProviderBrandId,home:string):void{
+function markProviderVisit(api:MediaApi,provider:ProviderId,home:string):void{
   const visit:ProviderVisit={version:1,scope:scopeOf(api)!,provider,home};
   history.replaceState({...nativeHistoryState(),[providerHistoryKey]:visit},'',location.href);
 }
-function ensureProviderVisit(api:MediaApi,provider:ProviderBrandId):void{
+function ensureProviderVisit(api:MediaApi,provider:ProviderId):void{
   // Chromium may deliver popstate synchronously while assigning the hash,
   // before the caller can attach state to the new entry.
   if(pendingProviderVisit?.hash===location.hash&&pendingProviderVisit.scope===scopeOf(api)&&pendingProviderVisit.provider===provider){
@@ -300,7 +300,7 @@ function collectionBack(route:CollectionRoute):void{
 function openRoute(route:Route,api:MediaApi,key:string):void{
   close(false);activeKey=key;openedHash=location.hash;previousFocus=document.activeElement as HTMLElement;
   const focusId=returnFocus.get(location.hash);returnFocus.delete(location.hash);
-  const openProvider=(provider:ProviderBrandId,rowId?:string)=>{
+  const openProvider=(provider:ProviderId,rowId?:string)=>{
     const params=new URLSearchParams({cinemaProvider:provider});
     if(rowId)params.set('cinemaRow',rowId);
     const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;
@@ -344,7 +344,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   }
   else if(route.kind==='provider-settings'){
     const data=new ProviderData(api);providerPreview=data;
-    view=new ProviderSettingsEditor(api,{onBack:back,loadPreview:async(provider,row)=>(await data.load(provider,row,0,8)).items});
+    view=new ProviderSettingsEditor(api,{onBack:back,loadPreview:async(provider,row)=>(await data.load(provider,row,0,8,true)).items});
   }
   else if(route.kind==='guide')view=new GuideView(api,{back});
   else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
