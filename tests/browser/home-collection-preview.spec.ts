@@ -16,7 +16,7 @@ test('missing collection and item thumbnails stay contained and do not cover edi
     const fallback = getComputedStyle(node, '::before'), bounds = node.getBoundingClientRect();
     return parseFloat(fallback.width) <= bounds.width + 1 && parseFloat(fallback.height) <= bounds.height + 1;
   }));
-  await expect(editor(page).locator('.tvl-home-choice-art.tvl-no-art')).toHaveCount(2);
+  await expect(editor(page).locator('.tvl-home-choice-art.tvl-no-art')).toHaveCount(14);
   expect(await contained('.tvl-home-choice-art')).toBe(true);
   await editor(page).getByLabel('Row title', { exact: true }).fill('Visible editor');
   await editor(page).getByRole('button', { name: 'Coastal Stories', exact: true }).click();
@@ -97,7 +97,7 @@ test('preview matches sorted and manual Home order, ranked artwork, and chosen n
   await page.evaluate(() => { location.hash = '/home'; });
   const savedCards = page.locator('#homeTab .tvl-home-row-card'); await expect(savedCards).toHaveCount(2);
   expect(await savedCards.evaluateAll(nodes => nodes.map(node => ({ id: node.getAttribute('data-item-id'), label: node.getAttribute('aria-label'), art: node.querySelector('.tvl-home-row-art img')?.getAttribute('src'), rank: node.querySelector('.tvl-home-rank')?.getAttribute('src') })))).toEqual(appearance);
-  expect(await page.locator('#homeTab .verticalSection, #homeTab .tvl-home-collection-row').evaluateAll(nodes => nodes.filter(node => !node.closest('.hide,[hidden]')).map(node => node.getAttribute('aria-label')).slice(0, 3))).toEqual(['My Media', 'Coastal Stories', 'Continue watching']);
+  expect(await page.locator('#homeTab .verticalSection, #homeTab .tvl-home-collection-row').evaluateAll(nodes => nodes.filter(node => !node.closest('.hide,[hidden]')).map(node => node.getAttribute('aria-label')).slice(0, 4))).toEqual(['Streaming services', 'My Media', 'Coastal Stories', 'Continue watching']);
 });
 
 test('collection-card preview follows selection and manual order, with honest uncached Home context', async ({ page }) => {

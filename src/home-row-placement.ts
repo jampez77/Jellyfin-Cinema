@@ -6,7 +6,7 @@ export function nativeHomeRows(host: HTMLElement): HomeAnchorNode[] {
   const counts = new Map<string, number>();
   const candidates = Array.from(host.querySelectorAll<HTMLElement>('.verticalSection, .ec-root'));
   return candidates.filter(node => {
-    if (node.closest('.tvl-home-collection-row') || node.querySelector('.verticalSection, .ec-root')) return false;
+    if (node.closest('.tvl-home-collection-row, .tvl-home-provider-row') || node.querySelector('.verticalSection, .ec-root')) return false;
     for (let parent: HTMLElement | null = node; parent && parent !== host; parent = parent.parentElement) {
       if (parent.hidden || parent.classList.contains('hide')) return false;
     }

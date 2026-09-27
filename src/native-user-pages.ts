@@ -13,6 +13,7 @@ export class NativeUserPages {
   private account: CurrentUserAccount | null = null;
   private administrator = false;
   private section?: HTMLElement;
+  private providerSection?: HTMLElement;
   private activating = false;
   private observer: MutationObserver;
 
@@ -58,6 +59,7 @@ export class NativeUserPages {
 
   private removeDashboard(): void { this.section?.remove(); }
   private attachDashboard(): void {
+    this.attachProviderSettings();
     if (this.disposed || !this.administrator || !this.ownSettings() || !sameUserAccount(this.account)) { this.removeDashboard(); return; }
     const host = document.querySelector<HTMLElement>('#myPreferencesMenuPage .readOnlyContent');
     if (!host || host.closest('.hide,[hidden]') || !host.getClientRects().length) { this.removeDashboard(); return; }
@@ -92,6 +94,26 @@ export class NativeUserPages {
     if (this.section.parentElement !== host || this.section.nextElementSibling !== before) host.insertBefore(this.section, before);
   }
 
+  private attachProviderSettings(): void {
+    const editedUser = new URLSearchParams(location.hash.split('?')[1] || '').get('userId');
+    const userId = currentUserAccount()?.userId || window.TvItemLayoutDemo?.api.userId;
+    const own = this.enabled && !!this.scope && /^mypreferencesmenu\/?$/i.test(this.path()) && (!editedUser || editedUser === userId);
+    const host = own ? document.querySelector<HTMLElement>('#myPreferencesMenuPage .readOnlyContent') : null;
+    if (this.disposed || !host || host.closest('.hide,[hidden],.tvl-native-hidden') || !host.getClientRects().length) {
+      this.providerSection?.remove(); return;
+    }
+    if (!this.providerSection) {
+      this.providerSection = el('section', 'verticalSection tvl-settings-providers');
+      this.providerSection.append(el('h2', 'sectionTitle', 'Cinema'));
+      const link = el('a', 'emby-button show-focus listItem-border tvl-settings-provider-link'); link.href = '#/mypreferencesmenu?cinemaProviders=1';
+      const item = el('div', 'listItem');
+      const glyph = el('span', 'material-icons listItemIcon listItemIcon-transparent', 'video_library'); glyph.setAttribute('aria-hidden', 'true');
+      const text = el('div', 'listItemBody'); text.append(el('div', 'listItemBodyText', 'Streaming services'), el('div', 'listItemBodyText secondary', 'Provider homes and rows'));
+      item.append(glyph, text); link.append(item); this.providerSection.append(link);
+    }
+    if (this.providerSection.parentElement !== host) host.append(this.providerSection);
+  }
+
   private onRoute = (): void => { this.context = ''; this.refresh(); };
   private onShow = (event: Event): void => {
     if ((event.target as HTMLElement)?.id === 'myPreferencesMenuPage') { this.context = ''; this.refresh(); }
@@ -100,7 +122,7 @@ export class NativeUserPages {
   destroy(): void {
     if (this.disposed) return;
     this.enabled = false; this.scope = null; this.refresh(); this.disposed = true; this.revision++;
-    this.observer.disconnect(); this.removeDashboard(); this.section = undefined;
+    this.observer.disconnect(); this.removeDashboard(); this.section = undefined; this.providerSection?.remove(); this.providerSection = undefined;
     window.removeEventListener('hashchange', this.onRoute); window.removeEventListener('popstate', this.onRoute);
     document.removeEventListener('viewshow', this.onShow, true);
   }

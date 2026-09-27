@@ -41,7 +41,8 @@ test('explicit BoxSet list routes load collections directly without probing a pa
   `);
   for (const [hash, parent] of [['#/boxsets?topParentId=library-collections', 'library-collections'], ['#/list?type=BoxSet', 'none']]) {
     await page.goto(`/${hash}`);
-    await expect(collections(page).getByRole('list', { name: 'Collections' }).getByRole('button')).toHaveCount(2);
+    // Two editorial collections and the twelve UK provider chart collections.
+    await expect(collections(page).getByRole('list', { name: 'Collections' }).getByRole('button')).toHaveCount(14);
     await expect(page.locator('body')).toHaveAttribute('data-collection-parent', parent);
     await expect(page.locator('body')).not.toHaveAttribute('data-unexpected-probe');
   }

@@ -1,5 +1,8 @@
 import type { BrowseApi } from './browse-api';
 import type { HomeCollectionTransport } from './home-collection-store';
+import type { ProviderHomesTransport } from './provider-settings-store';
+import type { ProviderBrandId } from './provider-brands';
+import type { ProviderItemsQuery, ProviderItemsPage } from './provider-data';
 
 export type Item = {
   Id: string; Name: string; Type?: string; Overview?: string; OriginalTitle?: string;
@@ -44,6 +47,8 @@ export interface MediaApi extends BrowseApi {
   serverId?: string;
   userId?: string;
   homeCollections?: HomeCollectionTransport;
+  providerHomes?: ProviderHomesTransport;
+  getProviderItems?(provider: ProviderBrandId, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
   getItem(id: string): Promise<Item>;
   getPlaybackContext?(): Promise<PlaybackContext | null>;
   getMovies(query: MovieQuery): Promise<ItemPage>;

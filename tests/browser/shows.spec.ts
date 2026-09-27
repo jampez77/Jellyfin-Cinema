@@ -97,7 +97,10 @@ test('TV Collections is scoped to its library and Back retains search and entry 
   await shows(page).getByRole('button', { name: 'Collections', exact: true }).click();
   await expect(page).toHaveURL(/#\/list\?parentId=library-tv&type=BoxSet&serverId=tv-server$/);
   const collections = page.getByRole('dialog', { name: 'Collections', exact: true });
-  await expect(collections.getByRole('list', { name: 'Collections' }).getByRole('button')).toHaveCount(1);
+  // The editorial collection and six show charts belong to the TV library.
+  await expect(collections.getByRole('list', { name: 'Collections' }).getByRole('button')).toHaveCount(7);
+  await expect(collections.getByRole('button', { name: /Trending Movies/ })).toHaveCount(0);
+  await expect(collections.getByRole('button', { name: 'Coastal Stories', exact: true })).toHaveCount(0);
   await expect(collections.getByRole('button', { name: 'Into the Wilderness', exact: true })).toBeVisible();
   await collections.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(search(page)).toHaveValue('North');

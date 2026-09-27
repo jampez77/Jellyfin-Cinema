@@ -1,0 +1,118 @@
+using System.Text.Json.Serialization;
+using Jellyfin.Data.Enums;
+#if JELLYFIN_1010
+using User = Jellyfin.Data.Entities.User;
+#else
+using Jellyfin.Data;
+using Jellyfin.Database.Implementations.Enums;
+using User = Jellyfin.Database.Implementations.Entities.User;
+#endif
+using Jellyfin.Plugin.TvItemLayout.Providers;
+using MediaBrowser.Common.Extensions;
+using MediaBrowser.Common.Net;
+using MediaBrowser.Controller.Devices;
+using MediaBrowser.Controller.Dto;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Net;
+using MediaBrowser.Controller.Session;
+using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Querying;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Jellyfin.Plugin.TvItemLayout.Api;
+
+[ApiController]
+[Route("TvItemLayout/Providers")]
+[Authorize]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+public sealed class ProviderItemsController(
+    IAuthorizationContext authorizationContext,
+    ISessionManager sessionManager,
+    IUserManager userManager,
+    IDeviceManager deviceManager,
+    INetworkManager networkManager,
+    ILibraryManager libraryManager,
+    IDtoService dtoService,
+    IProviderAvailability availability) : ControllerBase
+{
+    private async Task<User?> CurrentUser()
+    {
+        var authorization = await authorizationContext.GetAuthorizationInfo(HttpContext);
+        if (string.IsNullOrWhiteSpace(authorization.Token) || string.IsNullOrWhiteSpace(authorization.DeviceId)
+            || authorization.UserId == Guid.Empty || authorization.IsApiKey) return null;
+        var remoteIp = HttpContext.GetNormalizedRemoteIP();
+        var session = await sessionManager.GetSessionByAuthenticationToken(authorization.Token,
+            authorization.DeviceId, remoteIp.ToString());
+        if (session is null || session.UserId != authorization.UserId
+            || !string.Equals(session.DeviceId, authorization.DeviceId, StringComparison.Ordinal)) return null;
+        var caller = userManager.GetUserById(authorization.UserId);
+        if (caller is null || caller.HasPermission(PermissionKind.IsDisabled) || !caller.IsParentalScheduleAllowed()
+            || !deviceManager.CanAccessDevice(caller, authorization.DeviceId)
+            || (!networkManager.IsInLocalNetwork(remoteIp) && !caller.HasPermission(PermissionKind.EnableRemoteAccess))) return null;
+        return caller;
+    }
+
+    [HttpGet("{providerId}/Items")]
+    public async Task<IActionResult> GetProviderItems(string providerId, [FromQuery] string type = "Movie",
+        [FromQuery] int startIndex = 0, [FromQuery] int limit = 60, [FromQuery] string sort = "title",
+        CancellationToken cancellationToken = default)
+    {
+        var user = await CurrentUser();
+        if (user is null) return Unauthorized();
+        if (!TmdbProviderSource.ValidProvider(providerId) || type is not ("Movie" or "Series")
+            || startIndex < 0 || limit is < 1 or > 200 || sort is not ("title" or "title-desc" or "newest" or "oldest"))
+            return BadRequest("Invalid provider catalogue query.");
+        // Construct with the current User (not merely UserId) to apply parental ratings,
+        // blocked/unrated content and tags. Leave all explicit item/parent constraints empty:
+        // ILibraryManager then applies that user's permitted library roots on every request.
+        var query = new InternalItemsQuery(user)
+        {
+            IncludeItemTypes = [type == "Movie" ? BaseItemKind.Movie : BaseItemKind.Series],
+            Recursive = true, IsVirtualItem = false, IsMissing = false,
+            EnableTotalRecordCount = false
+        };
+        var permitted = libraryManager.GetItemList(query);
+        cancellationToken.ThrowIfCancellationRequested();
+        var identified = permitted.Select(item => (Item: item, Key: LookupKey(item, type))).ToArray();
+        var snapshot = await availability.ReadAsync(identified.Where(item => item.Key is not null).Select(item => item.Key!), cancellationToken);
+        var matching = identified.Where(item => item.Key is not null && snapshot.Memberships.TryGetValue(item.Key, out var providers)
+            && TmdbProviderSource.Includes(providerId, type, providers)).Select(item => item.Item);
+        IOrderedEnumerable<BaseItem> ordered = sort switch
+        {
+            "title-desc" => matching.OrderByDescending(item => item.SortName, StringComparer.OrdinalIgnoreCase),
+            "newest" => matching.OrderBy(item => item.ProductionYear is null).ThenByDescending(item => item.ProductionYear),
+            "oldest" => matching.OrderBy(item => item.ProductionYear is null).ThenBy(item => item.ProductionYear),
+            _ => matching.OrderBy(item => item.SortName, StringComparer.OrdinalIgnoreCase)
+        };
+        var sorted = ordered.ThenBy(item => item.SortName, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.Id).ToArray();
+        var options = new DtoOptions(false)
+        {
+            EnableImages = true, EnableUserData = true,
+            Fields = [ItemFields.Overview, ItemFields.Genres, ItemFields.DateCreated, ItemFields.PrimaryImageAspectRatio, ItemFields.ProviderIds]
+        };
+        var items = sorted.Skip(startIndex).Take(limit).Select(item => dtoService.GetBaseItemDto(item, options, user)).ToArray();
+        var missingIds = identified.Count(item => item.Key is null);
+        var status = snapshot.Total == 0 && missingIds > 0 ? "unavailable" : snapshot.Status;
+        return Ok(new ProviderItemsResponse(items, sorted.Length, snapshot.Pending, snapshot.Total, snapshot.UpdatedAt,
+            status, TmdbProviderSource.Region, missingIds, snapshot.FailedIds));
+    }
+
+    public static string? LookupKey(BaseItem item, string type)
+    {
+        if (!item.ProviderIds.TryGetValue("Tmdb", out var value) || !long.TryParse(value, out var id) || id <= 0 || id > 9999999999) return null;
+        return (type == "Movie" ? "movie:" : "tv:") + id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+}
+
+public sealed record ProviderItemsResponse(
+    [property: JsonPropertyName("Items")] BaseItemDto[] Items,
+    [property: JsonPropertyName("TotalRecordCount")] int TotalRecordCount,
+    [property: JsonPropertyName("Pending")] int Pending,
+    [property: JsonPropertyName("Total")] int Total,
+    [property: JsonPropertyName("UpdatedAt"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] DateTimeOffset? UpdatedAt,
+    [property: JsonPropertyName("Status")] string Status,
+    [property: JsonPropertyName("Region")] string Region,
+    [property: JsonPropertyName("MissingIds")] int MissingIds,
+    [property: JsonPropertyName("FailedIds")] int FailedIds);

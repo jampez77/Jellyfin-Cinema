@@ -26,7 +26,7 @@ const dialogTemplate = available ? read('src/components/dialog/dialog.template.h
 const elegantFinPath = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
 const elegantFinAvailable = existsSync(elegantFinPath);
 const elegantFinCss = elegantFinAvailable ? readFileSync(elegantFinPath, 'utf8')
-  .replace(/@import\s+url\((?:"[^"]*"|'[^']*'|[^)])*\)\s*;/g, '').replace(/@font-face\s*\{[^}]*\}/g, '') : '';
+  .replace(/^\uFEFF/, '').replace(/@import\s+url\((?:"[^"]*"|'[^']*'|[^)])*\)\s*;/g, '').replace(/@font-face\s*\{[^}]*\}/g, '') : '';
 const nativeCss = available ? [
   'src/components/cardbuilder/card.scss', 'src/elements/emby-button/emby-button.scss',
   'src/elements/emby-input/emby-input.scss', 'src/elements/emby-checkbox/emby-checkbox.scss',
@@ -171,7 +171,7 @@ test('empty public-user list and a narrow TV screen keep manual login usable', a
   await expect(page.locator('.visualLoginForm')).toBeHidden(); await expect(page.locator('.btnCancel')).toBeHidden();
   await expect(page.getByLabel('User', { exact: true })).toBeFocused(); await expect(page.locator('.btnSelectServer')).toBeVisible();
   for (const selector of ['.manualLoginForm', '#txtManualName', '#txtManualPassword', '.readOnlyContent']) {
-    const box = await page.locator(selector).boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(391);
+    const box = await page.locator('#loginPage').locator(selector).boundingBox(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(391);
   }
   await page.getByRole('button', { name: 'Use Quick Connect', exact: true }).click();
   const content = await page.locator('#quickConnectAlert .formDialogContent').boundingBox(); expect(content!.width).toBeGreaterThan(300);

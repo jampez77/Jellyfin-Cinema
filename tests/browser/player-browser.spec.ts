@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { build } from 'esbuild';
 
 // Exercise Jellyfin's own OSD template and spatial navigation without bundling
 // its GPL source. Audited jellyfin-web v12.0: 0e83c6a724b31f3e9b5a499244331a288c060a4a.
@@ -80,7 +81,7 @@ async function remote(page: Page, command: string) {
   return page.evaluate(command => document.activeElement!.dispatchEvent(new CustomEvent('command', { bubbles: true, cancelable: true, detail: { command } })), command);
 }
 
-async function nativePlayer(page: Page, elegant = false, tv = true) {
+async function nativePlayer(page: Page, elegant = false, tv = true, simplifiedInput = true) {
   const template = readFileSync(nativeTemplatePath, 'utf8').replace(/\$\{([^}]+)\}/g, '$1');
   const css = [
     'src/styles/videoosd.scss', 'src/elements/emby-button/emby-button.scss', 'src/elements/emby-slider/emby-slider.scss',
@@ -112,7 +113,7 @@ async function nativePlayer(page: Page, elegant = false, tv = true) {
     const back = document.createElement('button'); back.className = 'headerBackButton'; back.textContent = 'Native Back';
     header.append(back); document.body.append(header); back.focus();
   }, { template, css, tv });
-  await page.addScriptTag({ content: `(() => {
+  if (simplifiedInput) await page.addScriptTag({ content: `(() => {
     const dom = { parentWithClass: (element, name) => element?.closest('.' + name) };
     const scrollManager = { isEnabled: () => false };
     ${focusManager}
@@ -127,6 +128,46 @@ async function nativePlayer(page: Page, elegant = false, tv = true) {
     });
   })();` });
 }
+
+test('WebOS keyCode Down follows native Jellyfin keyboard and command dispatch through ElegantFin controls', async ({ page }) => {
+  test.skip(!existsSync(nativeTemplatePath) || !existsSync(elegantSource), 'Set TVL_JELLYFIN_WEB_SOURCE and TVL_ELEGANTFIN_CSS to audited upstream sources.');
+  const keyboard = resolve(nativeSource, 'src/scripts/keyboardNavigation.js'), input = resolve(nativeSource, 'src/scripts/inputManager.js');
+  const bundle = await build({ stdin: { resolveDir: nativeSource, contents: `
+    import keyboard from ${JSON.stringify(keyboard)};
+    import * as input from ${JSON.stringify(input)};
+    input.on(window, () => {}); keyboard.enable(); window.__actualNativeInput = input;
+  ` }, bundle: true, write: false, format: 'iife', target: 'chrome79', logLevel: 'silent', plugins: [{ name: 'native-input-dependencies', setup(build) {
+    const adapters: Record<string, string> = {
+      './browser': 'export default {tv:true};',
+      '../components/layoutManager': 'export default {tv:true};',
+      './settings/appSettings': 'export default {enableGamepad:()=>false};',
+      './gamepadtokey': 'export {};',
+      'components/apphost': 'export const appHost={supports:()=>false};',
+      'components/playback/playbackmanager': 'export const playbackManager={};',
+      'components/router/appRouter': 'export const appRouter={};',
+      'constants/appFeature': 'export const AppFeature={};',
+      './scrollManager': 'export default {isEnabled:()=>false};',
+      'utils/dom': 'export default {parentWithClass:(node,name)=>node?.closest("."+name),addEventListener:(node,name,fn,options)=>node.addEventListener(name,fn,options),removeEventListener:(node,name,fn,options)=>node.removeEventListener(name,fn,options)};',
+      '../utils/dom': 'export default {parentWithClass:(node,name)=>node?.closest("."+name)};'
+    };
+    build.onResolve({ filter: /.*/ }, args => args.path === 'components/focusManager' ? { path: resolve(nativeSource, 'src/components/focusManager.js') }
+      : args.path in adapters ? { path: args.path, namespace: 'native-adapter' } : undefined);
+    build.onLoad({ filter: /.*/, namespace: 'native-adapter' }, args => ({ loader: 'js', contents: adapters[args.path] }));
+  } }] });
+  await fixture(page); await player(page); await nativePlayer(page, true, true, false);
+  await page.addScriptTag({ content: bundle.outputFiles[0].text });
+  const down = () => page.evaluate(() => {
+    const active = document.activeElement!;
+    active.dispatchEvent(new KeyboardEvent('keydown', { key: 'Unidentified', keyCode: 40, which: 40, bubbles: true, cancelable: true }));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keyup', { key: 'Unidentified', keyCode: 40, which: 40, bubbles: true, cancelable: true }));
+  });
+  await down(); await expect(browser(page)).toHaveCount(0); await expect(page.locator('.videoOsdBottom .buttons button:focus')).toHaveCount(1);
+  await down(); await expect(browser(page)).toHaveCount(0); await expect(page.locator('.osdPositionSlider')).toBeFocused();
+  await down(); await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back'); await expect(page.locator('.osdPositionSlider')).toBeFocused();
+  await page.evaluate(() => (window as any).__actualNativeInput.handleCommand('down'));
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+});
 
 for (const input of ['keyboard', 'remote'] as const) test(`${input} Down reaches native player controls before opening episode browsing`, async ({ page }) => {
   test.skip(!existsSync(nativeTemplatePath), 'Set TVL_JELLYFIN_WEB_SOURCE to audited Jellyfin 12 source.');

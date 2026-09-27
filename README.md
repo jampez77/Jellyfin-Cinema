@@ -4,18 +4,19 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). Formerly **TV Item Layout**, with the same plugin identity and upgrade path.
 
-This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes browsing during video playback and a pause screen. All artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library.
+This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK subscription availability from JustWatch through TMDB.
 
-**0.2.13 is available as a prerelease** ([release notes](docs/releases/v0.2.13.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It restores Down opening the in-player preview when the seek slider is the bottom control, including ElegantFin's player layout. Moving down from the header still follows the native playback controls. Physical LG webOS testing remains pending.
+**0.2.14 is available as a prerelease** ([release notes](docs/releases/v0.2.14.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. It adds branded provider Home pages with full UK library catalogues, separate trending rows and personal configuration in Settings. Physical LG webOS testing remains pending.
 
 ## The layouts
 
 - **Home:** cinematic cards with titles and subtitles on the charcoal page surface. Your native user/device section choices and ordering, hidden libraries, latest-media exclusions, Continue listening/reading, Next up options and library destinations stay controlled by Jellyfin. Custom rows wait for the initial native sections to settle, and keep existing rows visible during a background refresh. Native and custom cards use thumbnail-only focus borders, and custom rows hide their horizontal scrollbars. In desktop display mode, configure custom collection rows from **Collections → Customize collection rows**, including their item order, optional numbered artwork and position among native Home sections. Optional tabs switch between collections within one row, with a live preview while you edit. [Jellyfin Featured](https://github.com/spkesDE/jellyfin-featured-plugin) matches the cinematic colours and typography while keeping its own carousel, settings, trailers and remote controls.
+- **Streaming services:** branded Home tiles for Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ open distinct provider pages with featured artwork, Films, TV shows and separate trending rows. **View all** opens the complete matching row with pagination. Configure service order, visibility, Home placement and each provider's rows in **Settings → Cinema → Streaming services**; Home and provider pages have no editing buttons. Full catalogue rows use UK subscription availability for titles in your library. Trending rows use the separately maintained chart collections. [Provider Home guide](docs/provider-homes.md)
 - **Music:** albums, album artists, artists, songs, playlists, genres, suggestions and favourites, with search and A–Z/#. Playlist detail pages show ordered track rows with artwork and duration. Play the whole playlist or start at a selected entry, preserving repeated tracks and the complete queue. Album Play buttons have space for their focus outline. Jellyfin’s native music player and Now playing queue use larger album artwork, clear track details and matching queue rows while retaining their playback controls and actions.
 - **Recordings:** completed and active recordings, search and pagination, with direct details/playback. Recording folders opened from the Home library tile also use this layout and keep browsing scoped to that folder. Schedule, Series recordings, recording details and DVR dialogs receive matching styling while keeping Jellyfin’s native permissions, scheduling and editing actions.
 
 - **Profiles:** in TV or desktop mode, select your avatar to open **Who’s watching?**, a full-screen chooser with large square profile artwork, names and remote focus. Select your current profile to return, or an eligible passwordless profile to open its Home directly. Profiles marked **Sign in** and hidden accounts use native sign-in. **Settings**, **Use login screen**, **Back**, and **Dashboard** for the signed-in administrator sit below the profiles. The server checks current eligibility instead of relying on Jellyfin 12’s obsolete password flags. Cinema does not store extra credentials or change password requirements. Mobile retains Jellyfin’s current avatar and account menu.
-- **Search and Settings:** the native search field, remote alphabet keyboard, suggestions/results and user preference forms share the Cinema layout. Settings includes Dashboard for the signed-in administrator, with permission checked again on selection.
+- **Search and Settings:** the native search field, remote alphabet keyboard, suggestions/results and user preference forms share the Cinema layout. Settings includes personal Streaming services preferences and Dashboard for the signed-in administrator, with permission checked again on selection.
 - **Login:** large profile cards, a matching password form, readable focus states and themed native Quick Connect/error dialogs in TV and desktop display modes. Native authentication and saved device layout remain in control.
 - **Native folder libraries:** mixed-content and historic recording libraries receive matching headings, controls and cards while retaining native contents, filters and navigation. A previous recording library can differ from the server’s current DVR library; Cinema styles both without merging or redirecting them.
 
@@ -55,6 +56,16 @@ For platform charts, use one row per service with separate **Movies** and **Show
 
 These choices now sync through your Jellyfin server for the signed-in account, including row titles, sources, tabs, ranking, item order and Home position. After upgrading, open Home once in the desktop browser where you configured your rows so it can migrate them. Then reopen Home on the TV using the same account; an already-open Home checks for updates every minute and when it regains focus. The server copy wins if devices disagree; concurrent edits prompt you to reload instead of overwriting another device. Local storage is an offline cache. Home sync failures stay quiet and retry automatically; the collection editor still reports failed loads and saves. The standalone demo remains local-only. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
 
+## Your provider Home pages
+
+Select a tile in **Streaming services** on Home. The provider logo and name remain visible while you browse its films, TV shows and trending rows. Only titles visible to the signed-in Jellyfin account appear; selecting one opens its Cinema details and existing Jellyfin playback.
+
+Open **Settings → Cinema → Streaming services** to arrange the tiles, rename or move the Home row, and choose a provider to edit. Each provider supports up to 12 rows: rename, reorder, show/hide, choose a source or collection override, select title/release-year sorting, and enable rank artwork. The editor previews the Home tiles and the selected content row. Changes apply only after **Save changes**, and sync to the same account on other devices. Native Home preferences and collection-row settings remain separate.
+
+Automatic **Films** and **TV shows** check the library's TMDB metadata IDs against UK subscription (`flatrate`) availability. Cinema reuses the installed Jellyfin TMDB integration on the server; no extra key belongs in the browser. The first lookup fills rows progressively, and successful availability results are cached for seven days. Titles offered only for rent or purchase are excluded. Studios and production networks are not used to guess a streaming service.
+
+Automatic **Trending films** and **Trending TV shows** read the matching UK chart collections, such as **Netflix — Trending Movies (UK)**. These are the library matches from the weekly top-20 source, not a service's full catalogue. SmartLists/MDBList remains responsible for refreshing those collections. Choose an explicit collection override if your collection names differ. Number artwork counts the visible items in the selected order; it does not claim to preserve the external chart's original rank numbers. See the [provider Home guide](docs/provider-homes.md) for setup, source links and empty/loading states.
+
 ## Preview locally
 
 ```sh
@@ -67,7 +78,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.13 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.13) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.13 release notes](docs/releases/v0.2.13.md) for changes and validation status.
+The [v0.2.14 prerelease](https://github.com/jampez77/Jellyfin-Cinema/releases/tag/v0.2.14) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.14 release notes](docs/releases/v0.2.14.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -83,7 +94,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.13.1` for 10.10.7, `0.2.13.2` for 10.11.x and `0.2.13.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.14.1` for 10.10.7, `0.2.14.2` for 10.11.x and `0.2.14.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -138,6 +149,9 @@ Optional theme-conflict checks use an external [ElegantFin stylesheet](https://g
 | `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, settings schema and numbered artwork |
 | `src/home-collection-editor.ts`, `src/home-row-card.ts`, `src/home-row-placement.ts` | Collection row editor, shared Home/preview cards and placement among native Home sections |
 | `src/home-collection-store.ts`, `src/home-collection-transport.ts` | Per-account server sync, migration, revisions and offline cache |
+| `src/provider-home.ts`, `src/provider-data.ts`, `src/provider-home.css` | Branded provider navigation, catalogue/chart sources and paginated provider pages |
+| `src/provider-settings.ts`, `src/provider-settings-store.ts`, `src/provider-settings-editor.ts` | Personal provider-page configuration, draft previews and server sync |
+| `server/Api/ProviderHomesController.cs`, `server/Api/ProviderItemsController.cs`, `server/Providers/` | Authenticated provider settings, permitted-library matching and server-side availability cache |
 | `src/channel-zapper.ts` | Live channel commands with native playback and stale-request guards |
 | `src/player-context.ts`, `src/player-browser.ts` | Active playback identity, queues and in-player navigation |
 | `src/pause-screen.ts`, `src/pause-screen.css` | Pause artwork and metadata |
@@ -149,4 +163,6 @@ Optional theme-conflict checks use an external [ElegantFin stylesheet](https://g
 
 ## Credits
 
-Integration and local playback code are adapted from [jampez77/InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV), based on [Namo2/InPlayerEpisodePreview](https://github.com/Namo2/InPlayerEpisodePreview). The pause-screen behavior is independently implemented from [jampez77/Jellyfin-PauseScreen](https://github.com/jampez77/Jellyfin-PauseScreen); its code is not copied. Original MIT notices for InPlayerEpisodePreview are retained in [LICENSE.md](LICENSE.md) and the packaged server licence. The TV design takes inspiration from the supplied Netflix [overview](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-More-episodes.jpg) and [season browser](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-Change-season.jpg), and the supplied movie reference. No Netflix branding, film artwork, or fabricated ranking data is bundled. Demo photo sources are listed in [artwork credits](demo/assets/CREDITS.md).
+Integration and local playback code are adapted from [jampez77/InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV), based on [Namo2/InPlayerEpisodePreview](https://github.com/Namo2/InPlayerEpisodePreview). The pause-screen behavior is independently implemented from [jampez77/Jellyfin-PauseScreen](https://github.com/jampez77/Jellyfin-PauseScreen); its code is not copied. Original MIT notices for InPlayerEpisodePreview are retained in [LICENSE.md](LICENSE.md) and the packaged server licence. The TV design takes inspiration from the supplied Netflix [overview](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-More-episodes.jpg) and [season browser](https://techwiser.com/wp-content/uploads/2023/01/Netflix-Smart-TV-Change-season.jpg), and the supplied movie reference.
+
+Provider logos are bundled to identify the corresponding services; sources, licensing and trademark notices are in [provider asset credits](assets/providers/README.md). Jellyfin Cinema is not affiliated with or endorsed by those services. UK streaming availability comes from [JustWatch](https://www.justwatch.com/uk) through [TMDB](https://www.themoviedb.org/). **This product uses the TMDB API but is not endorsed or certified by TMDB.** Demo titles and provider assignments are fictional; their photograph sources are listed in [artwork credits](demo/assets/CREDITS.md).

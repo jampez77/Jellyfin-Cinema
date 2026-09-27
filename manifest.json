@@ -3,11 +3,35 @@
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "Jellyfin Cinema",
     "overview": "Cinematic TV and desktop browsing, personal collection rows and in-player navigation.",
-    "description": "A cinematic style for Jellyfin Web in TV and desktop display modes, with configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "description": "A cinematic style for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
+      {
+        "version": "0.2.14.3",
+        "changelog": "Adds branded Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ Home pages with UK library catalogues and separate trending rows. Configure tile placement, provider visibility, row sources, order, ranking and featured artwork in Settings. Choices follow your Jellyfin account across devices. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.14/TvItemLayout_0.2.14.3_jellyfin-12.0.0.zip",
+        "checksum": "bc6634cb4cd2e0c6cf5fbc8a50a844d4",
+        "timestamp": "2026-09-27T07:51:02Z"
+      },
+      {
+        "version": "0.2.14.2",
+        "changelog": "Adds branded Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ Home pages with UK library catalogues and separate trending rows. Configure tile placement, provider visibility, row sources, order, ranking and featured artwork in Settings. Choices follow your Jellyfin account across devices. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.14/TvItemLayout_0.2.14.2_jellyfin-10.11.0.zip",
+        "checksum": "ae33035e43c510b995d9517816cc0f68",
+        "timestamp": "2026-09-27T07:51:02Z"
+      },
+      {
+        "version": "0.2.14.1",
+        "changelog": "Adds branded Netflix, Prime Video, Disney+, Apple TV+, NOW and Paramount+ Home pages with UK library catalogues and separate trending rows. Configure tile placement, provider visibility, row sources, order, ranking and featured artwork in Settings. Choices follow your Jellyfin account across devices. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.14/TvItemLayout_0.2.14.1_jellyfin-10.10.7.zip",
+        "checksum": "2c5bb32b95ad95a186c13a376497402b",
+        "timestamp": "2026-09-27T07:51:02Z"
+      },
       {
         "version": "0.2.13.3",
         "changelog": "Restores Down opening the in-player preview when the seek slider is the bottom playback control, including ElegantFin layouts. Navigation from the header and upper controls remains native. Restart Jellyfin and fully reopen TV and desktop clients. Requires File Transformation.",

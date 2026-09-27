@@ -264,27 +264,29 @@ test('custom rows settle around real Featured while preserving its nodes, geomet
     ] }));
   });
   await setup(page, { feed: { showPlayButton: true } });
-  await expect(page.locator('#homeTab [data-home-row]')).toHaveCount(3);
+  await expect(page.locator('#homeTab .tvl-home-collection-row')).toHaveCount(3);
+  await expect(page.locator('#homeTab .tvl-home-provider-row')).toHaveCount(1);
   await start(page); await expect(featured(page)).toHaveCount(1);
   const placement = () => page.locator('#homeTab').evaluate(home => {
     const carousel = home.querySelector('.ec-root.ec-ready');
     const before = home.querySelector('[data-home-row="before-featured"]');
     const after = home.querySelector('[data-home-row="after-featured"]');
-    const native = home.querySelector('[data-home-section="smalllibrarytiles"] .verticalSection:not(.tvl-home-collection-row)');
+    const native = home.querySelector('[data-home-section="smalllibrarytiles"] .verticalSection:not(.tvl-home-collection-row):not(.tvl-home-provider-row)');
     if (!carousel || !before || !after || !native) return null;
     return {
+      providers: home.querySelector('[data-home-row="before-start"]')?.previousElementSibling?.getAttribute('data-home-row'),
       first: before.previousElementSibling?.getAttribute('data-home-row'),
       before: before.nextElementSibling === carousel,
       after: !!(carousel.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING),
       native: after.nextElementSibling === native
     };
   });
-  await expect.poll(placement).toEqual({ first: 'before-start', before: true, after: true, native: true });
+  await expect.poll(placement).toEqual({ providers: 'provider-homes:brands', first: 'before-start', before: true, after: true, native: true });
   expect(await featured(page).locator('.ec-viewport').evaluate(element => element.getBoundingClientRect().height)).toBe(430);
   await page.evaluate(() => {
     const win = window as any;
     win.__interleavedCarousel = document.querySelector('#homeTab .ec-root.ec-ready');
-    win.__interleavedNativeRows = [...document.querySelectorAll('#homeTab .verticalSection:not(.tvl-home-collection-row)')];
+    win.__interleavedNativeRows = [...document.querySelectorAll('#homeTab .verticalSection:not(.tvl-home-collection-row):not(.tvl-home-provider-row)')];
     win.__featuredNativeActions = [];
     const showItem = win.Emby.Page.showItem;
     // Observe the real plugin's Play bridge without starting a real player.
@@ -319,7 +321,7 @@ test('custom rows settle around real Featured while preserving its nodes, geomet
     return win.__interleavedCarousel === document.querySelector('#homeTab .ec-root.ec-ready')
       && win.__interleavedNativeRows.every((node: Element) => node.isConnected);
   })).toBe(true);
-  await expect.poll(placement).toEqual({ first: 'before-start', before: true, after: true, native: true });
+  await expect.poll(placement).toEqual({ providers: 'provider-homes:brands', first: 'before-start', before: true, after: true, native: true });
   expect(await featured(page).locator('.ec-viewport').evaluate(element => element.getBoundingClientRect().height)).toBe(430);
 
   await page.evaluate(() => { (window as any).__navigateFeaturedAction = true; });
@@ -327,5 +329,5 @@ test('custom rows settle around real Featured while preserving its nodes, geomet
   await expect(page).toHaveURL(/#\/details\?id=movie-tide$/);
   await expect(page.getByRole('dialog', { name: 'After the Tide details', exact: true })).toBeVisible();
   await page.goBack(); await expect(featured(page)).toHaveCount(1);
-  await expect.poll(placement).toEqual({ first: 'before-start', before: true, after: true, native: true });
+  await expect.poll(placement).toEqual({ providers: 'provider-homes:brands', first: 'before-start', before: true, after: true, native: true });
 });

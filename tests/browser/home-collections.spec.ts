@@ -142,7 +142,7 @@ test('position editor discovers cached native rows and places custom rows before
   await moveBefore(dialog, 'Next up');
   await selectRow(dialog, 'Trending Movies'); await moveBefore(dialog, 'Latest in TV Shows');
   await dialog.getByRole('button', { name: 'Save rows', exact: true }).click(); await goHome(page);
-  await expect.poll(() => homeOrder(page)).toEqual(['My Media', 'Continue watching', 'Continue listening', 'Live TV', 'Collections', 'Next up', 'Latest in Movies', 'Trending Movies', 'Latest in TV Shows', 'Latest in Music']);
+  await expect.poll(() => homeOrder(page)).toEqual(['Streaming services', 'My Media', 'Continue watching', 'Continue listening', 'Live TV', 'Collections', 'Next up', 'Latest in Movies', 'Trending Movies', 'Latest in TV Shows', 'Latest in Music']);
   const persisted = (await saved(page)).rows;
   expect(persisted.find((entry: any) => entry.id === 'collections').placement).toBe('native:next up:1');
   expect(persisted.find((entry: any) => entry.id === 'trending').placement).toBe('native:latest in tv shows:1');
@@ -176,7 +176,7 @@ test('inserting and reattaching custom rows preserves native nodes, Featured and
   await page.evaluate(() => document.dispatchEvent(new CustomEvent('demo-home-settings', { detail: { sections: ['resumeaudio', 'nextup', 'latestmedia'] } })));
   await expect(rowItems(page, 'Collections')).toHaveCount(2);
   await expect(home(page).locator('.ec-root')).toHaveCount(1);
-  await expect.poll(() => homeOrder(page)).toEqual(['My Media', 'Continue listening', 'Collections', 'Next up', 'Latest in Movies', 'Latest in TV Shows', 'Latest in Music']);
+  await expect.poll(() => homeOrder(page)).toEqual(['Streaming services', 'My Media', 'Continue listening', 'Collections', 'Next up', 'Latest in Movies', 'Latest in TV Shows', 'Latest in Music']);
   const native = home(page).getByRole('region', { name: 'Next up', exact: true }).locator('.card').first();
   await native.click(); await expect(page).toHaveURL(/#\/details\?id=episode-signal-1-1/);
   await expect(page.getByRole('dialog', { name: 'Signal 24 details', exact: true })).toBeVisible();
@@ -192,7 +192,7 @@ test('shared start/native-first and end/missing-anchor positions settle without 
     { ...rowConfig.rows[0], id: 'missing', title: 'Missing anchor', placement: 'native:missing:1' }
   ] };
   await seed(page, settings); await page.goto('/?featured=0&homeSections=smalllibrarytiles,nextup#/home');
-  await expect.poll(() => homeOrder(page)).toEqual(['First', 'Before media', 'My Media', 'Next up', 'End', 'Missing anchor']);
+  await expect.poll(() => homeOrder(page)).toEqual(['Streaming services', 'First', 'Before media', 'My Media', 'Next up', 'End', 'Missing anchor']);
   const settled = await page.evaluate(async () => {
     let mutations = 0; const host = document.querySelector('#homeTab')!;
     const observer = new MutationObserver(records => { mutations += records.filter(record => record.type === 'childList').length; }); observer.observe(host, { childList: true, subtree: true });
@@ -201,7 +201,7 @@ test('shared start/native-first and end/missing-anchor positions settle without 
     observer.disconnect(); return mutations;
   });
   expect(settled).toBe(0);
-  await page.reload(); await expect.poll(() => homeOrder(page)).toEqual(['First', 'Before media', 'My Media', 'Next up', 'End', 'Missing anchor']);
+  await page.reload(); await expect.poll(() => homeOrder(page)).toEqual(['Streaming services', 'First', 'Before media', 'My Media', 'Next up', 'End', 'Missing anchor']);
 });
 
 test('remote arrows cross native/custom boundaries and skip empty custom rows', async ({ page }) => {

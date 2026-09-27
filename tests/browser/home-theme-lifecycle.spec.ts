@@ -12,7 +12,9 @@ const addon = process.env.TVL_ELEGANTFIN_FEATURED_CSS || '/tmp/cinema-elegantfin
 const paths = [resolve(native, 'src/styles/site.scss'), resolve(native, 'src/components/cardbuilder/card.scss'),
   resolve(featured, 'src/styles/featured.css'), elegant, addon];
 const available = paths.every(existsSync);
-const readCss = (path:string) => readFileSync(path, 'utf8').replace(/@import[^;]+;/g, '').replace(/(^|\n)[ \t]*\/\/[^\n]*/g, '$1');
+// A separately fetched stylesheet consumes its UTF-8 BOM during decoding.
+// Strip it before concatenating sources into an inline style element too.
+const readCss = (path:string) => readFileSync(path, 'utf8').replace(/^\uFEFF/, '').replace(/@import[^;]+;/g, '').replace(/(^|\n)[ \t]*\/\/[^\n]*/g, '$1');
 const nativeBody = available ? readCss(paths[0]).match(/\nbody \{[\s\S]*?\n\}/)![0].replace(/@include[^;]+;/g, '') : '';
 const lateCss = available ? nativeBody + '\n' + paths.slice(1).map(readCss).join('\n') : '';
 
@@ -58,7 +60,10 @@ async function assertCinema(page:Page) {
   await expect(card.locator('.cardBox')).toHaveCSS('border-radius', '7px');
   await expect(card.locator('.cardText').first()).toHaveCSS('text-align', 'left');
   await expect(card.locator('.textActionButton')).toHaveCSS('text-align', 'left');
-  await expect(card.locator('.innerCardFooter')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.7)');
+  // Cinema clears the caption surface, while the installed theme retains its
+  // on-image progress gradient (ElegantFin replaces native solid black).
+  await expect(card.locator('.innerCardFooter')).toHaveCSS('background-image', 'linear-gradient(0deg, rgba(13, 13, 13, 0.95), 40%, rgba(0, 0, 0, 0))');
+  await expect(card.locator('.innerCardFooter')).toHaveCSS('color', 'rgb(255, 255, 255)');
   await expect(page.getByRole('button', { name:'Featured play', exact:true })).toHaveCSS('background-color', 'rgb(246, 246, 243)');
   await expect(page.getByRole('button', { name:'Featured play', exact:true })).toHaveCSS('color', 'rgb(16, 17, 18)');
   await expect(page.getByRole('button', { name:'Featured details', exact:true })).toHaveCSS('background-color', 'rgba(38, 52, 44, 0.9)');

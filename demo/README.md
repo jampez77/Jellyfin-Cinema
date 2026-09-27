@@ -9,7 +9,8 @@ The preview loads the same layout bundle used by Jellyfin, with a separate in-me
 - **TV Shows:** browse five fictional series using search, genres, A–Z/#, favourites and native-style episode suggestions. Open North of Nowhere to try its full episode browser. North of Nowhere has three seasons and six episodes per season. The first episode is watched; the second is partially watched. Down from the last episode advances to the next season; Up from the first returns to the previous season’s last episode.
 - **Movies:** the library includes search, letter filters, genres, favourites and suggestions. Open a card to view its details; After the Tide has a resume position, a trailer action, cast, technical metadata and four related films. The trailer opens its own labelled playback simulation and preserves the film’s resume position.
 - **Live TV:** Four channels share a horizontal programme timeline, with varied programme durations. Left/Right browses time, Up/Down browses channels, and artwork for the highlighted programme fits above the schedule, including future programmes. The schedule is calculated when the page loads.
-- **Home:** use **Collections → Customize collection rows** to choose collections, add rows of their members and enable outlined rank images beside posters. Choices persist for the demo account in this browser. The rest is a native-shaped Home fixture with My Media, Continue watching/listening, Next up, Live TV navigation and latest additions. The installed layout styles Jellyfin's existing sections in place, preserving its user preferences and plugins. The preview's fictional featured hero is labelled; it is not the Featured plugin. Native-only destinations such as settings/search are not simulated.
+- **Home:** use **Collections → Customize collection rows** to choose collections, add rows of their members and enable outlined rank images beside posters. Choices persist for the demo account in this browser. The rest is a native-shaped Home fixture with My Media, Continue watching/listening, Next up, Live TV navigation and latest additions. The installed layout styles Jellyfin's existing sections in place, preserving its user preferences and plugins. The preview's fictional featured hero is labelled; it is not the Featured plugin. A minimal Settings page opens the provider editor; other native settings/search forms are not simulated.
+- **Streaming services:** six branded tiles open individual provider pages with featured artwork, full fictional film/TV catalogues and separate chart subsets. **Settings → Cinema → Streaming services** edits the tile order, Home position, provider rows, collection overrides, sorting and rank artwork with live previews. **Save changes** persists preferences in this browser; the demo does not exercise server sync or make availability requests. Provider assignments and chart order are fictional test data, not real UK streaming offers.
 - **Music:** fictional albums, artists and tracks, with search, genres, A–Z/#, favourites and suggestions. Open an artist to see albums, then an album to select its tracks.
 - **Recordings:** completed and active recordings, search and direct playback. Scheduling links point to Jellyfin's native pages, which the local fixture does not implement.
 
@@ -27,6 +28,8 @@ Use the address bar to open an item directly:
 - `/#/details?id=movie-tide`
 - `/#/details?id=channel-field`
 - `/#/home`
+- `/#/home?cinemaProvider=netflix`
+- `/#/mypreferencesmenu?cinemaProviders=1`
 - `/#/music?topParentId=library-music&collectionType=music`
 - `/#/livetv?tab=3&collectionType=livetv`
 
@@ -59,7 +62,7 @@ The ordinary preview hero uses a representative `.ec-root` solely to verify that
 
 ## Collections and theme videos
 
-The preview includes **Coastal Stories** for After the Tide and **Into the Wilderness** for North of Nowhere. Collection cards open the styled collection page with links to its members. The Collections preview control opens the library list at `/#/list?parentId=library-collections`. Back restores the selected card. Series overviews now scroll down to recommendations as well as collections.
+The preview includes **Coastal Stories** for After the Tide and **Into the Wilderness** for North of Nowhere, plus twelve fictional provider chart collections (films and shows for each service). Chart subsets are deliberately separate from the larger provider catalogue fixtures. Collection cards open the styled collection page with links to its members. The Collections preview control opens the library list at `/#/list?parentId=library-collections`. Back restores the selected card. Series overviews now scroll down to recommendations as well as collections.
 
 Native theme-video integration is covered by browser tests using a local canvas video stream. The preview does not download or autoplay a sample theme video; installed Jellyfin clients use their existing theme player and preferences.
 

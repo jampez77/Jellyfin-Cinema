@@ -107,12 +107,18 @@ test('series overview scrolls through collections and recommendations with a rem
   const root = page.locator('#tv-layout');
   const collections = root.getByRole('region', { name:'Collections', exact:true });
   const more = root.getByRole('region', { name:'More like this', exact:true });
-  await expect(collections.getByRole('button', { name:'Open collection: Into the Wilderness' })).toBeAttached();
+  const firstCollection = collections.getByRole('button', { name:'Open collection: Into the Wilderness', exact:true });
+  const lastCollectionRow = collections.getByRole('button', { name:'Open collection: Paramount+ — Trending Shows (UK)', exact:true });
+  await expect(collections.getByRole('button')).toHaveCount(4);
+  await expect(firstCollection).toBeAttached();
   await expect(more.locator('.tvl-film-card')).toHaveCount(5);
   await root.getByRole('button', { name:'Add to favourites', exact:true }).focus();
   await page.keyboard.press('ArrowDown');
-  await expect(collections.getByRole('button')).toBeFocused();
-  await expect(collections.getByRole('button')).toBeInViewport();
+  await expect(firstCollection).toBeFocused();
+  await expect(firstCollection).toBeInViewport();
+  await page.keyboard.press('ArrowDown');
+  await expect(lastCollectionRow).toBeFocused();
+  await expect(lastCollectionRow).toBeInViewport();
   await page.keyboard.press('ArrowDown');
   await expect(more.locator('.tvl-film-card').first()).toBeFocused();
   await expect(more.locator('.tvl-film-card').first()).toBeInViewport();
@@ -139,7 +145,13 @@ for (const [id, collection] of [['movie-tide','Coastal Stories'],['series-north'
 }
 
 test('empty membership hides collections without hiding recommendations', async ({ page }) => {
-  await page.goto('/#/details?id=movie-silence');
+  await page.goto('/?featured=0#/home');
+  await page.evaluate(() => {
+    // Keep this fixture empty after the demo gained provider chart memberships.
+    const api = window.TvItemLayoutDemo!.api, original = api.getCollections;
+    api.getCollections = async id => (await original(id)).filter(item => !item.Id.startsWith('provider-chart-'));
+    location.hash = '/details?id=movie-silence';
+  });
   await expect(page.locator('#tv-layout .tvl-film-card')).toHaveCount(4);
   await expect(page.getByRole('region', { name:'Collections', exact:true })).toHaveCount(0);
   await expect(page.getByRole('region', { name:'More like this', exact:true })).toBeAttached();
