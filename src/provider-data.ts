@@ -28,7 +28,11 @@ const chartProviders: Record<ProviderBrandId, { movies: string; shows: string }>
   disney: { movies: 'dnp', shows: 'dnp' }, apple: { movies: 'atp', shows: 'atp' },
   now: { movies: 'ntc', shows: 'ntv' }, paramount: { movies: 'pmp', shows: 'pmp' }
 };
-const normalizedName = (value: string): string => value.normalize('NFKC').toLowerCase().replace(/[^a-z0-9]/g, '');
+// SmartLists appends this default decoration to its configured collection name.
+// Remove only that terminal marker; provider, country and media type must still
+// match exactly, and multiple distinct collections remain ambiguous.
+const normalizedName = (value: string): string => value.normalize('NFKC')
+  .replace(/\s*\[smart\]\s*$/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const invalid = () => new ProviderDataError('invalid', 'Jellyfin returned invalid provider items. Try again.');
 const itemIdentity = (id: string): string => /^[\da-f]{32}$|^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id) ? id.replace(/-/g, '').toLowerCase() : id;

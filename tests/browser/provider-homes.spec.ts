@@ -228,7 +228,7 @@ class SettingsServer {
 }
 // Exercise the shipped authenticated API/transport, rather than replacing its
 // store with a local implementation. Server fixtures return only permitted media.
-async function device(browser: Browser, server: SettingsServer, user: string, layout: 'desktop' | 'tv') {
+async function device(browser: Browser, server: SettingsServer, user: string, layout: 'desktop' | 'tv', smartCollectionNames = false) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } }), page = await context.newPage();
   await page.route('**/provider-fixture/TvItemLayout/ProviderHomes', async route => {
     const request = route.request(), account = request.headers()['x-fixture-user'], method = request.method(); server.calls.push({ method, user: account });
@@ -249,10 +249,10 @@ async function device(browser: Browser, server: SettingsServer, user: string, la
   });
   await page.route('**/dist/demo.js', async route => {
     const response = await route.fetch(); await route.fulfill({ response, body: `${await response.text()}\n(() => {
-      const demo=window.TvItemLayoutDemo.api, user=${JSON.stringify(user)};
+      const demo=window.TvItemLayoutDemo.api, user=${JSON.stringify(user)}, smartCollectionNames=${JSON.stringify(smartCollectionNames)};
       const request=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json','x-fixture-user':user}});if(!response.ok)throw {status:response.status};return response.json();};
       window.ApiClient={getCurrentUserId:()=>user,serverId:()=> 'provider-server',getUser:async id=>({Id:id,Policy:{IsAdministrator:false}}),getItem:(_user,id)=>demo.getItem(id),
-        getItems:async(_user,query)=>{const items=user==='kids'?[]:query.IncludeItemTypes==='BoxSet'?await demo.getCollectionList():await demo.getCollectionItems(query.ParentId);return {Items:items.slice(query.StartIndex||0,(query.StartIndex||0)+(query.Limit||200)),TotalRecordCount:items.length};},
+        getItems:async(_user,query)=>{const items=user==='kids'?[]:query.IncludeItemTypes==='BoxSet'?(await demo.getCollectionList()).map(item=>smartCollectionNames&&item.Id.startsWith('provider-chart-')?{...item,Name:item.Name+' [Smart]'}:item):await demo.getCollectionItems(query.ParentId);return {Items:items.slice(query.StartIndex||0,(query.StartIndex||0)+(query.Limit||200)),TotalRecordCount:items.length};},
         getUrl:(path,query)=>'/provider-fixture/'+path+(query?'?'+new URLSearchParams(query):''),
         getJSON:url=>url.includes('TvItemLayout/HomeCollections')?Promise.resolve({Revision:null,Settings:null}):request(url),ajax:options=>request(options.url,{method:options.type,body:options.data}),
         getImageUrl:()=>'/demo/assets/ocean.jpg'};
@@ -261,6 +261,27 @@ async function device(browser: Browser, server: SettingsServer, user: string, la
   });
   return { page, context };
 }
+
+test('native SmartLists collection names populate Movies and Shows charts for all six provider homes', async ({ browser }) => {
+  const server = new SettingsServer(), client = await device(browser, server, 'parents', 'tv', true), page = client.page;
+  try {
+    await page.goto(previewUrl()); await expect(services(page).locator('.tvl-provider-tile')).toHaveCount(6);
+    for (const brand of providerBrands) {
+      await services(page).getByRole('button', { name: brand.name, exact: true }).click();
+      await expect(cards(page, 'trending-movies')).toHaveCount(2); await expect(cards(page, 'trending-shows')).toHaveCount(2);
+      await expect(cards(page, 'trending-movies').first()).toHaveAttribute('aria-label', /^Rank 1:/);
+      await expect(cards(page, 'trending-shows').first()).toHaveAttribute('aria-label', /^Rank 1:/);
+      await expect(cards(page, 'trending-movies').first()).toHaveAttribute('data-item-id', /^movie-/);
+      await expect(cards(page, 'trending-shows').first()).toHaveAttribute('data-item-id', /^series-/);
+      if (brand.id === 'netflix') {
+        expect(await cards(page, 'trending-movies').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-item-id')))).toEqual(['movie-blue', 'movie-tide']);
+        expect(await cards(page, 'trending-shows').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-item-id')))).toEqual(['series-signal', 'series-north']);
+      }
+      await expect(providerHome(page).getByText('The trending collection is unavailable for this account.', { exact: true })).toHaveCount(0);
+      await page.keyboard.press('Escape'); await expect(services(page).getByRole('button', { name: brand.name, exact: true })).toBeFocused();
+    }
+  } finally { await client.context.close(); }
+});
 
 test('saved provider preferences sync from desktop to a fresh TV while another account keeps its defaults and permitted media', async ({ browser }) => {
   const server = new SettingsServer(); const desktop = await device(browser, server, 'parents', 'desktop'), tv = await device(browser, server, 'parents', 'tv'), kids = await device(browser, server, 'kids', 'tv');
@@ -352,6 +373,10 @@ test('provider refresh ignores other-service edits and quietly survives settings
     const read = page.waitForResponse(response => response.url().endsWith('/TvItemLayout/ProviderHomes'));
     // The normal minute refresh reads settings even without leaving this page.
     await page.clock.runFor(60_100); await read;
+    // Collection reads use the demo's latency timer; let the in-flight refresh
+    // finish before simulating a separate return to the app.
+    await page.clock.runFor(500);
+    await expect(providerHome(page).locator('.tvl-provider-more:disabled')).toHaveCount(0);
     await expect(providerRow(page, 'shows')).toHaveAttribute('data-same-row', 'original');
     await expect(cards(page, 'shows').first()).toBeFocused();
     expect(await providerHome(page).locator('.tvl-provider-content').evaluate(node => node.scrollTop)).toBe(before);
@@ -359,6 +384,8 @@ test('provider refresh ignores other-service edits and quietly survives settings
     server.failGet = true;
     const failed = page.waitForResponse(response => response.url().endsWith('/TvItemLayout/ProviderHomes') && response.status() === 503);
     await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await failed;
+    await page.clock.runFor(500);
+    await expect(providerHome(page).locator('.tvl-provider-more:disabled')).toHaveCount(0);
     await expect(providerRow(page, 'shows')).toHaveAttribute('data-same-row', 'original');
     await expect(cards(page, 'shows').first()).toBeFocused();
     await expect(providerHome(page).getByText(/could not sync|retry.*sync|changes have not been saved/i)).toHaveCount(0);

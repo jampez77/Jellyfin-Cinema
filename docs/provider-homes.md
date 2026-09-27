@@ -2,7 +2,7 @@
 
 The **Streaming services** row on Home opens a separate Cinema page for Netflix, Prime Video, Disney+, Apple TV+, NOW or Paramount+. Its logo and name identify the page throughout. Each page starts with featured artwork and separate **Trending films**, **Trending TV shows**, **Films** and **TV shows** rows.
 
-These pages browse titles already in your Jellyfin library and permitted for the current account. They do not sign into a streaming subscription, fetch missing media or play a provider's stream. Opening a title uses Cinema's existing details and Jellyfin playback. **View all** or a section button opens that row as a grid; **Load more** continues beyond the first page. Back restores the previous page and selected item.
+These pages browse titles already in your Jellyfin library and permitted for the current account. They do not sign into a streaming subscription, fetch missing media or play a provider's stream. Opening a title uses Cinema's existing details and Jellyfin playback. **View all** or a section button opens that row as a grid; **Load more** continues beyond the first page. Back from a provider page returns to the main Home screen; switching provider tabs does not add extra Back steps. Back from a title’s details restores the selected provider tab and item.
 
 ## Configure the pages
 
@@ -37,7 +37,7 @@ Provider rows link to their source. The catalogue credit links to [JustWatch UK]
 
 ### Automatic trending collection names
 
-Cinema recognises the following names, ignoring punctuation, spacing and letter case:
+Cinema recognises the following names, ignoring punctuation, spacing and letter case, including the optional `[Smart]` suffix added by SmartLists:
 
 | Provider | Films collection | TV collection |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ Cinema recognises the following names, ignoring punctuation, spacing and letter 
 | NOW | NOW — Trending Movies (UK) | NOW — Trending Shows (UK) |
 | Paramount+ | Paramount+ — Trending Movies (UK) | Paramount+ — Trending Shows (UK) |
 
-If your names have extra prefixes/suffixes, or two visible collections match the same automatic name, choose the intended **Collection override** in Settings. Cinema does not pick an ambiguous collection. You can also select any ordinary film/series collection without SmartLists or MDBList.
+If your names have other extra prefixes/suffixes, or two visible collections match the same automatic name, choose the intended **Collection override** in Settings. Cinema does not pick an ambiguous collection. You can also select any ordinary film/series collection without SmartLists or MDBList.
 
 SmartLists controls when chart collections refresh. A Jellyfin library scan alone does not update them. With the documented SmartLists setup, wait for the staggered daily refresh or refresh the relevant list individually while SmartLists is idle. Cinema then reads the updated members. The automatic row preserves source-relative order but its number artwork counts visible library matches as **1, 2, 3…**; it does not preserve gaps from the original twenty source positions.
 
