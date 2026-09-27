@@ -15,7 +15,18 @@ async function section(page: Page, title: string, row?: string) {
 for (const layout of ['desktop', 'tv']) {
   test(`${layout}: provider tabs share one history entry and Back restores main Home focus`, async ({ page }) => {
     await page.goto(preview('/home?serverId=cinema-server&tab=0', layout));
+    // The overlay can mount during synchronous popstate, before the entry's
+    // queued hashchange. Count only events from subsequent provider-tab edits.
+    await page.evaluate(() => {
+      (window as any).__providerEntrySettled = false;
+      const entered = (event: HashChangeEvent) => {
+        if (!new URL(event.newURL).hash.includes('cinemaProvider=netflix')) return;
+        (window as any).__providerEntrySettled = true; window.removeEventListener('hashchange', entered);
+      };
+      window.addEventListener('hashchange', entered);
+    });
     await tile(page).click(); await expect(provider(page)).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).__providerEntrySettled)).toBe(true);
     const before = await page.evaluate(() => {
       const state = { ...history.state, idx: 7, key: 'native-provider', usr: { transition: 'preserve' } };
       history.replaceState(state, '', location.href);

@@ -7,7 +7,6 @@ import type { ProviderHomeConfig, ProviderHomesSettings, ProviderRow, ProviderId
 import { ProviderData, type ProviderRowResult } from './provider-data';
 import { homeRowCard } from './home-row-card';
 import { plainText } from './utils';
-import { tmdbLogo } from './provider-attribution';
 
 export function providerHomeRow(settings: ProviderHomesSettings, navigate: (id: ProviderId) => void): HTMLElement | null {
   const providers = settings.providers.filter(provider => provider.enabled);
@@ -130,11 +129,8 @@ export class ProviderHomeView {
     });
     if (!rows.length) this.rowsHost.append(el('p', 'tvl-provider-message', this.options.rowId ? 'This row is unavailable.' : 'No rows are enabled for this provider.'));
     const credit = el('footer', 'tvl-provider-credit');
-    const tmdb = this.creditLink('', 'https://www.themoviedb.org/');
-    const logo = el('img'); logo.src = tmdbLogo; logo.alt = 'TMDB'; tmdb.append(logo);
-    credit.append(document.createTextNode('UK streaming availability from '), tmdb,
-      document.createTextNode(' and '), this.creditLink('JustWatch', 'https://www.justwatch.com/uk'), document.createTextNode('. Only titles in your Jellyfin library are shown.'));
-    credit.append(el('p', '', 'This product uses the TMDB API but is not endorsed or certified by TMDB.'));
+    credit.append(document.createTextNode('UK streaming availability from '),
+      this.creditLink('JustWatch', 'https://www.justwatch.com/uk'), document.createTextNode('. Only titles in your Jellyfin library are shown.'));
     this.content.append(credit);
     this.focusInitial();
     await Promise.allSettled(this.states.map(row => this.loadRow(row)));
@@ -216,7 +212,7 @@ export class ProviderHomeView {
       if (result.status === 'unavailable' && !result.missingSource) messages.push(result.items.length ? 'Some availability could not be refreshed. Showing the last available results.' : 'UK availability is temporarily unavailable.');
       if (result.missingSource) messages.push(row.config.source === 'collection' || row.config.collectionId
         ? 'The selected collection is unavailable for this account.' : 'The trending collection is unavailable for this account.');
-      if (result.missingIds) messages.push(`${result.missingIds} library titles need TMDB metadata before their availability can be checked.`);
+      if (result.missingIds) messages.push(`${result.missingIds} library titles need matching metadata before their availability can be checked.`);
       if (!messages.length && !row.items.length) messages.push('No matching titles in your library.');
       row.status.textContent = messages.join(' ');
       replace(row.source);

@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.17.3",
+        "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.17/TvItemLayout_0.2.17.3_jellyfin-12.0.0.zip",
+        "checksum": "1fb220dd288cb2ed9c376f3950c216df",
+        "timestamp": "2026-09-27T09:44:42Z"
+      },
+      {
+        "version": "0.2.17.2",
+        "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.17/TvItemLayout_0.2.17.2_jellyfin-10.11.0.zip",
+        "checksum": "a13b9cc25197820935b0379ead2a03f4",
+        "timestamp": "2026-09-27T09:44:42Z"
+      },
+      {
+        "version": "0.2.17.1",
+        "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.17/TvItemLayout_0.2.17.1_jellyfin-10.10.7.zip",
+        "checksum": "38e6c9c35a8ec847699f05041a751848",
+        "timestamp": "2026-09-27T09:44:42Z"
+      },
+      {
         "version": "0.2.16.3",
         "changelog": "Adds a fixed animated cinema Home loader and restores account-scoped Home scroll/card positions after loading. Streaming services now support tile size, hidden name labels, custom services and editable names, logos, colours, source IDs, offer types and rows with live draft previews. Adds UK BBC iPlayer, ITVX and Channel 4 presets. Existing choices migrate without overwriting your saved layout. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
