@@ -16,7 +16,7 @@ body.tvl-login-native { background:#101112;color:#f5f5f2; }
   background:transparent;backdrop-filter:none;border-radius:0;transform:none;
 }
 .tvl-login-native #loginPage>.padded-left::before {
-  content:'JELLYFIN CINEMA';display:block;margin:0 0 2rem;
+  content:'SCREENHARBOUR';display:block;margin:0 0 2rem;
   color:#b9cdbc;font-size:.78rem;font-weight:650;letter-spacing:.3em;text-align:center;
 }
 .tvl-login-native #loginPage .visualLoginForm { width:100%; }

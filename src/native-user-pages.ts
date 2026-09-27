@@ -104,7 +104,7 @@ export class NativeUserPages {
     }
     if (!this.providerSection) {
       this.providerSection = el('section', 'verticalSection tvl-settings-providers');
-      this.providerSection.append(el('h2', 'sectionTitle', 'Cinema'));
+      this.providerSection.append(el('h2', 'sectionTitle', 'ScreenHarbour'));
       const link = el('a', 'emby-button show-focus listItem-border tvl-settings-provider-link'); link.href = '#/mypreferencesmenu?cinemaProviders=1';
       const item = el('div', 'listItem');
       const glyph = el('span', 'material-icons listItemIcon listItemIcon-transparent', 'video_library'); glyph.setAttribute('aria-hidden', 'true');

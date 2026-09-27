@@ -112,7 +112,7 @@ test('transport uses current native authentication, preserves conditional revisi
   current = false; await assert.rejects(transport.load(), /account changed/); await assert.rejects(transport.save(settings('No'), null), /account changed/); assert.equal(calls.length, 2);
 });
 test('transport translates conflicts, missing endpoints, auth and size failures without concealing them', async () => {
-  for (const [status, kind, message] of [[409, 'conflict', /draft/], [401, 'unavailable', /Sign in/], [403, 'unavailable', /Sign in/], [404, 'unavailable', /Update Jellyfin/], [413, 'invalid', /too large/], [500, 'unavailable', /could not sync/]] as const) {
+  for (const [status, kind, message] of [[409, 'conflict', /draft/], [401, 'unavailable', /Sign in/], [403, 'unavailable', /Sign in/], [404, 'unavailable', /Update ScreenHarbour/], [413, 'invalid', /too large/], [500, 'unavailable', /could not sync/]] as const) {
     const transport = createProviderHomesTransport({ getUrl: path => path, getJSON: async () => { throw { response: { status } }; }, ajax: async () => { throw { statusCode: status }; } }, () => true);
     for (const operation of [() => transport.load(), () => transport.save(settings('Draft'), null)]) await assert.rejects(operation(), error => error instanceof ProviderHomesSyncError && error.kind === kind && message.test(error.message));
   }

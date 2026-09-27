@@ -15,7 +15,7 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddHttpClient("JellyfinCinemaProviders", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(15);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Jellyfin-Cinema/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("ScreenHarbour/1.0");
         }).RemoveAllLoggers(); // The TMDB query string contains its configured API key.
         serviceCollection.AddSingleton<TmdbProviderSource>();
         serviceCollection.AddSingleton<ProviderAvailabilityService>();

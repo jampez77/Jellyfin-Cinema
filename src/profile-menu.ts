@@ -54,7 +54,7 @@ export class ProfileMenu {
     const overlay = el('div', 'tvl-profile-overlay');
     const panel = el('section', 'tvl-profile-menu tvl-profile-chooser');
     panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-label', 'Who’s watching?');
-    const brand = el('p', 'tvl-profile-brand', 'Jellyfin Cinema');
+    const brand = el('p', 'tvl-profile-brand', 'ScreenHarbour');
     const heading = el('h2', '', 'Who’s watching?');
     const grid = el('div', 'tvl-profile-grid'); grid.setAttribute('aria-label', 'Profiles');
     const status = el('p', 'tvl-profile-status', 'Loading profiles…'); status.setAttribute('role', 'status');
@@ -176,7 +176,7 @@ export class ProfileMenu {
     let adopting = false;
     const cancel = () => { if (!adopting) { controller.abort(); remove(); } };
     const cancelButton = button('Cancel', '', '', cancel);
-    panel.append(el('p', 'tvl-profile-brand', 'Jellyfin Cinema'), this.artwork(session, profile), el('h2', '', `Opening ${profile.Name}`), status, cancelButton); overlay.append(panel);
+    panel.append(el('p', 'tvl-profile-brand', 'ScreenHarbour'), this.artwork(session, profile), el('h2', '', `Opening ${profile.Name}`), status, cancelButton); overlay.append(panel);
     document.body.append(overlay); document.body.classList.add('tvl-profile-open');
     const detach = attachRemote(panel, cancel);
     const remove = () => {

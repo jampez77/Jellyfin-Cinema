@@ -7,8 +7,9 @@ from pathlib import Path
 from zipfile import ZipFile
 
 root = Path(__file__).resolve().parent.parent
-repository = 'jampez77/Jellyfin-Cinema'
+repository = 'jampez77/ScreenHarbour'
 release_url_prefix = f'https://github.com/{repository}/releases/download/'
+previous_release_url_prefix = 'https://github.com/jampez77/Jellyfin-Cinema/releases/download/'
 release = json.loads((root / 'package.json').read_text())['version']
 plugin_id = '1a06b74f-7609-4af9-899d-430c9b5a52b1'
 client_hash = hashlib.sha256((root / 'dist/jellyfin-tv-layout.js').read_bytes()).hexdigest()
@@ -27,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Partly rewatched movies and episodes retain Resume and Play from beginning even when Jellyfin preserves their historical watched flag. Movies and TV Shows cards show current playback progress, including Continue watching. Cinema presents partial rewatches as in progress without resetting viewing history. Streaming-service collection choices remain account-specific; restart preservation is verified and unreadable settings no longer appear empty. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Renamed to ScreenHarbour, an independent cinematic interface for Jellyfin. Updates plugin and interface names, catalogue artwork, documentation and demo to follow Jellyfin's branding guidance. Existing plugin identity, saved collection rows, streaming-service choices and playback data are preserved. Update your catalogue URL to https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/manifest.json, then update without uninstalling. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
@@ -40,21 +41,26 @@ if manifest_path.exists():
     previous = next((item for item in json.loads(manifest_path.read_text()) if item['guid'] == plugin_id), None)
     if previous:
         current = {item['version'] for item in versions}
-        # A moved catalogue must not depend on downloads in the former repository.
-        versions.extend(
-            item for item in previous['versions']
-            if item['version'] not in current
-            and item.get('sourceUrl', '').startswith(release_url_prefix)
-        )
+        # This is a rename of the same repository: its existing release assets
+        # move with it. Keep their versions/checksums and canonicalise only URLs
+        # from the known former name; unrelated repositories stay excluded.
+        for item in previous['versions']:
+            if item['version'] in current:
+                continue
+            source_url = item.get('sourceUrl', '')
+            if source_url.startswith(previous_release_url_prefix):
+                source_url = release_url_prefix + source_url[len(previous_release_url_prefix):]
+            if source_url.startswith(release_url_prefix):
+                versions.append({**item, 'sourceUrl': source_url})
 versions.sort(key=lambda item: tuple(map(int, item['version'].split('.'))), reverse=True)
 manifest = [{
     'guid': plugin_id,
-    'name': 'Jellyfin Cinema',
+    'name': 'ScreenHarbour',
     'overview': 'Cinematic TV and desktop browsing, personal collection rows and in-player navigation.',
-    'description': 'A cinematic style for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly TV Item Layout, with the same plugin ID for upgrades. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
+    'description': 'An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
     'owner': 'jampez77',
     'category': 'General',
-    'imageUrl': f'https://raw.githubusercontent.com/{repository}/main/assets/catalogue/jellyfin-cinema.png',
+    'imageUrl': f'https://raw.githubusercontent.com/{repository}/main/assets/catalogue/screenharbour.png',
     'versions': versions,
 }]
 manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
