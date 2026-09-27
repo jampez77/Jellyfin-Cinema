@@ -1,4 +1,4 @@
-import type { Item, MediaApi } from './types';
+import type { Item, ItemUserData, MediaApi } from './types';
 import { el, icon, button, picture, replace } from './dom';
 import { runtime, progress, playbackEnd, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
 import { attachRemote } from './remote';
@@ -11,9 +11,13 @@ export class DetailView {
   private status = el('div', 'tvl-status');
   private item!: Item;
   private target: Item | null = null;
+  private watchedItem?: Item;
+  private watchedPending = false;
+  private watchedRevision = 0;
   private seasons: Item[] = [];
   private selectedSeason?: Item;
   private episodes = new Map<string, Item[]>();
+  private episodeRequests = new Map<string, Promise<Item[]>>();
   private similar: Item[] = [];
   private pane: Pane = 'overview';
   private disposed = false;
@@ -49,6 +53,7 @@ export class DetailView {
       const requested = await this.api.getItem(this.options.id);
       if (this.disposed) return;
       this.item = requested;
+      this.watchedItem = requested;
       if (this.options.openAdditional?.(requested)) return;
       if (requested.Type === 'Season' || requested.Type === 'Episode') {
         if (!requested.SeriesId) { this.options.close(); return; }
@@ -187,14 +192,7 @@ export class DetailView {
     if (live && programme?.StartDate && programme.EndDate) body.append(this.liveProgress(programme));
     if (this.target && !live && progress(this.target) > 0 && progress(this.target) < 100) body.append(this.resumeProgress(this.target));
     const actions = el('div',`tvl-actions${movie ? ' tvl-actions-movie' : ''}`);
-    const play = button(this.playLabel(), 'play', 'tvl-primary', () => { if(this.target) void this.play(this.target); });
-    play.dataset.focusId = 'play'; play.disabled = !this.target || !playable(this.target);
-    if (this.target?.Type === 'Episode' && this.canResume()) {
-      const playback = el('div', 'tvl-playback-actions');
-      const restart = button('Play from beginning', '', 'tvl-restart', () => { if(this.target) void this.play(this.target, 0); });
-      restart.dataset.focusId = 'restart'; restart.disabled = play.disabled;
-      playback.append(play, restart); actions.append(playback);
-    } else actions.append(play);
+    actions.append(this.playbackActions());
     if (movie) {
       const trailer=button('Trailer','trailer','tvl-trailer',()=>void this.playTrailer());
       trailer.setAttribute('aria-label','Watch trailer');trailer.dataset.focusId='trailer';
@@ -219,6 +217,10 @@ export class DetailView {
     if (!live && this.collectionAccess !== false && this.api.canManageCollections && this.api.addToCollection && this.api.createCollection) {
       const add = button('Add to collection', 'grid', 'tvl-add-collection', () => this.openCollectionPicker());
       add.dataset.focusId = 'add-collection'; actions.insertBefore(add, favorite);
+    }
+    if (!live && this.watchedItem && this.api.setPlayed) {
+      const watched = this.watchedButton(this.watchedItem, movie ? 'tvl-icon-button' : '');
+      watched.dataset.focusId = 'watched'; actions.insertBefore(watched, favorite);
     }
     body.append(actions);
     if (!live && !movie && this.item.Genres?.length) body.append(el('p','tvl-genre-line',this.item.Genres.slice(0,3).join('  ·  ')));
@@ -295,6 +297,15 @@ export class DetailView {
     const code = this.item.Type === 'Series' ? episodeCode(this.target) : '';
     return `${this.canResume() ? 'Resume' : 'Play'}${code ? ` ${code}` : ''}`;
   }
+  private playbackActions(): HTMLElement {
+    const play = button(this.playLabel(), 'play', 'tvl-primary', () => { if(this.target) void this.play(this.target); });
+    play.dataset.focusId = 'play'; play.disabled = !this.target || !playable(this.target);
+    if (this.target?.Type !== 'Episode' || !this.canResume()) return play;
+    const playback = el('div', 'tvl-playback-actions');
+    const restart = button('Play from beginning', '', 'tvl-restart', () => { if(this.target) void this.play(this.target, 0); });
+    restart.dataset.focusId = 'restart'; restart.disabled = play.disabled;
+    playback.append(play, restart); return playback;
+  }
   private canResume(): boolean {
     return !!this.target && (this.target.UserData?.PlaybackPositionTicks || 0) > 0 && !this.target.UserData?.Played;
   }
@@ -308,24 +319,38 @@ export class DetailView {
     else this.options.back();
   }
   private async fetchEpisodes(season: Item): Promise<Item[]> {
+    const pending = this.episodeRequests.get(season.Id);
+    if (pending) return pending;
     const cached = this.episodes.get(season.Id);
     if (cached) return cached;
-    const items = await this.api.getEpisodes(this.item.Id, season.Id);
-    if (!this.disposed) this.episodes.set(season.Id,items);
-    return items;
+    const request = (async () => {
+      let revision: number, items: Item[];
+      do {
+        revision = this.watchedRevision;
+        items = await this.api.getEpisodes(this.item.Id, season.Id);
+        // A list started before a watched write must not put old badges back.
+      } while (!this.disposed && revision !== this.watchedRevision);
+      if (!this.disposed) this.episodes.set(season.Id, items);
+      return items;
+    })();
+    this.episodeRequests.set(season.Id, request);
+    try { return await request; }
+    finally { if (this.episodeRequests.get(season.Id) === request) this.episodeRequests.delete(season.Id); }
   }
   private moveBetweenSeasons(direction: string): boolean {
     if (this.pane !== 'episodes' || !this.selectedSeason || !['up','down'].includes(direction)) return false;
     const cards = Array.from(this.element.querySelectorAll<HTMLElement>('.tvl-episode'));
     const current = document.activeElement as HTMLElement;
+    const currentCard = current.closest('.tvl-episode-row')?.querySelector('.tvl-episode') || current;
     const forwards = direction === 'down';
-    if (!cards.length || current !== cards[forwards ? cards.length - 1 : 0]) return false;
+    if (!cards.length || currentCard !== cards[forwards ? cards.length - 1 : 0]) return false;
     const seasonIndex = this.seasons.findIndex(season => season.Id === this.selectedSeason?.Id);
     const next = this.seasons[seasonIndex + (forwards ? 1 : -1)];
     if (next) {
       this.selectedSeason = next;
-      void this.updateEpisodes(forwards ? 'first' : 'last');
+      void this.updateEpisodes(forwards ? 'first' : 'last', !!current.dataset.watchedId);
     }
+    else if (!forwards && current.dataset.watchedId) return false;
     // At the outer edges, keep the episode focused instead of wrapping seasons.
     return true;
   }
@@ -351,7 +376,7 @@ export class DetailView {
     void this.updateEpisodes();
     const active = seasons.querySelector<HTMLElement>('[aria-pressed="true"]'); active?.focus({preventScroll:true});
   }
-  private async updateEpisodes(focusEdge?: 'first' | 'last'): Promise<void> {
+  private async updateEpisodes(focusEdge?: 'first' | 'last', watchedEdge = false): Promise<void> {
     if (!this.selectedSeason) return;
     const season = this.selectedSeason;
     const revision = ++this.loadingRevision;
@@ -362,8 +387,10 @@ export class DetailView {
     // Only move it into the new list if the user has not navigated elsewhere.
     anchor?.focus({preventScroll:true});
     const heading = el('div','tvl-browser-heading');heading.append(el('h2','',seasonName(season)));
+    if (this.api.setPlayed) heading.append(this.watchedButton(season, 'tvl-season-watched'));
     area.setAttribute('aria-busy','true');
-    replace(area,heading,el('div','tvl-loading','Loading episodes…'));
+    const loading = el('div','tvl-loading','Loading episodes…');
+    replace(area,heading,loading);
     try {
       const items = await this.fetchEpisodes(season);
       if (this.disposed || revision !== this.loadingRevision || this.pane !== 'episodes') return;
@@ -381,22 +408,26 @@ export class DetailView {
         copy.append(title,el('p','',plainText(episode.Overview)||'No synopsis available.'));
         if (episode.UserData?.Played) {const watched=el('span','tvl-watched','Watched');watched.prepend(icon('check'));copy.append(watched);}
         else if (episode.UserData?.PlaybackPositionTicks) copy.append(el('span','tvl-continue','Continue watching'));
-        card.append(thumb,copy);card.addEventListener('click',()=>void this.play(episode));list.append(card);
+        card.append(thumb,copy);card.addEventListener('click',()=>void this.play(episode));
+        const row = el('div', 'tvl-episode-row'); row.append(card);
+        if (this.api.setPlayed) row.append(this.watchedButton(episode, 'tvl-icon-button tvl-episode-watched', `${episodeCode(episode)} ${episode.Name}`));
+        list.append(row);
       }
-      replace(area,heading,list);
+      loading.replaceWith(list);
       area.setAttribute('aria-busy','false');
       if (anchor && document.activeElement === anchor) {
         const cards = list.querySelectorAll<HTMLElement>('.tvl-episode');
-        const target = cards[focusEdge === 'last' ? cards.length - 1 : 0];
+        const card = cards[focusEdge === 'last' ? cards.length - 1 : 0];
+        const target = (watchedEdge ? card?.parentElement?.querySelector<HTMLElement>('[data-watched-id]') : card) || card;
         target?.focus({preventScroll:true});
         target?.scrollIntoView({block:'nearest',inline:'nearest'});
         if (!target) this.announce(`${seasonName(season)} has no episodes available.`);
       }
     } catch {
       if (this.disposed || revision !== this.loadingRevision || this.pane !== 'episodes') return;
-      replace(area,heading,this.empty('Episodes could not be loaded','Check your connection and try again.',()=>void this.updateEpisodes(focusEdge)));
+      loading.replaceWith(this.empty('Episodes could not be loaded','Check your connection and try again.',()=>void this.updateEpisodes(focusEdge)));
       area.setAttribute('aria-busy','false');
-      if (anchor && document.activeElement === anchor) area.querySelector<HTMLElement>('button')?.focus({preventScroll:true});
+      if (anchor && document.activeElement === anchor) area.querySelector<HTMLElement>('.tvl-empty button')?.focus({preventScroll:true});
     }
   }
   private async renderSimilar(): Promise<void> {
@@ -477,6 +508,115 @@ export class DetailView {
       if(node){node.setAttribute('aria-pressed',String(value));node.setAttribute('aria-label',value?'Remove from favourites':'Add to favourites');const label=node.querySelector('span');if(label)label.textContent=value?'In favourites':'Add to favourites';}
       this.announce(value?'Added to your favourites':'Removed from your favourites');
     }catch{this.announce('Could not update favourites. Please try again.');}finally{this.favoritePending=false;}
+  }
+  private watchedButton(item: Item, className: string, label?: string): HTMLButtonElement {
+    const subject = label || (item.Type === 'Movie' ? '' : (item.Type || '').toLowerCase());
+    const node = button('', 'check', `tvl-watch-toggle ${className}`, () => void this.toggleWatched(item));
+    node.dataset.watchedId = item.Id; node.dataset.watchedSubject = subject;
+    this.updateWatchedButton(node, item); return node;
+  }
+  private updateWatchedButton(node: HTMLButtonElement, item: Item): void {
+    const played = !!item.UserData?.Played;
+    const label = `Mark ${node.dataset.watchedSubject ? `${node.dataset.watchedSubject} ` : ''}${played ? 'unwatched' : 'watched'}`;
+    node.setAttribute('aria-label', label); node.title = label;
+    node.setAttribute('aria-pressed', String(played));
+    node.setAttribute('aria-disabled', String(this.watchedPending));
+    node.setAttribute('aria-busy', String(this.watchedPending));
+    const caption = node.querySelector('span'); if (caption) caption.textContent = label;
+  }
+  private watchedItems(): Item[] {
+    return [this.item, this.target, this.watchedItem, ...this.seasons, ...Array.from(this.episodes.values()).flat()]
+      .filter((item): item is Item => !!item);
+  }
+  private applyWatchedData(id: string, data?: ItemUserData): void {
+    if (!data) return;
+    // Favourite writes can complete independently; only copy watch-related fields.
+    for (const item of this.watchedItems().filter(item => item.Id === id)) {
+      item.UserData = { ...item.UserData, Played: data.Played, PlaybackPositionTicks: data.PlaybackPositionTicks,
+        PlayedPercentage: data.PlayedPercentage, PlayCount: data.PlayCount, LastPlayedDate: data.LastPlayedDate,
+        UnplayedItemCount: data.UnplayedItemCount };
+    }
+  }
+  private async refreshRelatedWatched(item: Item): Promise<boolean> {
+    const ids = new Set<string>();
+    if (item.Type === 'Episode') {
+      if (item.SeriesId) ids.add(item.SeriesId);
+      if (item.SeasonId) ids.add(item.SeasonId);
+    } else if (item.Type === 'Season') {
+      if (item.SeriesId) ids.add(item.SeriesId);
+      if (this.target?.SeasonId === item.Id) ids.add(this.target.Id);
+    } else if (item.Type === 'Series') {
+      for (const season of this.seasons) ids.add(season.Id);
+      if (this.target) ids.add(this.target.Id);
+    }
+    const reads = Array.from(ids).map(async id => {
+      const updated = await this.api.getItem(id);
+      if (!this.disposed) this.applyWatchedData(id, updated.UserData);
+    });
+    if (item.Type === 'Series' || item.Type === 'Season') {
+      for (const seasonId of this.episodes.keys()) {
+        if (item.Type === 'Season' && seasonId !== item.Id) continue;
+        reads.push((async () => {
+          const updated = await this.api.getEpisodes(this.item.Id, seasonId);
+          if (!this.disposed) for (const episode of updated) this.applyWatchedData(episode.Id, episode.UserData);
+        })());
+      }
+    }
+    const results = await Promise.allSettled(reads);
+    return results.every(result => result.status === 'fulfilled');
+  }
+  private refreshWatchedControls(): void {
+    const items = this.watchedItems();
+    this.element.querySelectorAll<HTMLButtonElement>('[data-watched-id]').forEach(node => {
+      const item = items.find(item => item.Id === node.dataset.watchedId);
+      if (item) this.updateWatchedButton(node, item);
+    });
+  }
+  private refreshWatchedPresentation(): void {
+    this.refreshWatchedControls();
+    this.element.querySelectorAll<HTMLButtonElement>('[data-episode]').forEach(card => {
+      const episode = this.watchedItems().find(item => item.Id === card.dataset.episode); if (!episode) return;
+      card.setAttribute('aria-label', `${episodeCode(episode)} ${episode.Name}${episode.UserData?.Played ? ', watched' : ''}`);
+      const copy = card.querySelector('.tvl-episode-copy');
+      copy?.querySelectorAll('.tvl-watched,.tvl-continue').forEach(node => node.remove());
+      if (episode.UserData?.Played) {
+        const badge = el('span', 'tvl-watched', 'Watched'); badge.prepend(icon('check')); copy?.append(badge);
+      } else if (episode.UserData?.PlaybackPositionTicks) copy?.append(el('span', 'tvl-continue', 'Continue watching'));
+      const thumb = card.querySelector('.tvl-episode-thumb'); thumb?.querySelector('.tvl-thumb-progress')?.remove();
+      if (progress(episode) > 0) { const bar = el('span', 'tvl-thumb-progress'); bar.style.width = `${progress(episode)}%`; thumb?.append(bar); }
+    });
+    if (this.pane !== 'overview') return;
+    const actions = this.content.querySelector<HTMLElement>('.tvl-actions');
+    const old = actions?.querySelector<HTMLElement>('.tvl-playback-actions, [data-focus-id="play"]');
+    if (old) {
+      const focused = old.contains(document.activeElement);
+      const playback = this.playbackActions(); old.replaceWith(playback);
+      if (focused) this.focusFirst('play');
+    }
+    this.content.querySelector('.tvl-resume')?.remove();
+    if (this.target && progress(this.target) > 0 && progress(this.target) < 100) actions?.before(this.resumeProgress(this.target));
+    const metadata = this.content.querySelector<HTMLElement>('.tvl-hero .tvl-meta');
+    if (metadata) { window.clearTimeout(this.endTimeTimer); metadata.querySelector('.tvl-end-time')?.remove(); this.appendEndTime(metadata); }
+  }
+  private async toggleWatched(item: Item): Promise<void> {
+    if (this.watchedPending || !this.api.setPlayed || this.disposed) return;
+    this.watchedPending = true; this.refreshWatchedControls();
+    const played = !item.UserData?.Played;
+    try {
+      const data = await this.api.setPlayed(item.Id, played);
+      if (this.disposed) return;
+      this.watchedRevision++;
+      this.applyWatchedData(item.Id, data); this.refreshWatchedPresentation();
+      const refreshed = await this.refreshRelatedWatched(item);
+      if (this.disposed) return;
+      this.refreshWatchedPresentation();
+      this.announce(`${item.Name} marked ${data.Played ? 'watched' : 'unwatched'}.${refreshed ? '' : ' Reopen the details to refresh related episodes.'}`);
+    } catch {
+      if (!this.disposed) this.announce('Could not update watched status. Please try again.');
+    } finally {
+      this.watchedPending = false;
+      if (!this.disposed) this.refreshWatchedControls();
+    }
   }
   private openCollectionPicker(): void {
     if (this.collectionPicker || this.disposed) return;

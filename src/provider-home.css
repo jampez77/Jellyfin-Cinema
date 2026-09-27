@@ -13,9 +13,13 @@
 .tvl-provider-tile:focus { outline:none; }
 .tvl-provider-tile:focus .tvl-provider-tile-mark { outline:2px solid #f2faf4;outline-offset:3px;border-color:var(--provider-accent); }
 .tvl-provider-tile:hover .tvl-provider-tile-mark { background:linear-gradient(135deg,#343840,#1c2025);border-color:var(--provider-accent); }
+/* TV navigation uses one accent ring around the artwork, including on hover. */
+.layout-tv .tvl-provider-tile:focus .tvl-provider-tile-mark { outline-color:var(--provider-accent,#d3e7de);border-color:transparent; }
 .tvl-provider-home { display:flex;flex-direction:column; }
 .tvl-provider-header { flex-shrink:0;position:relative;z-index:2;padding:1rem 4.5vw .9rem;background:#101112;border-bottom:1px solid #ffffff18; }
 .tvl-provider-header>.tvl-back { position:absolute;left:4.5vw;top:1.2rem; }
+.tvl-provider-header>.tvl-provider-edit { position:absolute;right:4.5vw;top:1.2rem;font-size:.8em;border-color:#8f9c93; }
+.tvl-provider-editable .tvl-provider-identity { padding-right:9rem; }
 .tvl-provider-identity { display:flex;justify-content:center;align-items:center;min-height:3.5rem;padding:0 7rem; }
 .tvl-provider-identity>div { min-width:0; }
 .tvl-provider-header-logo { flex-shrink:0;width:8rem;height:2.7rem;margin-right:1.3rem; }
@@ -55,3 +59,4 @@
 .tvl-provider-more[hidden] { display:none; }
 .tvl-provider-message { padding:2rem 0;color:#b8c5bb; }
 @media(max-width:800px){.tvl-provider-header-logo{width:5rem;margin-right:.7rem}.tvl-provider-identity{justify-content:flex-end;padding:0 0 0 6rem}.tvl-provider-identity h1{font-size:1em}.tvl-provider-hero{min-height:20rem}.tvl-provider-feature-copy{width:70%}.tvl-provider-feature-title{font-size:2em}.tvl-provider-rows{padding-top:1.2rem}.tvl-provider-grid{grid-template-columns:repeat(auto-fill,minmax(9rem,1fr))}.tvl-provider-tile{width:calc(12rem * var(--provider-tile-scale,1))}.tvl-provider-tile-mark{height:calc(7rem * var(--provider-tile-scale,1))}}
+@media(max-width:800px){.tvl-provider-editable .tvl-provider-identity{justify-content:flex-start;padding:3.8rem 0 0}}

@@ -4,6 +4,16 @@ import type { ProviderHomesTransport } from './provider-settings-store';
 import type { ProviderId, ProviderHomeConfig } from './provider-settings';
 import type { ProviderItemsQuery, ProviderItemsPage } from './provider-data';
 
+export type ProviderDirectoryEntry = { Id: number; Name: string };
+export type ProviderDirectory = { Region: 'GB'; Movies: ProviderDirectoryEntry[]; Shows: ProviderDirectoryEntry[] };
+
+export type ItemUserData = {
+  ItemId?: string; Key?: string;
+  PlaybackPositionTicks?: number; Played?: boolean; IsFavorite?: boolean; PlayedPercentage?: number | null;
+  PlayCount?: number; LastPlayedDate?: string | null; UnplayedItemCount?: number | null;
+  Rating?: number | null; Likes?: boolean | null;
+};
+
 export type Item = {
   Id: string; Name: string; Type?: string; Overview?: string; OriginalTitle?: string;
   CollectionType?: string;
@@ -24,7 +34,7 @@ export type Item = {
   ImageTags?: Record<string, string>; BackdropImageTags?: string[];
   ParentBackdropItemId?: string; ParentBackdropImageTags?: string[];
   SeriesPrimaryImageTag?: string; MediaStreams?: { Type?: string; Width?: number; DisplayTitle?: string; Language?: string }[];
-  UserData?: { PlaybackPositionTicks?: number; Played?: boolean; IsFavorite?: boolean; PlayedPercentage?: number };
+  UserData?: ItemUserData;
 };
 
 export type LibraryQuery = {
@@ -48,6 +58,7 @@ export interface MediaApi extends BrowseApi {
   userId?: string;
   homeCollections?: HomeCollectionTransport;
   providerHomes?: ProviderHomesTransport;
+  getProviderDirectory?(): Promise<ProviderDirectory>;
   getProviderItems?(provider: ProviderId, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
   previewProviderItems?(provider: ProviderHomeConfig, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
   getItem(id: string): Promise<Item>;
@@ -71,6 +82,7 @@ export interface MediaApi extends BrowseApi {
   getChannels(): Promise<Item[]>;
   getPrograms(channelId: string): Promise<Item[]>;
   setFavorite(id: string, favorite: boolean): Promise<void>;
+  setPlayed?(id: string, played: boolean): Promise<ItemUserData>;
   play(item: Item, ticks: number, isCurrent: () => boolean): Promise<void>;
   playPlaylist(playlist: Item, entryId: string | undefined, isCurrent: () => boolean): Promise<void>;
   playTrailer(item: Item, isCurrent: () => boolean): Promise<void>;

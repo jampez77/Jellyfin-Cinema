@@ -79,7 +79,7 @@ let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
 type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderId;rowId?:string}|{kind:'provider-settings'}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
+type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderId;rowId?:string}|{kind:'provider-settings';providerId?:ProviderId}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
   homeCollections?.destroy();homeCollections=null;
   providerPreview?.destroy();providerPreview=undefined;
@@ -94,7 +94,8 @@ function currentRoute():Route|null{
   const [path,query='']=location.hash.replace(/^#\/?/,'').split('?');
   const params=new URLSearchParams(query);
   if(/^mypreferencesmenu\/?$/i.test(path)&&params.get('cinemaProviders')==='1'
-    &&onlyParams(params,['cinemaProviders','serverId']))return {kind:'provider-settings'};
+    &&onlyParams(params,['cinemaProviders','cinemaService','serverId'])
+    &&(!params.has('cinemaService')||validProviderId(params.get('cinemaService'))))return {kind:'provider-settings',providerId:params.get('cinemaService')||undefined};
   if(/^home\/?$/i.test(path)){
     const provider=params.get('cinemaProvider');
     if(provider&&validProviderId(provider)&&onlyParams(params,['serverId','cinemaProvider','cinemaRow']))
@@ -339,13 +340,15 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   if(route.kind==='provider'){
     ensureProviderVisit(api,route.provider);
     const hash=location.hash;
-    view=new ProviderHomeView(api,{provider:route.provider,rowId:route.rowId,focusId,back,navigate:go,openRow:id=>openProvider(route.provider,id),state:providerStates.get(hash),onState:state=>{
+    view=new ProviderHomeView(api,{provider:route.provider,rowId:route.rowId,focusId,back,navigate:go,
+      edit:document.body.classList.contains('layout-desktop')?()=>navigateRoute(`#/mypreferencesmenu?cinemaProviders=1&cinemaService=${encodeURIComponent(route.provider)}`):undefined,
+      openRow:id=>openProvider(route.provider,id),state:providerStates.get(hash),onState:state=>{
       providerStates.set(hash,state);if(providerStates.size>100)providerStates.delete(providerStates.keys().next().value!);
     }});
   }
   else if(route.kind==='provider-settings'){
     const data=new ProviderData(api);providerPreview=data;
-    view=new ProviderSettingsEditor(api,{onBack:back,loadPreview:async(provider,row)=>(await data.load(provider,row,0,8,true)).items});
+    view=new ProviderSettingsEditor(api,{onBack:back,providerId:route.providerId,loadPreview:async(provider,row)=>(await data.load(provider,row,0,8,true)).items});
   }
   else if(route.kind==='guide')view=new GuideView(api,{back});
   else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});

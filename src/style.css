@@ -112,6 +112,15 @@ body.tvl-open { overflow: hidden !important; }
 .tvl-actions-movie > .tvl-icon-button { border:1px solid #a1aaa5; border-radius:50%; width:3em; height:3em; min-height:3em; padding:0; justify-content:center; }
 .tvl-icon-button svg { margin:0; }
 .tvl-icon-button > span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.tvl-watch-toggle { color:#b9c2bd; }
+.tvl-watch-toggle[aria-pressed=true] { color:#b7efc7; }
+.tvl-watch-toggle[aria-pressed=true] svg { fill:none; stroke-width:2.5; }
+.tvl-watch-toggle[aria-disabled=true] { opacity:.5; cursor:wait; }
+.tvl-episode-row { display:flex; align-items:center; margin-bottom:.8vw; }
+.tvl-episode-row > .tvl-episode { flex:1; min-width:0; width:0; margin-bottom:0; }
+.tvl-episode-watched { flex:0 0 auto; width:2.8em; height:2.8em; margin-left:.6em; padding:0; border:1px solid #818d85; border-radius:50%; justify-content:center; }
+.tvl-episode-watched[aria-pressed=true], .tvl-actions-movie > .tvl-watch-toggle[aria-pressed=true] { background:#294236; border-color:#85bb97; }
+.tvl-season-watched { margin-left:auto; font-size:.75em; white-space:nowrap; }
 .tvl-film-details { display:flex; padding:1.5vw 5.5vw 3vw; background:linear-gradient(transparent,#101112); }
 .tvl-film-description { width:62%; padding-right:6vw; font-size:.88em; color:#d5d9d6; line-height:1.7; }
 .tvl-film-description .tvl-tagline { color:#fff; font-weight:550; margin-bottom:.6em; }

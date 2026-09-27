@@ -23,16 +23,6 @@ export class ProviderDataError extends Error {
 }
 
 const CACHE_MS = 30_000;
-const chartProviders: Partial<Record<ProviderBrandId, { movies: string; shows: string }>> = {
-  netflix: { movies: 'nfx', shows: 'nfx' }, prime: { movies: 'amp', shows: 'amp' },
-  disney: { movies: 'dnp', shows: 'dnp' }, apple: { movies: 'atp', shows: 'atp' },
-  now: { movies: 'ntc', shows: 'ntv' }, paramount: { movies: 'pmp', shows: 'pmp' }
-};
-// SmartLists appends this default decoration to its configured collection name.
-// Remove only that terminal marker; provider, country and media type must still
-// match exactly, and multiple distinct collections remain ambiguous.
-const normalizedName = (value: string): string => value.normalize('NFKC')
-  .replace(/\s*\[smart\]\s*$/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const invalid = () => new ProviderDataError('invalid', 'Jellyfin returned invalid provider items. Try again.');
 const itemIdentity = (id: string): string => /^[\da-f]{32}$|^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id) ? id.replace(/-/g, '').toLowerCase() : id;
@@ -90,8 +80,6 @@ export class ProviderData {
     const generation = this.generation; this.current(generation);
     if (typeof provider === 'string' && !providerBrand(provider)) throw invalid();
     const config = typeof provider === 'string' ? defaultProviderConfig(provider) : provider;
-    const brand = providerBrand(config.id);
-    const chart = brand && chartProviders[brand.id];
     const start = Number.isFinite(startIndex) ? Math.max(0, Math.floor(startIndex)) : 0;
     const size = Number.isFinite(limit) ? Math.min(100, Math.max(1, Math.floor(limit))) : 60;
     const type = row.source === 'movies' || row.source === 'trending-movies' ? 'Movie'
@@ -119,27 +107,15 @@ export class ProviderData {
         status: page.Status, sourceLabel, sourceUrl, updatedAt: page.UpdatedAt, missingIds: page.MissingIds, failedIds: page.FailedIds };
     }
 
-    let source = collectionId;
-    let sourceLabel = 'Selected Jellyfin collection';
-    let sourceUrl: string | undefined;
-    if (!source && chart && brand && (row.source === 'trending-movies' || row.source === 'trending-shows')) {
-      const shows = row.source === 'trending-shows';
-      const expected = normalizedName(`${brand.name} Trending ${shows ? 'Shows' : 'Movies'} UK`);
-      const collections = await this.collectionItems('collections', () => this.api.getCollectionList(), generation);
-      this.current(generation);
-      const matches = collections.filter(item => item && typeof item.Id === 'string' && item.Id && typeof item.Name === 'string'
-        && (!item.Type || item.Type === 'BoxSet') && normalizedName(item.Name) === expected);
-      const ids = [...new Map(matches.map(item => [itemIdentity(item.Id), item.Id])).values()];
-      sourceLabel = 'UK weekly streaming charts · JustWatch via MDBList';
-      sourceUrl = `https://mdblist.com/lists/official/${shows ? 'shows' : 'movies'}/justwatch-streaming-charts?locale=en_GB&rank=7&provider=${chart[shows ? 'shows' : 'movies']}`;
-      if (ids.length === 1) source = ids[0];
-    }
-    if (!source) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl, missingSource: true };
-    const raw = await this.collectionItems(`items:${source}`, () => this.api.getCollectionItems(source), generation);
+    const sourceLabel = 'Selected Jellyfin collection';
+    // Collection identity is saved in the row, never rediscovered from a name.
+    // A rename, daily/weekly suffix or another similarly named chart cannot change it.
+    if (!collectionId) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, missingSource: true };
+    const raw = await this.collectionItems(`items:${collectionId}`, () => this.api.getCollectionItems(collectionId), generation);
     this.current(generation);
     const ordered = orderHomeItems(playableItems(raw, type), { itemSort: row.itemSort, itemOrder: [] });
     return { items: ordered.slice(start, start + size), total: ordered.length, pending: 0, totalToCheck: 0,
-      status: 'ready', sourceLabel, sourceUrl };
+      status: 'ready', sourceLabel };
   }
 
   invalidate(): void {

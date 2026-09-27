@@ -29,6 +29,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 public static class ProviderChecks
 {
+    private static TmdbProviderSource directorySource = null!;
     public static async Task Run(Action<bool, string> assert)
     {
         using var json = JsonDocument.Parse("""{"results":{"US":{"flatrate":[{"provider_id":350}]},"GB":{"flatrate":[{"provider_id":8},{"provider_id":337}],"buy":[{"provider_id":9}],"rent":[{"provider_id":350}],"ads":[{"provider_id":531}],"free":[{"provider_id":38}]}}}""");
@@ -80,6 +81,7 @@ public static class ProviderChecks
         fixture.Configuration.TmdbApiKey = "";
         assert(TmdbProviderSource.NativeApiKey() == "fixture-fallback", "Provider lookup can use the installed TMDB integration's native fallback without copying a key");
         fixture.Configuration.TmdbApiKey = "fixture-configured";
+        directorySource = await ProviderDirectoryChecks.Run(assert);
         var handler = new ProviderHttpFixture();
         using var client = new HttpClient(handler);
         var factory = InterfaceStub.Create<IHttpClientFactory>((_, _) => client);
@@ -278,9 +280,13 @@ public static class ProviderChecks
         });
         var directory = Path.Combine(Path.GetTempPath(), "cinema-catalogue-check-" + Guid.NewGuid().ToString("N"));
         var paths = InterfaceStub.Create<IApplicationPaths>((method, _) => method.Name == "get_DataPath" ? directory : throw new Exception("Unexpected path"));
-        var controller = new ProviderItemsController(authorization, sessions, users, devices, network, library, dtos, availability, paths)
+        var controller = new ProviderItemsController(authorization, sessions, users, devices, network, library, dtos, availability, paths, directorySource)
         { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         controller.HttpContext.Connection.RemoteIpAddress = IPAddress.Loopback;
+        var providerDirectory = (ProviderDirectory)((OkObjectResult)await controller.GetProviderDirectory()).Value!;
+        assert(providerDirectory.Region == "GB" && providerDirectory.Movies.Single().Name == "Film service"
+            && providerDirectory.Shows.Single().Name == "TV service" && libraryCalls == 0,
+            "Named provider directory is authenticated and keeps film/TV services separate without reading personal media");
         ProviderItemsResponse Value(IActionResult result) => (ProviderItemsResponse)((OkObjectResult)result).Value!;
         assert(typeof(ProviderItemsController).GetCustomAttribute<AuthorizeAttribute>() is not null
             && typeof(ProviderItemsController).GetCustomAttribute<ResponseCacheAttribute>()?.NoStore == true,
@@ -357,19 +363,21 @@ public static class ProviderChecks
         {
             services.AddSingleton(authorization); services.AddSingleton(sessions); services.AddSingleton(users); services.AddSingleton(devices);
             services.AddSingleton(network); services.AddSingleton(library); services.AddSingleton(dtos); services.AddSingleton(availability); services.AddSingleton(paths);
+            services.AddSingleton(directorySource);
         }, value => auth.IsApiKey = value, draft, beta.Id);
         visible = [alpha, gamma];
         var beforeUnauthorized = libraryCalls;
         auth.IsApiKey = true;
-        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.PreviewProviderItems(draft) is UnauthorizedResult, "API keys cannot access personal provider catalogues or draft previews");
+        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.PreviewProviderItems(draft) is UnauthorizedResult
+            && await controller.GetProviderDirectory() is UnauthorizedResult, "API keys cannot access personal provider catalogues, directories or draft previews");
         auth.IsApiKey = false; session.DeviceId = "different";
-        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult, "Provider catalogue rejects a mismatched authenticated device");
+        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.GetProviderDirectory() is UnauthorizedResult, "Provider catalogue and directory reject a mismatched authenticated device");
         session.DeviceId = auth.DeviceId; allowedDevice = false;
-        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult, "Provider catalogue obeys revoked device access");
+        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.GetProviderDirectory() is UnauthorizedResult, "Provider catalogue and directory obey revoked device access");
         allowedDevice = true; user.SetPermission(PermissionKind.IsDisabled, true);
-        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult, "Provider catalogue rejects a disabled account");
+        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.GetProviderDirectory() is UnauthorizedResult, "Provider catalogue and directory reject a disabled account");
         user.SetPermission(PermissionKind.IsDisabled, false); local = false; user.SetPermission(PermissionKind.EnableRemoteAccess, false);
-        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && libraryCalls == beforeUnauthorized,
+        assert(await controller.GetProviderItems("netflix") is UnauthorizedResult && await controller.GetProviderDirectory() is UnauthorizedResult && libraryCalls == beforeUnauthorized,
             "Revoked remote access is rejected before any user media or public-ID lookup");
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }

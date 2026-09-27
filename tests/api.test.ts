@@ -2,7 +2,7 @@ import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultCustomProvider } from '../src/provider-settings.ts';
 import { createJellyfinApi } from '../src/api';
-import type { Item } from '../src/types';
+import type { Item, ItemUserData } from '../src/types';
 
 const saved = new Map<string, PropertyDescriptor | undefined>();
 function global(name: string, value: unknown): void {
@@ -29,6 +29,75 @@ function client(overrides: Record<string, unknown> = {}) {
 const episode = (id: string, index: number, extra: Partial<Item> = {}): Item => ({
   Id: id, Name: id, Type: 'Episode', SeriesId: 'show', SeasonId: 'season',
   ParentIndexNumber: 1, IndexNumber: index, ...extra
+});
+
+test('watched changes use native played methods and preserve server user data', async () => {
+  const calls: { method: string; user: string; id: string; date?: Date }[] = [];
+  const played = { ItemId: 'movie', Played: true, PlaybackPositionTicks: 0, PlayedPercentage: 100,
+    IsFavorite: true, PlayCount: 4, LastPlayedDate: '2026-09-27T11:00:00Z', Key: 'shared-key' };
+  const unplayed = { ...played, Played: false, PlayedPercentage: 0, PlayCount: 0, LastPlayedDate: null };
+  const api = client({
+    markPlayed: async (user: string, id: string, date: Date) => { calls.push({ method: 'played', user, id, date }); return played; },
+    markUnplayed: async (user: string, id: string) => { calls.push({ method: 'unplayed', user, id }); return unplayed; },
+    getItem: async () => { throw new Error('The write response is authoritative; no extra item request is needed.'); }
+  });
+  const before = Date.now();
+  assert.equal(await api.setPlayed!('movie', true), played);
+  assert.equal(await api.setPlayed!('movie', false), unplayed);
+  assert.deepEqual(calls.map(({ date, ...call }) => call), [
+    { method: 'played', user: 'user-a', id: 'movie' }, { method: 'unplayed', user: 'user-a', id: 'movie' }
+  ]);
+  assert.ok(calls[0].date instanceof Date && calls[0].date.getTime() >= before && calls[0].date.getTime() <= Date.now());
+  assert.equal(calls[1].date, undefined);
+});
+
+test('watched results accept equivalent item IDs and preserve server state instead of assuming the requested value', async () => {
+  const id = 'aabbccdd-1122-3344-5566-778899aabbcc';
+  const result = { ItemId: id.replace(/-/g, '').toUpperCase(), Played: false, PlaybackPositionTicks: 900, PlayedPercentage: null,
+    UnplayedItemCount: 2, IsFavorite: true };
+  const api = client({ markPlayed: async () => result });
+  assert.equal(await api.setPlayed!(id, true), result);
+});
+
+test('invalid or unrelated watched responses cannot report a successful update', async () => {
+  for (const result of [null, undefined, 'true', [], {}, { Played: 'true' }, { Played: true, ItemId: 'other' },
+    { Played: true, ItemId: 1 }]) {
+    const api = client({ markPlayed: async () => result, markUnplayed: async () => result });
+    await assert.rejects(api.setPlayed!('movie', true), /invalid watched status/i);
+    await assert.rejects(api.setPlayed!('movie', false), /invalid watched status/i);
+  }
+});
+
+test('account, client, server and sign-out changes reject stale watched results and further writes', async () => {
+  for (const change of ['account', 'replace', 'server', 'sign-out']) {
+    let user = 'user-a'; let server = 'server-a'; let writes = 0;
+    let resolve!: (data: ItemUserData) => void;
+    const api = client({ getCurrentUserId: () => user, serverId: () => server,
+      markPlayed: () => { writes++; return new Promise<ItemUserData>(done => { resolve = done; }); },
+      markUnplayed: async () => { writes++; return { Played: false }; }
+    });
+    const pending = api.setPlayed!('movie', true);
+    if (change === 'account') user = 'user-b';
+    else if (change === 'replace') client();
+    else if (change === 'server') server = 'server-b';
+    else global('ApiClient', undefined);
+    resolve({ ItemId: 'movie', Played: true, PlaybackPositionTicks: 0 });
+    await assert.rejects(pending, /account changed/i);
+    await assert.rejects(api.setPlayed!('movie', true), /account changed/i);
+    await assert.rejects(api.setPlayed!('movie', false), /account changed/i);
+    assert.equal(writes, 1);
+  }
+});
+
+test('watched write failures keep actionable access and missing-item errors', async () => {
+  for (const [status, message] of [[401, /sign in/i], [403, /access/i], [404, /no longer available/i]] as const) {
+    const api = client({ markPlayed: async () => { throw { status }; }, markUnplayed: async () => { throw { statusCode: status }; } });
+    await assert.rejects(api.setPlayed!('movie', true), message);
+    await assert.rejects(api.setPlayed!('movie', false), message);
+  }
+  const failure = new Error('The Jellyfin server is unavailable.');
+  const api = client({ markPlayed: async () => { throw failure; } });
+  await assert.rejects(api.setPlayed!('movie', true), error => error === failure);
 });
 
 test('collection writes use native endpoints and fresh collection permissions', async () => {
@@ -850,4 +919,39 @@ test('custom catalogue and draft preview use authenticated endpoints with bounde
   await assert.rejects(api.previewProviderItems!({ ...draft, logoUrl: 'https://user:password@example.com/image' }, { type: 'Movie' }), /invalid/i);
   await assert.rejects(api.getProviderItems!('../private', { type: 'Movie' }), /Unknown/); assert.equal(calls.length, 2);
   current = 'user-b'; await assert.rejects(api.previewProviderItems!(draft, { type: 'Movie' }), /account changed/i); assert.equal(calls.length, 2);
+});
+
+test('named streaming service directory uses the authenticated endpoint and separate GB lists', async () => {
+  const requests: string[] = [];
+  const data = { Region: 'GB', Movies: [{ Id: 591, Name: 'NOW Cinema' }], Shows: [{ Id: 39, Name: 'NOW' }] };
+  const api = client({ getUrl: (path: string) => path, getJSON: async (url: string) => { requests.push(url); return data; } });
+  assert.equal(await api.getProviderDirectory!(), data);
+  assert.deepEqual(requests, ['TvItemLayout/Providers/Catalogue']);
+});
+
+test('named service directory rejects foreign, malformed and unbounded entries', async () => {
+  const valid = { Region: 'GB', Movies: [{ Id: 8, Name: 'Netflix' }], Shows: [] };
+  for (const value of [null, {}, { ...valid, Region: 'US' }, { ...valid, Shows: null },
+    ...[null, {}, { Id: 0, Name: 'Invalid' }, { Id: 1000001, Name: 'Invalid' }, { Id: 1.5, Name: 'Invalid' },
+      { Id: 8, Name: '' }, { Id: 8, Name: '  ' }, { Id: 8, Name: 'Bad\nname' }, { Id: 8, Name: 'a'.repeat(121) }]
+      .map(entry => ({ ...valid, Movies: [entry] })),
+    { ...valid, Movies: [...valid.Movies, ...valid.Movies] },
+    { ...valid, Shows: Array.from({ length: 2001 }, (_, index) => ({ Id: index + 1, Name: 'Service' })) }
+  ]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => value });
+    await assert.rejects(api.getProviderDirectory!(), /invalid streaming service list/i);
+  }
+});
+
+test('named service directory rejects responses after account changes and preserves unavailable errors', async () => {
+  let user = 'user-a'; let resolve!: (value: unknown) => void; let calls = 0;
+  const api = client({ getCurrentUserId: () => user, getUrl: (path: string) => path,
+    getJSON: () => { calls++; return new Promise(done => { resolve = done; }); } });
+  const request = api.getProviderDirectory!(); user = 'user-b';
+  resolve({ Region: 'GB', Movies: [], Shows: [] });
+  await assert.rejects(request, /account changed/i);
+  await assert.rejects(api.getProviderDirectory!(), /account changed/i);
+  assert.equal(calls, 1);
+  const unavailable = client({ getUrl: (path: string) => path, getJSON: async () => { throw { status: 503 }; } });
+  await assert.rejects(unavailable.getProviderDirectory!(), /connection/i);
 });

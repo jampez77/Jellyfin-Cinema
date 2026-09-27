@@ -22,6 +22,13 @@ async function seed(page: Page, settings: ProviderHomesSettings) {
 async function saved(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem(`jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:demo`) || 'null')) as Promise<ProviderHomesSettings>;
 }
+function boundProviderHomes(): ProviderHomesSettings {
+  const settings = defaultProviderHomes();
+  for (const provider of settings.providers) for (const row of provider.rows) {
+    if (row.source === 'trending-movies' || row.source === 'trending-shows') row.collectionId = `provider-chart-${provider.id}-${row.source === 'trending-movies' ? 'movies' : 'shows'}`;
+  }
+  return settings;
+}
 async function openEditor(page: Page) {
   await page.evaluate(() => { location.hash = '/mypreferencesmenu?cinemaProviders=1'; });
   await expect(editor(page).getByRole('button', { name: 'Save changes', exact: true })).toBeEnabled();
@@ -31,8 +38,12 @@ async function nativeSettings(page: Page) {
   await page.locator('.skinHeader').getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#myPreferencesMenuPage .tvl-settings-provider-link')).toBeVisible();
 }
-async function noEditingButtons(locator: Locator) {
-  await expect(locator.getByRole('button', { name: /customi[sz]e|edit|save changes|add row|settings/i })).toHaveCount(0);
+async function noEditingButtons(locator: Locator, allowServiceEdit = false) {
+  const editing = locator.getByRole('button', { name: /customi[sz]e|edit|save changes|add row|settings/i });
+  if (allowServiceEdit) {
+    await expect(locator.getByRole('button', { name: 'Edit service', exact: true })).toBeVisible();
+    await expect(editing).toHaveCount(1);
+  } else await expect(editing).toHaveCount(0);
 }
 async function noDataSourceReferences(locator: Locator) {
   await expect(locator).not.toContainText(/JustWatch|MDBList|TMDB|The Movie Database/i);
@@ -69,7 +80,7 @@ for (const layout of ['desktop', 'tv']) {
       await expect(providerRow(page, 'trending-movies').locator('.tvl-home-rank')).toHaveCount(trending.length);
       await expect(providerRow(page, 'movies').locator('.tvl-home-rank')).toHaveCount(0);
       await expect(providerHome(page).locator('.tvl-provider-feature-title')).toBeVisible();
-      await noEditingButtons(providerHome(page)); await noDataSourceReferences(providerHome(page)); await noPageOverflow(page);
+      await noEditingButtons(providerHome(page), layout === 'desktop'); await noDataSourceReferences(providerHome(page)); await noPageOverflow(page);
       if (brand.id === 'netflix') await page.screenshot({ path: info.outputPath(`provider-home-${layout}.png`) });
       await page.keyboard.press('Escape'); await expect(selected).toBeFocused();
     }
@@ -117,6 +128,59 @@ test('last provider tile keeps its focus border inside the row with no visible h
   })).toBe(true);
   expect(await services(page).locator('.tvl-home-row-cards').evaluate(node => getComputedStyle(node, '::-webkit-scrollbar').display)).toBe('none');
   await noPageOverflow(page);
+});
+
+test('unconfigured trending rows do not discover a collection from its name', async ({ page }) => {
+  await seed(page, defaultProviderHomes());
+  await page.route('**/dist/demo.js', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}\n(() => {
+      const api=window.TvItemLayoutDemo.api; window.__providerChartReads={lists:0,members:0};
+      api.getCollectionList=async()=>{window.__providerChartReads.lists++;return [{Id:'plausible',Name:'Netflix — Trending Movies (UK) (Daily) [Smart]',Type:'BoxSet'}];};
+      api.getCollectionItems=async()=>{window.__providerChartReads.members++;return [await api.getItem('movie-tide')];};
+    })();` });
+  });
+  await page.goto(previewUrl('tv', '/home?cinemaProvider=netflix'));
+  await expect(cards(page, 'movies')).toHaveCount(4);
+  for (const id of ['trending-movies', 'trending-shows']) {
+    await expect(providerRow(page, id)).toContainText('Choose a collection for this row in Streaming services settings.');
+    await expect(cards(page, id)).toHaveCount(0);
+  }
+  expect(await page.evaluate(() => (window as any).__providerChartReads)).toEqual({ lists: 0, members: 0 });
+  await noEditingButtons(providerHome(page));
+});
+
+test('desktop service editing binds a chosen collection ID that survives collection renames and unavailable names', async ({ page }) => {
+  await seed(page, defaultProviderHomes());
+  await page.goto(previewUrl('desktop', '/home?cinemaProvider=paramount'));
+  await expect(providerRow(page, 'trending-movies')).toContainText('Choose a collection');
+  await providerHome(page).getByRole('button', { name: 'Edit service', exact: true }).click();
+  await expect(page).toHaveURL(/cinemaProviders=1&cinemaService=paramount/);
+  await expect(editor(page).getByLabel('Service name', { exact: true })).toHaveValue('Paramount+');
+  await editor(page).getByRole('button', { name: 'Trending films', exact: true }).click();
+  const selectedId = 'provider-chart-paramount-movies';
+  await editor(page).getByRole('combobox', { name: 'Collection', exact: true }).selectOption({ label: 'Paramount+ — Trending Movies (UK)' });
+  await editor(page).getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(editor(page).getByRole('status')).toContainText('Saved');
+  expect((await saved(page)).providers.find(provider => provider.id === 'paramount')!.rows.find(row => row.id === 'trending-movies')!.collectionId).toBe(selectedId);
+  await editor(page).getByRole('button', { name: 'Back to service', exact: true }).click();
+  await expect(providerHome(page)).toHaveAttribute('aria-label', 'Paramount+ home');
+  const expected = ['movie-tide', 'movie-higher'];
+  await expect(cards(page, 'trending-movies')).toHaveCount(2);
+  expect(await cards(page, 'trending-movies').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).dataset.itemId))).toEqual(expected);
+
+  await page.evaluate(() => {
+    const api = window.TvItemLayoutDemo!.api, list = api.getCollectionList;
+    api.getCollectionList = async (...args) => (await list(...args)).map(collection => ({ ...collection, Name: 'Renamed collection' }));
+  });
+  for (const namesUnavailable of [false, true]) {
+    if (namesUnavailable) await page.evaluate(() => { window.TvItemLayoutDemo!.api.getCollectionList = async () => { throw new Error('Collection names unavailable'); }; });
+    await providerHome(page).getByRole('button', { name: 'Back', exact: true }).click();
+    await services(page).getByRole('button', { name: 'Paramount+', exact: true }).click();
+    await expect(cards(page, 'trending-movies')).toHaveCount(2);
+    expect(await cards(page, 'trending-movies').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).dataset.itemId))).toEqual(expected);
+    expect((await saved(page)).providers.find(provider => provider.id === 'paramount')!.rows.find(row => row.id === 'trending-movies')!.collectionId).toBe(selectedId);
+  }
 });
 
 async function largeCatalogue(page: Page) {
@@ -194,7 +258,7 @@ test('Settings owns provider editing; changes to service order, Home position, h
   await expect(providerHome(page).locator('.tvl-provider-hero')).toBeHidden();
   await expect(providerHome(page).locator('.tvl-provider-row').first()).toHaveAttribute('aria-label', 'Family favourites');
   await expect(cards(page, 'movies').first()).toHaveAttribute('aria-label', 'Rank 1: A Kind of Blue');
-  await expect(providerRow(page, 'trending-shows')).toHaveCount(0); await noEditingButtons(providerHome(page));
+  await expect(providerRow(page, 'trending-shows')).toHaveCount(0); await noEditingButtons(providerHome(page), true);
   await page.reload(); await expect(cards(page, 'movies').first()).toHaveAttribute('aria-label', 'Rank 1: A Kind of Blue');
   await expect(providerHome(page).locator('.tvl-provider-hero')).toBeHidden();
 });
@@ -237,7 +301,7 @@ class SettingsServer {
 }
 // Exercise the shipped authenticated API/transport, rather than replacing its
 // store with a local implementation. Server fixtures return only permitted media.
-async function device(browser: Browser, server: SettingsServer, user: string, layout: 'desktop' | 'tv', smartCollectionNames = false) {
+async function device(browser: Browser, server: SettingsServer, user: string, layout: 'desktop' | 'tv', renamedCollections = false) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } }), page = await context.newPage();
   await page.route('**/provider-fixture/TvItemLayout/ProviderHomes', async route => {
     const request = route.request(), account = request.headers()['x-fixture-user'], method = request.method(); server.calls.push({ method, user: account });
@@ -258,10 +322,10 @@ async function device(browser: Browser, server: SettingsServer, user: string, la
   });
   await page.route('**/dist/demo.js', async route => {
     const response = await route.fetch(); await route.fulfill({ response, body: `${await response.text()}\n(() => {
-      const demo=window.TvItemLayoutDemo.api, user=${JSON.stringify(user)}, smartCollectionNames=${JSON.stringify(smartCollectionNames)};
+      const demo=window.TvItemLayoutDemo.api, user=${JSON.stringify(user)}, renamedCollections=${JSON.stringify(renamedCollections)};
       const request=async(url,options={})=>{const response=await fetch(url,{...options,headers:{'content-type':'application/json','x-fixture-user':user}});if(!response.ok)throw {status:response.status};return response.json();};
       window.ApiClient={getCurrentUserId:()=>user,serverId:()=> 'provider-server',getUser:async id=>({Id:id,Policy:{IsAdministrator:false}}),getItem:(_user,id)=>demo.getItem(id),
-        getItems:async(_user,query)=>{const items=user==='kids'?[]:query.IncludeItemTypes==='BoxSet'?(await demo.getCollectionList()).map(item=>smartCollectionNames&&item.Id.startsWith('provider-chart-')?{...item,Name:item.Name+' [Smart]'}:item):await demo.getCollectionItems(query.ParentId);return {Items:items.slice(query.StartIndex||0,(query.StartIndex||0)+(query.Limit||200)),TotalRecordCount:items.length};},
+        getItems:async(_user,query)=>{const items=user==='kids'?[]:query.IncludeItemTypes==='BoxSet'?(await demo.getCollectionList()).map(item=>renamedCollections&&item.Id.startsWith('provider-chart-')?{...item,Name:'A renamed collection'}:item):await demo.getCollectionItems(query.ParentId);return {Items:items.slice(query.StartIndex||0,(query.StartIndex||0)+(query.Limit||200)),TotalRecordCount:items.length};},
         getUrl:(path,query)=>'/provider-fixture/'+path+(query?'?'+new URLSearchParams(query):''),
         getJSON:url=>url.includes('TvItemLayout/HomeCollections')?Promise.resolve({Revision:null,Settings:null}):request(url),ajax:options=>request(options.url,{method:options.type,body:options.data}),
         getImageUrl:()=>'/demo/assets/ocean.jpg'};
@@ -271,8 +335,9 @@ async function device(browser: Browser, server: SettingsServer, user: string, la
   return { page, context };
 }
 
-test('native SmartLists collection names populate Movies and Shows charts for all six provider homes', async ({ browser }) => {
-  const server = new SettingsServer(), client = await device(browser, server, 'parents', 'tv', true), page = client.page;
+test('saved collection IDs populate movie and show charts across all six native provider homes after collection renames', async ({ browser }) => {
+  const server = new SettingsServer(); server.copies.set('parents', { Revision: 'bound-charts', Settings: boundProviderHomes() });
+  const client = await device(browser, server, 'parents', 'tv', true), page = client.page;
   try {
     await page.goto(previewUrl()); await expect(services(page).locator('.tvl-provider-tile')).toHaveCount(9);
     for (const brand of providerBrands.filter(brand => !['bbc', 'itvx', 'channel4'].includes(brand.id))) {
@@ -286,7 +351,7 @@ test('native SmartLists collection names populate Movies and Shows charts for al
         expect(await cards(page, 'trending-movies').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-item-id')))).toEqual(['movie-blue', 'movie-tide']);
         expect(await cards(page, 'trending-shows').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-item-id')))).toEqual(['series-signal', 'series-north']);
       }
-      await expect(providerHome(page).getByText('The trending collection is unavailable for this account.', { exact: true })).toHaveCount(0);
+      await expect(providerHome(page).getByText('Choose a collection for this row in Streaming services settings.', { exact: true })).toHaveCount(0);
       await page.keyboard.press('Escape'); await expect(services(page).getByRole('button', { name: brand.name, exact: true })).toBeFocused();
     }
   } finally { await client.context.close(); }
@@ -303,7 +368,7 @@ test('saved provider preferences sync from desktop to a fresh TV while another a
     expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(1);
     await kids.page.goto(previewUrl()); await expect(services(kids.page)).toHaveAttribute('aria-label', 'Streaming services'); await expect(services(kids.page).locator('.tvl-provider-tile')).toHaveCount(9);
     await services(kids.page).getByRole('button', { name: 'Netflix', exact: true }).click(); await expect(providerRow(kids.page, 'movies')).toContainText('No matching titles');
-    await expect(cards(kids.page, 'movies')).toHaveCount(0); await expect(providerRow(kids.page, 'trending-movies')).toContainText('unavailable for this account');
+    await expect(cards(kids.page, 'movies')).toHaveCount(0); await expect(providerRow(kids.page, 'trending-movies')).toContainText('Choose a collection for this row in Streaming services settings.');
     await noDataSourceReferences(providerHome(kids.page));
     expect(server.snapshot('kids').Settings).toBeNull(); expect(server.calls.filter(call => call.method === 'PUT')).toHaveLength(1);
     await services(tv.page).getByRole('button', { name: 'Prime Video', exact: true }).click(); await expect(cards(tv.page, 'movies')).toHaveCount(1);
@@ -325,7 +390,8 @@ test('503 settings reads retain this account’s cached provider row silently on
 });
 
 test('an already-open TV provider page adopts desktop edits while preserving its selected title', async ({ browser }) => {
-  const server = new SettingsServer(), desktop = await device(browser, server, 'parents', 'desktop'), tv = await device(browser, server, 'parents', 'tv');
+  const server = new SettingsServer(); server.copies.set('parents', { Revision: 'bound-charts', Settings: boundProviderHomes() });
+  const desktop = await device(browser, server, 'parents', 'desktop'), tv = await device(browser, server, 'parents', 'tv');
   try {
     await desktop.page.goto(previewUrl('desktop')); const settings = await openEditor(desktop.page);
     await tv.page.goto(previewUrl('tv', '/home?cinemaProvider=netflix'));

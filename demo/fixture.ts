@@ -17,6 +17,7 @@ const episodes = new Map<string, Item[]>();
 const channels: Item[] = [];
 const schedules = new Map<string, Item[]>();
 const favorites = new Set<string>(['movie-blue', 'series-harbour', 'album-nightlines']);
+let watchedFailures = 0;
 
 function register(item: Item, photo: string): Item {
   library.set(item.Id, item);
@@ -176,6 +177,15 @@ for (const brand of providerBrands.filter(brand => !['bbc','itvx','channel4'].in
     : providerCatalogues[brand.id][kind].slice(0,2).reverse();
   collectionMembers.set(id,members);
   register({ Id:id, Type:'BoxSet', Name:`${brand.name} — Trending ${kind === 'movies' ? 'Movies' : 'Shows'} (UK)`, ChildCount:members.length }, 'ocean');
+}
+// The preview account has explicitly selected its fictional chart collections.
+// Production settings never infer a collection ID from a display name.
+if (!localStorage.getItem(providerHomesKey(location.origin, 'demo'))) {
+  const settings = defaultProviderHomes();
+  for (const provider of settings.providers) for (const row of provider.rows) {
+    if (row.source === 'trending-movies' || row.source === 'trending-shows') row.collectionId = `provider-chart-${provider.id}-${row.source === 'trending-movies' ? 'movies' : 'shows'}`;
+  }
+  localStorage.setItem(providerHomesKey(location.origin, 'demo'), JSON.stringify(settings));
 }
 
 const movieGenres = [...new Set(movieIds.flatMap(id=>library.get(id)!.Genres || []))].sort().map(name=>({Id:`genre-${name.toLowerCase()}`,Name:name,Type:'Genre'}));
@@ -349,6 +359,15 @@ function providerPage(config: ProviderHomeConfig | undefined, query: ProviderIte
     Status: sourceIds.length ? 'ready' : 'unavailable', Region: 'GB', UpdatedAt: new Date().toISOString(), MissingIds: 0, FailedIds: 0 };
 }
 const api: MediaApi = {
+  getProviderDirectory: () => respond(() => {
+    const common = [
+      { Id:8, Name:'Netflix' }, { Id:175, Name:'Netflix Kids' }, { Id:1796, Name:'Netflix Standard with Ads' },
+      { Id:9, Name:'Amazon Prime Video' }, { Id:2100, Name:'Amazon Prime Video with Ads' }, { Id:337, Name:'Disney Plus' },
+      { Id:350, Name:'Apple TV Plus' }, { Id:531, Name:'Paramount Plus' }, { Id:2303, Name:'Paramount Plus Premium' },
+      { Id:2304, Name:'Paramount Plus Basic with Ads' }, { Id:38, Name:'BBC iPlayer' }, { Id:41, Name:'ITVX' }, { Id:103, Name:'Channel 4' }
+    ];
+    return { Region:'GB' as const, Movies:[...common, { Id:591, Name:'Now TV Cinema' }], Shows:[...common, { Id:39, Name:'Now TV' }] };
+  }),
   getProviderItems: (provider, query) => respond(() => {
     let settings = defaultProviderHomes();
     try { const raw = localStorage.getItem(providerHomesKey(location.origin, 'demo')); if (raw) settings = parseProviderHomes(JSON.parse(raw)); } catch { /* Use preview defaults. */ }
@@ -429,6 +448,26 @@ const api: MediaApi = {
   getChannels: () => respond(() => list(channels)),
   getPrograms: (channelId) => respond(() => list(schedules.get(channelId) || []), channelId),
   setFavorite: (id, favorite) => respond(() => { if (favorite) favorites.add(id); else favorites.delete(id); }, id),
+  setPlayed: (id, played) => respond(() => {
+    const failure = new URLSearchParams(location.search).get('watchedError');
+    if (failure === '1' || failure === 'once' && watchedFailures++ === 0) throw new Error('Watched status could not be saved.');
+    const item = library.get(id); if (!item) throw new Error('This item is not available.');
+    const update = (subject: Item) => { subject.UserData = { ...subject.UserData, Played:played, PlaybackPositionTicks:0,
+      PlayedPercentage:played ? 100 : 0, PlayCount:played ? Math.max(1, subject.UserData?.PlayCount || 0) : 0 }; };
+    update(item);
+    if (item.Type === 'Series' || item.Type === 'Season') {
+      for (const child of library.values()) if (item.Type === 'Series' ? child.SeriesId === id : child.SeasonId === id) update(child);
+    }
+    for (const season of seasons) {
+      const children = episodes.get(season.Id) || [];
+      season.UserData = { ...season.UserData, Played:children.length > 0 && children.every(child => child.UserData?.Played) };
+    }
+    for (const seriesId of seriesIds) {
+      const series = library.get(seriesId)!; const children = seasons.filter(season => season.SeriesId === seriesId);
+      series.UserData = { ...series.UserData, Played:children.length > 0 && children.every(child => child.UserData?.Played) };
+    }
+    return { ...copy(item).UserData!, ItemId:id };
+  }, id),
   play: async (item, ticks, isCurrent) => { await respond(() => undefined, item.Id); if (isCurrent()) showPlayer(item, ticks); },
   playPlaylist: async (playlist, entryId, isCurrent) => {
     const items = await respond(() => list(playlistMembers.get(playlist.Id) || []), playlist.Id);

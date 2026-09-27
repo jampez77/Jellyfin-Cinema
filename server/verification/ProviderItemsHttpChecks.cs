@@ -41,6 +41,12 @@ public static class ProviderItemsHttpChecks
             => client.PostAsync("/TvItemLayout/Providers/Preview?" + query, new StringContent(body, Encoding.UTF8, "application/json"));
         try
         {
+            using var directoryResponse = await client.GetAsync("/TvItemLayout/Providers/Catalogue");
+            var directory = JsonDocument.Parse(await directoryResponse.Content.ReadAsStringAsync()).RootElement;
+            assert(directoryResponse.StatusCode == HttpStatusCode.OK && directoryResponse.Headers.CacheControl?.NoStore == true
+                && directory.GetProperty("Region").GetString() == "GB" && directory.GetProperty("Movies")[0].GetProperty("Name").GetString() == "Film service"
+                && directory.GetProperty("Shows")[0].GetProperty("Id").GetInt32() == 39,
+                "Actual authenticated provider-directory HTTP route returns separate named GB lists with stable casing");
             var settingsBefore = await client.GetStringAsync("/TvItemLayout/ProviderHomes");
             using var response = await Preview(draft.GetRawText());
             var data = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
@@ -60,8 +66,10 @@ public static class ProviderItemsHttpChecks
             setApiKey(true);
             using var deniedPreview = await Preview(draft.GetRawText());
             using var deniedCatalogue = await client.GetAsync("/TvItemLayout/Providers/netflix/Items");
-            assert(deniedPreview.StatusCode == HttpStatusCode.Unauthorized && deniedCatalogue.StatusCode == HttpStatusCode.Unauthorized,
-                "Actual preview and catalogue HTTP routes both reject API-key impersonation");
+            using var deniedDirectory = await client.GetAsync("/TvItemLayout/Providers/Catalogue");
+            assert(deniedPreview.StatusCode == HttpStatusCode.Unauthorized && deniedCatalogue.StatusCode == HttpStatusCode.Unauthorized
+                && deniedDirectory.StatusCode == HttpStatusCode.Unauthorized,
+                "Actual preview, directory and catalogue HTTP routes reject API-key impersonation");
         }
         finally { setApiKey(false); await app.StopAsync(); }
     }

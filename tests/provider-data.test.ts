@@ -16,16 +16,16 @@ const deferred = <T>() => { let resolve!: (value: T) => void; const promise = ne
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 const stale = (error: unknown) => error instanceof ProviderDataError && error.kind === 'stale';
 
-test('full provider library and weekly trending remain distinct sources, with no chart fallback for a missing catalogue API', async () => {
+test('full provider library and selected trending collection remain distinct sources without a catalogue fallback', async () => {
   const source = api({
     getProviderItems: async () => page([item('chart-hit'), item('older-film'), item('new-to-library')]),
-    getCollectionList: async () => [collection('chart', 'Netflix — Trending Movies (UK)')],
+    getCollectionList: async () => { throw new Error('Must not discover a chart by its name'); },
     getCollectionItems: async () => [item('chart-hit')]
   });
   const data = new ProviderData(source);
   assert.deepEqual(ids(await data.load('netflix', row('movies'))), ['chart-hit', 'older-film', 'new-to-library']);
-  const trending = await data.load('netflix', row('trending-movies'));
-  assert.deepEqual(ids(trending), ['chart-hit']); assert.match(trending.sourceUrl!, /provider=nfx$/);
+  const trending = await data.load('netflix', row('trending-movies', { collectionId: 'chart' }));
+  assert.deepEqual(ids(trending), ['chart-hit']); assert.equal(trending.sourceUrl, undefined);
   delete source.getProviderItems;
   const unavailable = await data.load('netflix', row('movies'));
   assert.deepEqual(unavailable.items, []); assert.equal(unavailable.status, 'unavailable'); assert.equal(unavailable.missingSource, undefined);
@@ -55,7 +55,7 @@ test('catalogue queries isolate provider, media type, sort and page, while retai
   assert.deepEqual(calls[11], { provider: 'paramount', query: { type: 'Series', sort: 'newest', startIndex: 60, limit: 20 } });
 });
 
-test('auto charts accept the six installed UK names and keep the saved rank order across filtering and pagination', async () => {
+test('bound charts keep the saved rank order across filtering and pagination without collection discovery', async () => {
   let listReads = 0;
   const members = [item('rank-one', 'Movie', 'Zulu'), item('rank-two', 'Movie', 'Alpha'), item('rank-two'), item('not-film', 'Series'), item('rank-three')];
   const data = new ProviderData(api({
@@ -63,13 +63,14 @@ test('auto charts accept the six installed UK names and keep the saved rank orde
     getCollectionItems: async () => members
   }));
   for (const brand of chartBrands) {
-    const first = await data.load(brand.id, row('trending-movies'), 0, 2), second = await data.load(brand.id, row('trending-movies'), 2, 2);
+    const bound = row('trending-movies', { collectionId: brand.id });
+    const first = await data.load(brand.id, bound, 0, 2), second = await data.load(brand.id, bound, 2, 2);
     assert.deepEqual(ids(first), ['rank-one', 'rank-two']); assert.deepEqual(ids(second), ['rank-three']); assert.equal(first.total, 3);
   }
-  assert.equal(listReads, 1); assert.deepEqual(members.map(member => member.Id), ['rank-one', 'rank-two', 'rank-two', 'not-film', 'rank-three']);
+  assert.equal(listReads, 0); assert.deepEqual(members.map(member => member.Id), ['rank-one', 'rank-two', 'rank-two', 'not-film', 'rank-three']);
 });
 
-test('all twelve live SmartLists chart names resolve with their terminal [Smart] decoration and retain media-specific ranks', async () => {
+test('all twelve bound movie and show charts retain media-specific ranks regardless of collection names', async () => {
   const charts = chartBrands.flatMap(brand => [
     collection(`${brand.id}-Movie`, `${brand.name} — Trending Movies (UK) [Smart]`),
     collection(`${brand.id}-Series`, `${brand.name} — Trending Shows (UK) [Smart]`)
@@ -80,42 +81,50 @@ test('all twelve live SmartLists chart names resolve with their terminal [Smart]
     return [item(`${id}-first`, type, 'Zulu'), item(`${id}-second`, type, 'Alpha')];
   } }));
   for (const brand of chartBrands) for (const [source, type] of [['trending-movies', 'Movie'], ['trending-shows', 'Series']] as const) {
-    const result = await data.load(brand.id, row(source));
+    const result = await data.load(brand.id, row(source, { collectionId: `${brand.id}-${type}` }));
     assert.deepEqual(ids(result), [`${brand.id}-${type}-first`, `${brand.id}-${type}-second`]);
     assert.equal(result.status, 'ready'); assert.equal(result.missingSource, undefined);
   }
   assert.equal(new Set(reads).size, 12);
 });
 
-test('punctuation and case are ignored, Apple TV aliases match, and NOW movies and shows link to their separate UK charts', async () => {
-  const data = new ProviderData(api({
-    getCollectionList: async () => [collection('apple', 'APPLE TV - TRENDING MOVIES [UK] [sMaRt]  '), collection('movies', 'now trending movies uk'), collection('shows', 'NOW: Trending Shows (UK)')],
-    getCollectionItems: async id => [item(id, id === 'shows' ? 'Series' : 'Movie')]
-  }));
-  assert.deepEqual(ids(await data.load('apple', row('trending-movies'))), ['apple']);
-  assert.match((await data.load('now', row('trending-movies'))).sourceUrl!, /official\/movies\/.*provider=ntc$/);
-  assert.match((await data.load('now', row('trending-shows'))).sourceUrl!, /official\/shows\/.*provider=ntv$/);
-});
-
-test('missing, wrong-country, approximate and ambiguous chart names never pick a plausible substitute', async () => {
-  for (const names of [[], ['Netflix — Trending Movies (US)'], ['Netflix Popular Movies (UK)'], ['Netflix — Trending Movies (UK) archive'], ['Netflix — Trending Movies (UK)', 'Netflix Trending Movies UK'],
-    ['Netflix — Trending Movies (US) [Smart]'], ['Netflix — Trending Shows (UK) [Smart]'], ['Prime Video — Trending Movies (UK) [Smart]'],
-    ['Netflix — Trending Movies (UK) [Smart] archive'], ['Netflix — Trending Movies (UK) archive [Smart]'], ['Netflix — Trending Movies (UK) [Smart] [Smart]'],
-    ['Netflix — Trending Movies (UK) Smart'], ['Netflix — Trending Movies (UK) [SmartLists]'], ['[Smart] Netflix — Trending Movies (UK)'],
-    ['Netflix — Trending Movies (UK)', 'Netflix — Trending Movies (UK) [Smart]']]) {
-    let reads = 0;
-    const data = new ProviderData(api({ getCollectionList: async () => names.map((name, index) => collection(String(index), name)),
-      getCollectionItems: async () => { reads++; return [item('wrong-film')]; } }));
-    const result = await data.load('netflix', row('trending-movies'));
-    assert.deepEqual(result.items, []); assert.equal(result.missingSource, true); assert.equal(result.status, 'unavailable'); assert.equal(reads, 0);
+test('unbound trending rows never guess a collection from exact, decorated, renamed or duplicate chart names', async () => {
+  for (const names of [[], ['Netflix — Trending Movies (UK)'], ['Netflix — Trending Movies (UK) [Smart]'],
+    ['Netflix — Trending Movies (UK) (Daily) [Smart]', 'Netflix — Trending Movies (UK) (Weekly) [Smart]'],
+    ['Netflix — Trending Movies (UK)', 'Netflix — Trending Movies (UK)'], ['My favourite films']]) {
+    let listReads = 0, memberReads = 0;
+    const data = new ProviderData(api({ getCollectionList: async () => { listReads++; return names.map((name, index) => collection(String(index), name)); },
+      getCollectionItems: async () => { memberReads++; return [item('wrong-film')]; } }));
+    for (const source of ['trending-movies', 'trending-shows'] as const) {
+      const result = await data.load('netflix', row(source));
+      assert.deepEqual(result.items, []); assert.equal(result.missingSource, true); assert.equal(result.status, 'unavailable');
+      assert.equal(result.sourceUrl, undefined);
+    }
+    assert.equal(listReads, 0); assert.equal(memberReads, 0);
   }
 });
 
-test('duplicate listings of the same collection are not ambiguous, including equivalent Jellyfin GUID formats', async () => {
-  const guid = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
-  const data = new ProviderData(api({ getCollectionList: async () => [collection(guid, 'Netflix Trending Movies UK'), collection(guid.replace(/-/g, '').toUpperCase(), 'Netflix Trending Movies UK [Smart]')],
-    getCollectionItems: async () => [item('film')] }));
-  assert.deepEqual(ids(await data.load('netflix', row('trending-movies'))), ['film']);
+test('saved collection IDs survive renames and duplicate names while a changed ID reads the newly selected collection', async () => {
+  const names = [collection('daily-id', 'Daily films'), collection('weekly-id', 'Weekly films')];
+  const reads: string[] = []; let listReads = 0;
+  const data = new ProviderData(api({ getCollectionList: async () => { listReads++; return names; },
+    getCollectionItems: async id => { reads.push(id); return [item(`${id}-first`), item(`${id}-second`)]; } }));
+  const selected = row('trending-movies', { collectionId: 'weekly-id' });
+  assert.deepEqual(ids(await data.load('netflix', selected)), ['weekly-id-first', 'weekly-id-second']);
+  names.forEach(value => { value.Name = 'Netflix — Trending Movies (UK) (Daily) [Smart]'; });
+  data.invalidate();
+  assert.deepEqual(ids(await data.load('netflix', selected)), ['weekly-id-first', 'weekly-id-second']);
+  assert.deepEqual(ids(await data.load('netflix', { ...selected, collectionId: 'daily-id' })), ['daily-id-first', 'daily-id-second']);
+  assert.deepEqual(reads, ['weekly-id', 'weekly-id', 'daily-id']); assert.equal(listReads, 0);
+});
+
+test('a deleted bound collection reports its read failure without falling back to a similarly named collection', async () => {
+  const reads: string[] = []; let listReads = 0;
+  const data = new ProviderData(api({ getCollectionList: async () => { listReads++; return [collection('replacement', 'Netflix — Trending Movies (UK)')]; },
+    getCollectionItems: async id => { reads.push(id); if (id === 'deleted-id') throw new Error('Collection not found'); return [item('replacement-film')]; } }));
+  await assert.rejects(data.load('netflix', row('trending-movies', { collectionId: 'deleted-id' })), /Collection not found/);
+  assert.deepEqual(reads, ['deleted-id']); assert.equal(listReads, 0);
+  assert.deepEqual(ids(await data.load('netflix', row('trending-movies', { collectionId: 'replacement' }))), ['replacement-film']);
 });
 
 test('explicit collections keep native ordering, filter media type and deduplicate without pretending to be provider availability', async () => {
@@ -142,27 +151,28 @@ test('collection ordering is applied to all members before pagination, including
   assert.deepEqual(ids(await load('oldest')), ['c', 'b']); assert.deepEqual(raw.map(value => value.Id), ['c', 'b', 'z', 'a']);
 });
 
-test('empty collection reads are cached successfully then expire; refresh invalidation discovers new chart membership', async t => {
+test('empty bound collection reads are cached successfully then expire; invalidation refreshes their membership', async t => {
   let now = 1_000; t.mock.method(Date, 'now', () => now);
-  let listReads = 0, memberReads = 0, list: Item[] = [], members: Item[] = [];
-  const data = new ProviderData(api({ getCollectionList: async () => { listReads++; return list; }, getCollectionItems: async () => { memberReads++; return members; } }));
-  await data.load('netflix', row('trending-movies')); list = [collection('chart', 'Netflix Trending Movies UK')];
-  await data.load('netflix', row('trending-movies')); assert.equal(listReads, 1); assert.equal(memberReads, 0);
+  let listReads = 0, memberReads = 0, members: Item[] = [];
+  const data = new ProviderData(api({ getCollectionList: async () => { listReads++; return []; }, getCollectionItems: async () => { memberReads++; return members; } }));
+  const bound = row('trending-movies', { collectionId: 'chart' });
+  await data.load('netflix', bound); await data.load('netflix', bound);
+  assert.equal(listReads, 0); assert.equal(memberReads, 1);
   now += 30_001;
-  assert.deepEqual(ids(await data.load('netflix', row('trending-movies'))), []); assert.equal(listReads, 2); assert.equal(memberReads, 1);
-  members = [item('new-film')]; await data.load('netflix', row('trending-movies')); assert.equal(memberReads, 1);
-  data.invalidate(); assert.deepEqual(ids(await data.load('netflix', row('trending-movies'))), ['new-film']); assert.equal(listReads, 3); assert.equal(memberReads, 2);
+  assert.deepEqual(ids(await data.load('netflix', bound)), []); assert.equal(listReads, 0); assert.equal(memberReads, 2);
+  members = [item('new-film')]; await data.load('netflix', bound); assert.equal(memberReads, 2);
+  data.invalidate(); assert.deepEqual(ids(await data.load('netflix', bound)), ['new-film']); assert.equal(listReads, 0); assert.equal(memberReads, 3);
 });
 
-test('failed collection discovery or membership is never cached as an empty success and can immediately retry', async () => {
+test('failed bound collection membership is never cached as an empty success and can immediately retry', async () => {
   let listReads = 0, memberReads = 0;
   const data = new ProviderData(api({
-    getCollectionList: async () => { if (++listReads === 1) throw new Error('discovery offline'); return [collection('chart', 'Netflix Trending Movies UK')]; },
+    getCollectionList: async () => { listReads++; throw new Error('Collection discovery must not be used'); },
     getCollectionItems: async () => { if (++memberReads === 1) throw new Error('members offline'); return [item('found')]; }
   }));
-  await assert.rejects(data.load('netflix', row('trending-movies')), /discovery offline/);
-  await assert.rejects(data.load('netflix', row('trending-movies')), /members offline/);
-  assert.deepEqual(ids(await data.load('netflix', row('trending-movies'))), ['found']); assert.equal(listReads, 2); assert.equal(memberReads, 2);
+  const bound = row('trending-movies', { collectionId: 'chart' });
+  await assert.rejects(data.load('netflix', bound), /members offline/);
+  assert.deepEqual(ids(await data.load('netflix', bound)), ['found']); assert.equal(listReads, 0); assert.equal(memberReads, 2);
 });
 
 test('concurrent collection rows and catalogue pages share only matching in-flight requests', async () => {
@@ -173,8 +183,9 @@ test('concurrent collection rows and catalogue pages share only matching in-flig
     getCollectionItems: async () => { memberReads++; return [item('rank-one'), item('rank-two')]; },
     getProviderItems: async () => { catalogueReads++; return catalogue.promise; }
   }));
-  const charts = await Promise.all([data.load('netflix', row('trending-movies'), 0, 1), data.load('netflix', row('trending-movies'), 1, 1)]);
-  assert.equal(listReads, 1); assert.equal(memberReads, 1); assert.deepEqual(charts.map(ids), [['rank-one'], ['rank-two']]);
+  const bound = row('trending-movies', { collectionId: 'chart' });
+  const charts = await Promise.all([data.load('netflix', bound, 0, 1), data.load('netflix', bound, 1, 1)]);
+  assert.equal(listReads, 0); assert.equal(memberReads, 1); assert.deepEqual(charts.map(ids), [['rank-one'], ['rank-two']]);
   const pages = [data.load('netflix', row('movies')), data.load('netflix', row('movies')), data.load('netflix', row('shows'))];
   await tick(); assert.equal(catalogueReads, 2); catalogue.resolve(page([item('film'), item('show', 'Series')]));
   assert.deepEqual((await Promise.all(pages)).map(ids), [['film'], ['film'], ['show']]);
@@ -229,7 +240,7 @@ test('renaming a built-in service preserves its original chart source and rank o
   const config = { ...defaultProviderConfig('netflix'), name: 'Family cinema' };
   const data = new ProviderData(api({ getCollectionList: async () => [collection('chart', 'Netflix — Trending Movies (UK) [Smart]')],
     getCollectionItems: async () => [item('zulu'), item('alpha')] }));
-  assert.deepEqual(ids(await data.load(config, row('trending-movies'))), ['zulu', 'alpha']);
+  assert.deepEqual(ids(await data.load(config, row('trending-movies', { collectionId: 'chart' }))), ['zulu', 'alpha']);
 });
 
 test('custom services use selected collections and do not invent automatic chart feeds', async () => {
