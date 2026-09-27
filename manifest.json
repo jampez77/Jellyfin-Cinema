@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/Jellyfin-Cinema/main/assets/catalogue/jellyfin-cinema.png",
     "versions": [
       {
+        "version": "0.2.18.3",
+        "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.18/TvItemLayout_0.2.18.3_jellyfin-12.0.0.zip",
+        "checksum": "9fc207f02f940b2624fcde576da098b3",
+        "timestamp": "2026-09-27T10:13:02Z"
+      },
+      {
+        "version": "0.2.18.2",
+        "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.18/TvItemLayout_0.2.18.2_jellyfin-10.11.0.zip",
+        "checksum": "b63b2ebde201cabe76c742f639eedc7a",
+        "timestamp": "2026-09-27T10:13:02Z"
+      },
+      {
+        "version": "0.2.18.1",
+        "changelog": "Saved streaming-service tile sizes now refresh already-open Home tabs immediately. Returning to Home checks for saved changes, and saves received during an in-flight settings read trigger a follow-up read. Unsaved drafts remain separate. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/Jellyfin-Cinema/releases/download/v0.2.18/TvItemLayout_0.2.18.1_jellyfin-10.10.7.zip",
+        "checksum": "adde8a2827a37ad7ebf96fc8450c42c4",
+        "timestamp": "2026-09-27T10:13:02Z"
+      },
+      {
         "version": "0.2.17.3",
         "changelog": "Removes TMDB wording and logos from service pages, row labels and editing hints. Required attribution is consolidated in the separate Data credits section of Streaming services settings. Catalogue sources, account settings and playback are unchanged. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
