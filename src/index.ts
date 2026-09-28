@@ -41,13 +41,15 @@ import { createPlayerContext } from './player-context';
 import { PlayerBrowser } from './player-browser';
 import { ChannelZapper } from './channel-zapper';
 import channelZapperStyles from './channel-zapper.css';
+import { TrailerActions } from './trailer-actions';
+import trailerActionStyles from './trailer-actions.css';
 import { startPauseScreen } from './pause-screen';
 import type { MediaApi, Item } from './types';
 
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles+trailerActionStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|ProviderHomeView|ProviderSettingsEditor|null=null;
 let providerPreview:ProviderData|undefined;
 let homeCollections:HomeCollections|null=null;
@@ -456,9 +458,10 @@ const getPlayerApi=()=>window.TvItemLayoutDemo?.api||createJellyfinApi();
 const playerContext=createPlayerContext(getPlayerApi);
 const playerBrowser=new PlayerBrowser(playerContext,getPlayerApi);
 const channelZapper=new ChannelZapper(playerContext,getPlayerApi);
+const trailerActions=new TrailerActions(playerContext,getPlayerApi);
 const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerContext.getSnapshot,subscribe:playerContext.subscribe});
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
 const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();clearHomeSession();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();trailerActions.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();clearHomeSession();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
 refreshNavigation();

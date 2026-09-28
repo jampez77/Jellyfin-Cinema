@@ -208,7 +208,8 @@ export class BrowseView {
     replace(this.results,el('h2','','Browse genres'),genres.length?grid:this.empty('No genres yet','Music genres will appear here.'));
   }
   private renderItems(): void {
-    const name = this.playlist || this.options.item?.Type === 'MusicAlbum' ? 'Tracks' : this.options.item?.Type === 'MusicArtist' ? 'Albums'
+    const name = this.playlist ? this.options.item?.MediaType === 'Video' ? 'Titles' : 'Tracks'
+      : this.options.item?.Type === 'MusicAlbum' ? 'Tracks' : this.options.item?.Type === 'MusicArtist' ? 'Albums'
       : this.state.search ? `Results for “${this.state.search}”` : this.state.genreName || (this.state.tab === 'playlists' ? 'Playlists' : this.state.tab === 'songs' ? 'Songs' : this.options.kind === 'recordings' ? 'Your recordings' : this.state.tab === 'artists' || this.state.tab === 'albumArtists' ? 'Artists' : 'Albums');
     const heading = el('div','tvl-browse-section-heading'); heading.append(el('h2','',name),el('span','',`${this.total} ${this.total===1?'item':'items'}`));
     replace(this.results,heading);

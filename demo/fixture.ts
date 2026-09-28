@@ -1,4 +1,4 @@
-import type { Item, LibraryQuery, MediaApi } from '../src/types';
+import type { Item, LibraryQuery, MediaApi, PlaybackContext, TrailerActionsContext, TrailerIdentity } from '../src/types';
 import { el, picture, replace } from '../src/dom';
 import { providerBrands, type ProviderBrandId } from '../src/provider-brands';
 import { defaultProviderHomes, defaultProviderConfig, parseProviderHomes, providerHomesKey, type ProviderHomeConfig } from '../src/provider-settings';
@@ -225,6 +225,26 @@ const playlistMembers = new Map<string, Item[]>([
   ['playlist-quiet', [songs[0], songs[1], songs[0]].map((item, index) => ({...item, PlaylistItemId:`quiet-entry-${index + 1}`}))],
   ['playlist-night', [songs[3], songs[4]].map((item, index) => ({...item, PlaylistItemId:`night-entry-${index + 1}`}))],
 ]);
+// Preview-only storage belongs to the fictional demo account, never a Jellyfin user.
+const watchlistStorageKey = 'screenharbour-demo:demo:trailer-watchlist';
+const watchlistId = 'playlist-demo-watchlist';
+const watchlistMovies = new Set<string>();
+try {
+  const saved: unknown = JSON.parse(localStorage.getItem(watchlistStorageKey) || '[]');
+  if (Array.isArray(saved)) for (const id of saved) if (typeof id === 'string' && movieIds.includes(id)) watchlistMovies.add(id);
+} catch { /* An unavailable or invalid preview store starts empty. */ }
+function syncDemoWatchlist(): void {
+  if (!watchlistMovies.size && scenario !== 'cinema-trailers') return;
+  let item = library.get(watchlistId);
+  if (!item) {
+    item = register({ Id:watchlistId, Type:'Playlist', Name:'Watchlist', MediaType:'Video', IsFolder:true,
+      Overview:'Films saved from the fictional trailer preview. This watchlist is stored only in this browser.', ImageTags:{Primary:'demo'} }, 'forest');
+    playlists.push(item);
+  }
+  item.ChildCount = watchlistMovies.size;
+  playlistMembers.set(watchlistId, [...watchlistMovies].map(id => ({ ...library.get(id)!, PlaylistItemId:`watchlist-${id}` })));
+}
+syncDemoWatchlist();
 register({Id:'library-music',Type:'CollectionFolder',Name:'Music',CollectionType:'music'},'forest');
 register({Id:'library-playlists',Type:'UserView',Name:'Playlists',CollectionType:'playlists',IsFolder:true},'forest');
 register({Id:'library-live',Type:'CollectionFolder',Name:'Live TV',CollectionType:'livetv'},'ocean');
@@ -298,12 +318,133 @@ function list(items: Item[]): Item[] { return scenario === 'empty' ? [] : items.
 
 let lastDetailHash = '#/details?id=series-north';
 let player: HTMLElement | null = null;
+let cinemaCleanup: (() => void) | null = null;
+let cinemaPlayback: PlaybackContext | null = null;
+const cinemaTrailers = new Map<string, string>();
+if (scenario === 'cinema-trailers') for (const id of ['movie-silence', 'movie-higher']) {
+  const movie = library.get(id)!;
+  const trailerId = `demo-trailer-${id}`;
+  library.set(trailerId, { ...movie, Id:trailerId, Type:'Trailer', ExtraType:'Trailer', UserData:{}, RunTimeTicks:MINUTE });
+  artwork.set(trailerId, artwork.get(id)!);
+  cinemaTrailers.set(trailerId, id);
+}
 function closePlayer() {
+  cinemaCleanup?.(); cinemaCleanup = null; cinemaPlayback = null;
   player?.remove();
   player = null;
   document.body.classList.remove('demo-is-playing');
 }
 function returnToDetails() { location.hash = lastDetailHash; }
+function trailerActions(expected: TrailerIdentity): TrailerActionsContext | null {
+  const playback = cinemaPlayback;
+  if (!playback || playback.PlayingItemId !== expected.PlayingItemId || playback.PlaylistItemId !== expected.PlaylistItemId) return null;
+  const movieId = cinemaTrailers.get(playback.PlayingItemId);
+  const movie = movieId ? library.get(movieId) : null;
+  if (!movie) return null;
+  return { PlayingItemId:playback.PlayingItemId, PlaylistItemId:playback.PlaylistItemId,
+    Movie:{Id:movie.Id, Name:movie.Name}, InWatchlist:watchlistMovies.has(movie.Id), WatchlistId:watchlistId };
+}
+
+function showCinemaPlayer(): void {
+  closePlayer();
+  lastDetailHash = '#/details?id=movie-tide';
+  const queue = [...cinemaTrailers.keys(), 'movie-tide'].map((Id, index) => ({ Id, PlaylistItemId:`demo-cinema-entry-${index}` }));
+  let index = 0, elapsed = 0, stopped = false;
+  const root = el('main', 'demo-cinema-player videoPlayerContainer');
+  root.setAttribute('aria-label', 'Cinema trailer preview');
+  const video = el('video', 'htmlvideoplayer'); video.muted = true; video.playsInline = true;
+  const canvas = el('canvas'); canvas.width = 1280; canvas.height = 720;
+  const context = canvas.getContext('2d')!;
+  const art = new Image(); let artReady = false;
+  art.onload = () => { artReady = true; draw(); };
+  const draw = () => {
+    context.fillStyle = '#101512'; context.fillRect(0, 0, canvas.width, canvas.height);
+    if (!artReady) return;
+    const scale = Math.max(canvas.width / art.naturalWidth, canvas.height / art.naturalHeight);
+    const width = art.naturalWidth * scale, height = art.naturalHeight * scale;
+    context.drawImage(art, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+  };
+  draw();
+  const stream = canvas.captureStream(10); video.srcObject = stream;
+  const osd = el('div', 'demo-cinema-osd'); osd.id = 'videoOsdPage'; osd.dataset.type = 'video-osd';
+  const header = el('div', 'demo-cinema-header');
+  const back = el('button', 'demo-cinema-control btnBack', '← Back'); back.type = 'button'; back.addEventListener('click', returnToDetails);
+  const watchlist = el('a', 'demo-cinema-control', 'View watchlist'); watchlist.href = `#/details?id=${watchlistId}`;
+  header.append(back, watchlist);
+  const copy = el('div', 'demo-cinema-copy');
+  const eyebrow = el('p', 'demo-cinema-eyebrow'), title = el('h1'), metadata = el('p', 'demo-cinema-meta');
+  const description = el('p', 'demo-cinema-description');
+  copy.append(eyebrow, title, metadata, description);
+  const bottom = el('div', 'videoOsdBottom');
+  const controls = el('div', 'osdControls'), buttons = el('div', 'buttons');
+  const play = el('button', 'demo-cinema-control btnPause', 'Pause'); play.type = 'button';
+  const next = el('button', 'demo-cinema-control btnNextTrack', 'Next'); next.type = 'button'; next.setAttribute('aria-label', 'Next preview');
+  const rating = el('button', 'btnUserRating'); rating.type = 'button'; rating.hidden = true;
+  const progress = el('progress', 'demo-cinema-progress'); progress.max = 60; progress.value = 0; progress.setAttribute('aria-label', 'Preview progress');
+  const timing = el('span', 'demo-cinema-timing');
+  const note = el('span', 'demo-cinema-note', 'Fictional titles · Artwork simulation');
+  buttons.append(play, next, timing, note, rating); controls.append(progress, buttons); bottom.append(controls);
+  osd.append(header, copy, bottom); root.append(video, osd); document.body.append(root);
+  player = root; document.body.classList.add('demo-is-playing');
+
+  function renderEntry(): void {
+    elapsed = 0; progress.value = 0; artReady = false;
+    const entry = queue[index], item = library.get(entry.Id)!;
+    const trailer = cinemaTrailers.has(entry.Id);
+    cinemaPlayback = { PlayingItemId:item.Id, PlayingItemType:item.Type, PlayingItemExtraType:item.ExtraType,
+      PlaylistItemId:entry.PlaylistItemId, Queue:queue.map(value => ({...value})) };
+    root.dataset.cinemaIndex = String(index); rating.dataset.id = item.Id;
+    eyebrow.textContent = trailer ? `Trailer preview ${index + 1} of 2` : 'Feature preview';
+    title.textContent = item.Name; metadata.textContent = `${item.ProductionYear} · ${item.OfficialRating} · ${item.Genres?.join(' / ')}`;
+    description.textContent = item.Overview || '';
+    next.disabled = !trailer; progress.hidden = !trailer;
+    timing.textContent = trailer ? '0:00 / 1:00' : 'Your film begins here';
+    art.src = artwork.get(item.Id)!; draw();
+    osd.dispatchEvent(new CustomEvent('viewshow', { bubbles:true }));
+  }
+  function advance(): void {
+    if (index >= queue.length - 1) return;
+    index++; renderEntry();
+    if (video.paused) void video.play().catch(() => { play.textContent = 'Play'; });
+  }
+  next.addEventListener('click', advance);
+  play.addEventListener('click', () => { if (video.paused) void video.play().catch(() => { play.textContent = 'Play'; }); else video.pause(); });
+  video.addEventListener('pause', () => { play.textContent = 'Play'; root.classList.add('demo-cinema-paused'); });
+  video.addEventListener('playing', () => { play.textContent = 'Pause'; root.classList.remove('demo-cinema-paused'); });
+  // Model native spatial navigation only for this fixture's controls. The real
+  // TrailerActions component retains ownership once focus reaches its buttons.
+  root.addEventListener('keydown', event => {
+    if (event.defaultPrevented || !['ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)
+      || !(event.target instanceof HTMLElement) || event.target.closest('#tvl-trailer-actions, #tvl-player-browser')) return;
+    const items = Array.from(osd.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]')).filter(item => !item.hidden && !!item.getClientRects().length);
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    const destination = event.key === 'ArrowUp' ? osd.querySelector<HTMLElement>('#tvl-trailer-actions button:not(:disabled)')
+      : items[(current + (event.key === 'ArrowLeft' ? items.length - 1 : 1)) % items.length];
+    if (destination) { event.preventDefault(); destination.focus(); }
+  });
+  let lastTick = performance.now();
+  const timer = window.setInterval(() => {
+    if (stopped) return;
+    draw(); const tick = performance.now();
+    if (!video.paused && index < queue.length - 1) {
+      const previousSecond = Math.floor(elapsed);
+      elapsed += (tick - lastTick) / 1000;
+      if (elapsed >= 60) advance();
+      else if (Math.floor(elapsed) !== previousSecond) {
+        progress.value = elapsed; timing.textContent = `0:${String(Math.floor(elapsed)).padStart(2, '0')} / 1:00`;
+      }
+    }
+    lastTick = tick;
+  }, 100);
+  cinemaCleanup = () => {
+    stopped = true; window.clearInterval(timer); art.onload = null;
+    osd.dispatchEvent(new CustomEvent('viewbeforehide', { bubbles:true }));
+    video.pause(); stream.getTracks().forEach(track => track.stop()); video.srcObject = null;
+  };
+  renderEntry();
+  void video.play().catch(() => { play.textContent = 'Play'; });
+  requestAnimationFrame(() => { if (root.isConnected) play.focus({preventScroll:true}); });
+}
 function showPlayer(item: Item, ticks: number) {
   closePlayer();
   if (/^#\/(details|livetv)(\?|$)/.test(location.hash)) lastDetailHash = location.hash;
@@ -363,6 +504,17 @@ function providerPage(config: ProviderHomeConfig | undefined, query: ProviderIte
     Status: sourceIds.length ? 'ready' : 'unavailable', Region: 'GB', UpdatedAt: new Date().toISOString(), MissingIds: 0, FailedIds: 0 };
 }
 const api: MediaApi = {
+  getPlaybackContext: () => respond(() => cinemaPlayback ? { ...cinemaPlayback, Queue:cinemaPlayback.Queue.map(entry => ({...entry})) } : null),
+  getTrailerActions: expected => respond(() => trailerActions(expected)),
+  addTrailerToWatchlist: expected => respond(() => {
+    const model = trailerActions(expected);
+    if (!model?.Movie) throw new Error('The trailer changed. Try again.');
+    const ids = new Set(watchlistMovies); ids.add(model.Movie.Id);
+    // Persist before changing the UI: unavailable browser storage is a real failure.
+    localStorage.setItem(watchlistStorageKey, JSON.stringify([...ids]));
+    watchlistMovies.add(model.Movie.Id); syncDemoWatchlist();
+    return { ...model, InWatchlist:true };
+  }),
   getProviderDirectory: () => respond(() => {
     const common = [
       { Id:8, Name:'Netflix' }, { Id:175, Name:'Netflix Kids' }, { Id:1796, Name:'Netflix Standard with Ads' },
@@ -676,6 +828,7 @@ function syncRoute() {
     else link.removeAttribute('aria-current');
   });
   if (!location.hash.startsWith('#/video')) closePlayer();
+  else if (scenario === 'cinema-trailers' && !player) showCinemaPlayer();
 }
 
 window.addEventListener('hashchange', syncRoute);

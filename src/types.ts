@@ -53,6 +53,13 @@ export type PlaybackContext = {
   Queue: { Id: string; PlaylistItemId?: string }[];
 };
 
+export type TrailerIdentity = { PlayingItemId: string; PlaylistItemId?: string };
+export type TrailerActionsContext = TrailerIdentity & {
+  Movie: { Id: string; Name: string } | null;
+  InWatchlist: boolean;
+  WatchlistId?: string;
+};
+
 export interface MediaApi extends BrowseApi {
   serverId?: string;
   userId?: string;
@@ -63,6 +70,8 @@ export interface MediaApi extends BrowseApi {
   previewProviderItems?(provider: ProviderHomeConfig, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
   getItem(id: string): Promise<Item>;
   getPlaybackContext?(): Promise<PlaybackContext | null>;
+  getTrailerActions?(expected: TrailerIdentity): Promise<TrailerActionsContext | null>;
+  addTrailerToWatchlist?(expected: TrailerIdentity): Promise<TrailerActionsContext>;
   getMovies(query: MovieQuery): Promise<ItemPage>;
   getMovieGenres(parentId?: string): Promise<Item[]>;
   getMovieSuggestions(parentId?: string): Promise<SuggestionSection[]>;
