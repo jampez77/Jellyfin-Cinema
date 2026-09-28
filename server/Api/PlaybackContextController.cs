@@ -4,6 +4,7 @@ using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Session;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Jellyfin.Plugin.TvItemLayout.Integration;
 
 namespace Jellyfin.Plugin.TvItemLayout.Api;
 
@@ -12,7 +13,7 @@ namespace Jellyfin.Plugin.TvItemLayout.Api;
 [Authorize]
 public sealed class PlaybackContextController(
     IAuthorizationContext authorizationContext,
-    ISessionManager sessionManager) : ControllerBase
+    ISessionManager sessionManager, PlaybackQueueStore playbackQueues) : ControllerBase
 {
     [HttpGet("PlaybackContext")]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
@@ -37,7 +38,7 @@ public sealed class PlaybackContextController(
             PlayingItemType = item.Type,
             PlayingItemExtraType = item.ExtraType,
             session.PlaylistItemId,
-            Queue = session.NowPlayingQueue.Select(entry => new { entry.Id, entry.PlaylistItemId }).ToArray()
+            Queue = playbackQueues.GetQueue(session).Select(entry => new { entry.Id, entry.PlaylistItemId }).ToArray()
         });
     }
 }

@@ -4,6 +4,7 @@ using Jellyfin.Plugin.TvItemLayout.Providers;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.TvItemLayout;
 
@@ -12,6 +13,9 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<StartupService>();
+        serviceCollection.AddSingleton<PlaybackQueueStore>();
+        serviceCollection.AddScoped<PlaybackQueueCaptureFilter>();
+        serviceCollection.Configure<MvcOptions>(options => options.Filters.AddService<PlaybackQueueCaptureFilter>());
         serviceCollection.AddHttpClient("JellyfinCinemaProviders", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(15);

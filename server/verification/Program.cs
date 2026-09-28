@@ -15,6 +15,7 @@ static void Assert(bool condition, string message)
 }
 
 await PlaybackChecks.Run(Assert);
+await PlaybackQueueChecks.Run(Assert);
 await TrailerActionsChecks.Run(Assert);
 await ProfileSwitchChecks.Run(Assert);
 await HomeCollectionsChecks.Run(Assert);

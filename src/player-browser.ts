@@ -52,6 +52,8 @@ export class PlayerBrowser {
     this.previous.dataset.playerAction = 'previous'; this.next.dataset.playerAction = 'next';
     this.stopContext = context.subscribe(this.sync);
     this.observer = new MutationObserver(this.schedule);
+    // Jellyfin's layoutManager changes html without updating body or playback.
+    this.observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-hidden', 'style', 'disabled', 'aria-disabled'] });
     window.addEventListener('keydown', this.keyDown, true); window.addEventListener('keyup', this.keyUp, true);
     window.addEventListener('command', this.command, true); window.addEventListener('blur', this.blur);

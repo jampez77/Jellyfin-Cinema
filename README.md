@@ -10,11 +10,11 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.28.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.29.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB.
 
-**0.2.28 is available as a prerelease** ([release notes](docs/releases/v0.2.28.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. This patch makes Cinema Mode trailer controls available on first playback and while paused, prevents Skip from pausing the next video, and removes the Browse icon in TV layout. Home returns to its previous background; login preserves the native or installed theme backdrop. Update the existing installation; no uninstall is needed. Physical LG webOS testing of this release remains pending.
+**0.2.29 is available as a prerelease** ([release notes](docs/releases/v0.2.29.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. This patch fixes the missing first-trailer queue in Jellyfin sessions so trailer actions can appear before Next/Back, including on the initial pause screen. The actions now sit on the left between the pause details and native playback controls, with Skip trailer focused once when each trailer’s buttons first appear. Switching to TV layout immediately removes the Browse icon while metadata is loading. The previous autoplay fix is retained. Update the existing installation; no uninstall is needed. Physical LG webOS testing of this release remains pending.
 
 ## Try the demo
 
@@ -121,7 +121,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.28 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.28) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.28 release notes](docs/releases/v0.2.28.md) for changes and validation status.
+The [v0.2.29 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.29) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.29 release notes](docs/releases/v0.2.29.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -137,7 +137,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.28.1` for 10.10.7, `0.2.28.2` for 10.11.x and `0.2.28.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.29.1` for 10.10.7, `0.2.29.2` for 10.11.x and `0.2.29.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

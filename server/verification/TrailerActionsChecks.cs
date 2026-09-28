@@ -9,6 +9,7 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 #endif
 using Jellyfin.Plugin.TvItemLayout.Api;
+using Jellyfin.Plugin.TvItemLayout.Integration;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Entities;
@@ -88,19 +89,26 @@ public static class TrailerActionsChecks
             list.LinkedChildren = list.LinkedChildren.Concat(movieIds.Select(id => new LinkedChild { ItemId = id })).ToArray();
             return Task.CompletedTask;
         }
+        var playbackQueues = new PlaybackQueueStore();
+        void CaptureQueue() => playbackQueues.Record(session, new PlaybackStartInfo
+        {
+            ItemId = trailer.Id, PlaylistItemId = session.PlaylistItemId, PlaySessionId = "fixture-playback",
+            NowPlayingQueue = session.NowPlayingQueue.ToArray()
+        }, true, playbackQueues.NextSequence());
         void ResetPlayback()
         {
             session = new SessionInfo(sessions, NullLogger.Instance)
             {
-                UserId = user.Id, DeviceId = auth.DeviceId, PlaylistItemId = "trailer-entry",
+                Id = "fixture-session", UserId = user.Id, DeviceId = auth.DeviceId, PlaylistItemId = "trailer-entry",
                 NowPlayingItem = new BaseItemDto { Id = trailer.Id },
                 NowPlayingQueue = [new QueueItem { Id = trailer.Id, PlaylistItemId = "trailer-entry" },
                     new QueueItem { Id = feature.Id, PlaylistItemId = "feature-entry" }]
             };
+            CaptureQueue();
         }
         TrailerActionsController Controller()
         {
-            var result = new TrailerActionsController(authorization, sessions, users, devices, network, library, playlists)
+            var result = new TrailerActionsController(authorization, sessions, users, devices, network, library, playlists, playbackQueues)
             { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
             result.HttpContext.Connection.RemoteIpAddress = IPAddress.Loopback;
             return result;
@@ -176,13 +184,16 @@ public static class TrailerActionsChecks
         assert(await Get() is JsonResult { Value: null }, "A restricted or stale queued feature does not verify a pre-film trailer");
         feature.Allowed = true;
         session.NowPlayingQueue = [new QueueItem { Id = trailer.Id, PlaylistItemId = "trailer-entry" }];
+        CaptureQueue();
         assert(await Get() is JsonResult { Value: null }, "A directly opened trailer has no pre-film actions");
         ResetPlayback();
         session.NowPlayingQueue = [new QueueItem { Id = trailer.Id, PlaylistItemId = "trailer-entry" },
             new QueueItem { Id = Guid.NewGuid() }, new QueueItem { Id = feature.Id }];
+        CaptureQueue();
         assert(await Get() is JsonResult { Value: null }, "An unknown queue entry prevents guessing at a later feature");
         ResetPlayback();
         session.NowPlayingQueue = session.NowPlayingQueue.Concat([new QueueItem { Id = trailer.Id, PlaylistItemId = "trailer-entry" }]).ToArray();
+        CaptureQueue();
         assert(await Get() is JsonResult { Value: null }, "Repeated indistinguishable trailer queue entries fail closed");
         ResetPlayback(); session.NowPlayingItem = new BaseItemDto { Id = feature.Id };
         assert(await controller.AddTrailerToWatchlist(request) is ConflictObjectResult, "A click after the trailer ends cannot save another film");
@@ -211,6 +222,7 @@ public static class TrailerActionsChecks
         await TrailerActionsHttpChecks.Run(assert, services =>
         {
             services.AddSingleton(authorization); services.AddSingleton(sessions); services.AddSingleton(users);
+            services.AddSingleton(playbackQueues);
             services.AddSingleton(devices); services.AddSingleton(network); services.AddSingleton(library); services.AddSingleton(playlists);
         }, trailer.Id, advertised.Id, feature.Id, hasOwner => trailer.OwnerId = hasOwner ? advertised.Id : Guid.Empty,
             playing => { ResetPlayback(); if (!playing) session.NowPlayingItem = new BaseItemDto { Id = feature.Id }; },
