@@ -3,6 +3,7 @@ import { el, icon, button, picture, replace } from './dom';
 import { runtime, progress, playbackEnd, resumePosition, isWatched, seasonName, episodeCode, time, programmeProgress, playable, plainText } from './utils';
 import { attachRemote } from './remote';
 import { CollectionPicker } from './collection-picker';
+import { subscribeWatchlist } from './watchlist';
 
 type Pane = 'overview' | 'episodes' | 'similar';
 export class DetailView {
@@ -34,6 +35,12 @@ export class DetailView {
   private collectionAccess: boolean | null = null;
   private collectionSaving = false;
   private collectionsRevision = 0;
+  private watchlist: boolean | null = null;
+  private watchlistPending = false;
+  private watchlistFailed = false;
+  private watchlistRevision = 0;
+  private watchlistRefreshNeeded = false;
+  private stopWatchlist?: () => void;
 
   constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; openAdditional?: (item: Item) => boolean; focusId?: string }) {
     this.restoreId = options.focusId || '';
@@ -96,6 +103,14 @@ export class DetailView {
       this.setBackdrop();
       if (requested.Type === 'Season') this.pane = 'episodes';
       this.render();
+      if (this.item.Type !== 'TvChannel' && this.api.getWatchlistState && this.api.setWatchlist) {
+        this.stopWatchlist?.();
+        this.stopWatchlist = subscribeWatchlist(this.api, () => {
+          if (this.watchlistPending) this.watchlistRefreshNeeded = true;
+          else void this.refreshWatchlist();
+        });
+        void this.refreshWatchlist();
+      }
       if (this.item.Type === 'TvChannel') {
         this.liveTimer = window.setInterval(() => { void this.refreshChannel(); }, 60_000);
       }
@@ -209,6 +224,11 @@ export class DetailView {
     else {
       const similar = button('More like this','grid',movie ? 'tvl-round-label' : '',() => this.open('similar'));
       similar.dataset.focusId = 'similar'; actions.append(similar);
+    }
+    if (!live && this.api.getWatchlistState && this.api.setWatchlist) {
+      const saved = button('', 'plus', 'tvl-watchlist', () => void this.toggleWatchlist());
+      saved.dataset.focusId = 'watchlist'; saved.dataset.watchlist = '';
+      actions.append(saved); this.updateWatchlistButton(saved);
     }
     const favorite = button(this.item.UserData?.IsFavorite ? 'In favourites' : 'Add to favourites', 'heart', movie ? 'tvl-icon-button' : 'tvl-favorite', () => void this.toggleFavorite());
     favorite.setAttribute('aria-label',this.item.UserData?.IsFavorite ? 'Remove from favourites' : 'Add to favourites');
@@ -500,6 +520,56 @@ export class DetailView {
       if(focus)this.focusFirst();
     }
   }
+  private updateWatchlistButton(node = this.element.querySelector<HTMLButtonElement>('[data-watchlist]')): void {
+    if (!node) return;
+    const label = this.watchlistFailed ? 'Retry watchlist' : this.watchlist === null ? 'Loading watchlist…'
+      : this.watchlist ? 'In watchlist' : 'Add to watchlist';
+    node.setAttribute('aria-label', this.watchlistFailed ? label : this.watchlist ? 'Remove from watchlist' : label);
+    node.setAttribute('aria-pressed', String(this.watchlist === true));
+    node.setAttribute('aria-busy', String(this.watchlistPending));
+    node.setAttribute('aria-disabled', String(this.watchlistPending));
+    const caption = node.querySelector('span'); if (caption) caption.textContent = label;
+    node.querySelector('svg')?.replaceWith(icon(this.watchlist ? 'check' : 'plus'));
+  }
+  private async refreshWatchlist(): Promise<void> {
+    if (!this.api.getWatchlistState || this.watchlistPending || this.disposed) return;
+    const revision = ++this.watchlistRevision, id = this.item.Id, user = this.api.userId, server = this.api.serverId;
+    const current = () => !this.disposed && revision === this.watchlistRevision && id === this.item.Id
+      && user === this.api.userId && server === this.api.serverId;
+    this.watchlistPending = true; this.watchlistRefreshNeeded = false; this.watchlistFailed = false; this.updateWatchlistButton();
+    try {
+      const state = await this.api.getWatchlistState(id);
+      if (current()) this.watchlist = state.InWatchlist;
+    } catch (error) {
+      if (current()) { this.watchlistFailed = true; this.announce(error instanceof Error ? error.message : 'Could not load your watchlist. Try again.'); }
+    } finally {
+      if (current()) {
+        this.watchlistPending = false; this.updateWatchlistButton();
+        if (this.watchlistRefreshNeeded) void this.refreshWatchlist();
+      }
+    }
+  }
+  private async toggleWatchlist(): Promise<void> {
+    if (this.watchlistPending || !this.api.setWatchlist) return;
+    if (this.watchlistFailed || this.watchlist === null) { await this.refreshWatchlist(); return; }
+    const revision = ++this.watchlistRevision, id = this.item.Id, user = this.api.userId, server = this.api.serverId;
+    const current = () => !this.disposed && revision === this.watchlistRevision && id === this.item.Id
+      && user === this.api.userId && server === this.api.serverId;
+    this.watchlistPending = true; this.updateWatchlistButton();
+    try {
+      const state = await this.api.setWatchlist(id, !this.watchlist);
+      if (!current()) return;
+      this.watchlist = state.InWatchlist;
+      this.announce(state.InWatchlist ? 'Added to your watchlist' : 'Removed from your watchlist');
+    } catch (error) {
+      if (current()) { this.watchlistFailed = true; this.announce(error instanceof Error ? error.message : 'Could not update your watchlist. Try again.'); }
+    } finally {
+      if (current()) {
+        this.watchlistPending = false; this.updateWatchlistButton();
+        if (this.watchlistRefreshNeeded) void this.refreshWatchlist();
+      }
+    }
+  }
   private async toggleFavorite(): Promise<void> {
     if(this.favoritePending)return;this.favoritePending=true;
     const value=!this.item.UserData?.IsFavorite;
@@ -686,5 +756,5 @@ export class DetailView {
       ||within.querySelector<HTMLElement>('.tvl-primary:not(:disabled), .tvl-film-card, .tvl-season')||within.querySelector<HTMLElement>('button:not(:disabled)');
     node?.focus({preventScroll:true});
   }
-  destroy(): void {this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearTimeout(this.endTimeTimer);window.clearInterval(this.liveTimer);this.element.remove();}
+  destroy(): void {this.stopWatchlist?.();this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearTimeout(this.endTimeTimer);window.clearInterval(this.liveTimer);this.element.remove();}
 }

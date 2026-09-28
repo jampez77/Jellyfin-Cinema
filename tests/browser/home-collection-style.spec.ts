@@ -137,8 +137,8 @@ test('editor preview keeps the shared thumbnail/rank proportions and scrolls wit
   });
   await page.evaluate(()=>{location.hash='/list?parentId=library-collections';});
   await useDesktopLayout(page);
-  await page.getByRole('button',{name:'Customize collection rows',exact:true}).click();
-  const editor=page.getByRole('dialog',{name:'Customize collection rows',exact:true});
+  await page.getByRole('button',{name:'Customize Home rows',exact:true}).click();
+  const editor=page.getByRole('dialog',{name:'Customize Home rows',exact:true});
   await editor.locator('.tvl-home-row-choice').filter({hasText:'Trending films'}).click();
   const preview=editor.getByRole('complementary',{name:'Home row preview',exact:true});
   await expect(preview.locator('.tvl-home-row-card')).toHaveCount(12);

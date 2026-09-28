@@ -7,6 +7,7 @@ import type { ProviderHomeConfig, ProviderHomesSettings, ProviderRow, ProviderId
 import { ProviderData, type ProviderRowResult } from './provider-data';
 import { homeRowCard } from './home-row-card';
 import { plainText } from './utils';
+import { subscribeWatchlist } from './watchlist';
 
 export function providerHomeRow(settings: ProviderHomesSettings, navigate: (id: ProviderId) => void): HTMLElement | null {
   const providers = settings.providers.filter(provider => provider.enabled);
@@ -52,6 +53,7 @@ export class ProviderHomeView {
   private config?: ProviderHomeConfig;
   private states: RowState[] = [];
   private detach: () => void;
+  private detachWatchlist: () => void;
   private disposed = false;
   private generation = 0;
   private refreshTimer?: number;
@@ -61,6 +63,7 @@ export class ProviderHomeView {
   private inputRevision = 0;
   private featureId?: string;
   private focusPending?: string;
+  private watchlistRefreshPending = false;
 
   constructor(private api: MediaApi, private options: Options) {
     this.store = createProviderHomesStore(api); this.data = new ProviderData(api); this.focusPending = options.focusId;
@@ -79,6 +82,9 @@ export class ProviderHomeView {
     window.addEventListener('keydown', this.onInput, true); window.addEventListener('command', this.onInput, true);
     document.addEventListener('pointerdown', this.onInput, true);
     this.detach = attachRemote(this.element, options.back, direction => this.moveRow(direction));
+    this.detachWatchlist = subscribeWatchlist(api, () => {
+      this.watchlistRefreshPending = true; this.refreshWatchlist();
+    });
     back.focus({ preventScroll: true });
     window.addEventListener('focus', this.onVisible); document.addEventListener('visibilitychange', this.onVisible);
   }
@@ -91,7 +97,7 @@ export class ProviderHomeView {
     if (this.disposed || generation !== this.generation) return;
     await this.renderConfiguration(settings);
     if (this.disposed) return;
-    this.initializing = false; this.scheduleRefresh();
+    this.initializing = false; this.scheduleRefresh(); this.refreshWatchlist();
   }
 
   private async renderConfiguration(settings: ProviderHomesSettings, preserve = false): Promise<void> {
@@ -146,7 +152,7 @@ export class ProviderHomeView {
   }
 
   private rowTitle(row: ProviderRow): string {
-    return ({ movies: 'Films', shows: 'TV shows', 'trending-movies': 'Trending films', 'trending-shows': 'Trending TV shows', collection: 'Collection' })[row.source];
+    return ({ movies: 'Films', shows: 'TV shows', 'trending-movies': 'Trending films', 'trending-shows': 'Trending TV shows', collection: 'Collection', watchlist: 'Watchlist' })[row.source];
   }
   private buildRow(config: ProviderRow): RowState {
     const title = config.title.trim() || this.rowTitle(config);
@@ -208,14 +214,15 @@ export class ProviderHomeView {
       if (result.missingSource) messages.push(row.config.source === 'collection' || row.config.collectionId
         ? 'The selected collection is unavailable for this account.' : 'Choose a collection for this row in Streaming services settings.');
       if (result.missingIds) messages.push(`${result.missingIds} library titles need matching metadata before their availability can be checked.`);
-      if (!messages.length && !row.items.length) messages.push('No matching titles in your library.');
+      if (!messages.length && !row.items.length) messages.push(row.config.source === 'watchlist'
+        ? 'No films or TV shows in your Watchlist match this service yet.' : 'No matching titles in your library.');
       row.status.textContent = messages.join(' ');
       if (row === this.states[0]) this.updateHero(items[0]); this.focusInitial();
     } catch {
       if (!current()) return;
       row.status.textContent = row.items.length ? 'This row could not refresh. Your existing results are still shown.' : 'This row could not be loaded.';
       const retry = button('Retry', '', '', () => { void this.loadRow(row); }); retry.dataset.focusId = `provider-retry:${row.config.id}`; row.status.append(retry);
-    } finally { row.busy = false; row.more.disabled = false; }
+    } finally { row.busy = false; row.more.disabled = false; this.refreshWatchlist(); }
   }
 
   private updateHero(item?: Item): void {
@@ -272,7 +279,16 @@ export class ProviderHomeView {
     try {
       const rebuilt = await this.refreshConfiguration(forceSettings);
       if (!this.disposed && !rebuilt) await Promise.allSettled(this.states.map(row => this.loadRow(row)));
-    } finally { this.refreshing = false; if (!this.disposed) this.scheduleRefresh(); }
+    } finally { this.refreshing = false; if (!this.disposed) { this.scheduleRefresh(); this.refreshWatchlist(); } }
+  }
+  private refreshWatchlist(): void {
+    if (!this.watchlistRefreshPending || this.disposed || this.initializing || this.refreshing
+      || document.visibilityState === 'hidden' || this.states.some(row => row.busy)) return;
+    this.watchlistRefreshPending = false;
+    if (!this.states.some(row => row.config.source === 'watchlist')) return;
+    // Wait for an earlier read to finish, then invalidate it and fetch again so
+    // a save arriving during that read cannot leave the old Watchlist mounted.
+    this.data.invalidate(); void this.refreshRows();
   }
   private onInput = (): void => { this.inputRevision++; this.focusPending = undefined; };
   private onVisible = (): void => {
@@ -285,7 +301,7 @@ export class ProviderHomeView {
   };
   destroy(): void {
     this.options.onState?.({ loadedCount: this.options.rowId ? this.states[0]?.items.length || 60 : 40, scrollTop: this.content.scrollTop });
-    this.disposed = true; this.generation++; this.detach(); this.store.destroy(); this.data.destroy(); this.element.remove();
+    this.disposed = true; this.generation++; this.detach(); this.detachWatchlist(); this.store.destroy(); this.data.destroy(); this.element.remove();
     window.clearTimeout(this.refreshTimer); window.removeEventListener('focus', this.onVisible); document.removeEventListener('visibilitychange', this.onVisible);
     window.removeEventListener('keydown', this.onInput, true); window.removeEventListener('command', this.onInput, true);
     document.removeEventListener('pointerdown', this.onInput, true);

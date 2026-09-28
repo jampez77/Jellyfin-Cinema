@@ -1,6 +1,6 @@
 import type { Item, MediaApi } from './types';
 import { isCinemaLayout } from './layout';
-import type { ActivePlayback } from './player-context';
+import { isIntro, sameMediaId, type ActivePlayback } from './player-context';
 import { el, replace } from './dom';
 import { episodeCode, plainText, runtime, time } from './utils';
 
@@ -9,7 +9,11 @@ type Options = {
   getPlayback: () => ActivePlayback | null;
   subscribe?: (listener: () => void) => () => void;
 };
-type PauseDetails = { item: Item; subject: Item; channel?: Item; title: string; logos: string[]; discs: string[] };
+type PauseDetails = { item: Item; subject: Item; channel?: Item; title: string; logos: string[]; discs: string[]; retryTrailerOwner?: boolean };
+const accountScope = (api: MediaApi | null): string => JSON.stringify([api?.serverId || '', api?.userId || '']);
+const playbackKey = (snapshot: ActivePlayback, api: MediaApi | null): string => JSON.stringify([
+  accountScope(api), snapshot.key, snapshot.playingItemId, snapshot.playlistItemId || ''
+]);
 
 function visible(node: Element): boolean {
   if (!(node instanceof HTMLElement) || node.hidden || node.closest('.hide, [hidden]') || !node.getClientRects().length) return false;
@@ -19,7 +23,8 @@ function visible(node: Element): boolean {
 
 /** Independently implemented from the feature description in
  * https://github.com/jampez77/Jellyfin-PauseScreen (dbad66b).
- * Metadata stays with the playing item; only artwork inherits from parents.
+ * Metadata stays with the playing item, except a cinema trailer with a
+ * server-confirmed advertised movie. Episode parents only supply artwork.
  */
 export function startPauseScreen(options: Options): () => void {
   const overlay = el('section', 'tvl-pause-screen');
@@ -37,7 +42,9 @@ export function startPauseScreen(options: Options): () => void {
   let frame: number | undefined;
 
   function paused(snapshot: ActivePlayback | null): snapshot is ActivePlayback {
+    const nativeItemId = snapshot?.osd.querySelector<HTMLElement>('.btnUserRating[data-id]')?.dataset.id;
     return !!snapshot && isCinemaLayout() && snapshot.video.isConnected && snapshot.osd.isConnected
+      && (!nativeItemId || sameMediaId(nativeItemId, snapshot.playingItemId || snapshot.itemId))
       && visible(snapshot.osd) && snapshot.video.paused && !snapshot.video.ended && !snapshot.video.error
       && snapshot.video.readyState >= 2 && snapshot.video.videoWidth > 0 && snapshot.video.videoHeight > 0;
   }
@@ -125,13 +132,30 @@ export function startPauseScreen(options: Options): () => void {
     if (disc) { disc.setAttribute('aria-hidden', 'true'); overlay.append(disc); }
   }
 
-  async function readDetails(snapshot: ActivePlayback, api: MediaApi): Promise<PauseDetails | null> {
-    // The episode browser may resolve an intro to its upcoming feature; a
-    // paused frame must continue to describe the item that is actually playing.
+  async function readDetails(snapshot: ActivePlayback, api: MediaApi, current: () => boolean): Promise<PauseDetails | null> {
+    // The queued feature is not the film being advertised. Resolve a trailer's
+    // actual owner through the same authenticated mapping as its Watchlist action.
     const playingId = snapshot.playingItemId || snapshot.itemId;
     let item: Item | null = snapshot.item?.Id === playingId ? snapshot.item : null;
     try { item = await api.getItem(playingId); } catch { /* The native snapshot can still provide the current title. */ }
-    if (!item?.Id || !item.Name) return null;
+    if (!current() || !item?.Id || !sameMediaId(item.Id, playingId) || !item.Name) return null;
+    let retryTrailerOwner = false;
+    if (isIntro(item) && api.getTrailerActions) {
+      retryTrailerOwner = true;
+      try {
+        const trailer = await api.getTrailerActions({ PlayingItemId: playingId, PlaylistItemId: snapshot.playlistItemId });
+        if (!current()) return null;
+        if (trailer?.Movie?.Id && sameMediaId(trailer.PlayingItemId, playingId)
+          && (trailer.PlaylistItemId || '') === (snapshot.playlistItemId || '')) {
+          const advertised = await api.getItem(trailer.Movie.Id);
+          if (!current()) return null;
+          if (advertised.Type === 'Movie' && sameMediaId(advertised.Id, trailer.Movie.Id) && advertised.Name) {
+            item = advertised; retryTrailerOwner = false;
+          }
+        }
+      } catch { /* Keep the trailer's own metadata and retry a late queue report. */ }
+    }
+    if (!current()) return null;
     if (item.Type === 'Audio' || item.Type === 'MusicAlbum' || item.Type === 'MusicArtist') return null;
     let channel: Item | undefined = item.Type === 'TvChannel' ? item : undefined;
     if (item.Type === 'Program' && item.ChannelId) {
@@ -159,7 +183,7 @@ export function startPauseScreen(options: Options): () => void {
     }
     const series = parents.find(parent => parent.Id === item!.SeriesId);
     const title = item.Type === 'Episode' ? item.SeriesName || series?.Name || item.Name : item.Name;
-    return { item, subject, title, logos, discs };
+    return { item, subject, title, logos, discs, retryTrailerOwner };
   }
 
   function sync(): void {
@@ -167,22 +191,31 @@ export function startPauseScreen(options: Options): () => void {
     if (disposed) return;
     const snapshot = options.getPlayback();
     if (!paused(snapshot)) { reset(); return; }
-    if (key !== snapshot.key || video !== snapshot.video) {
-      reset(); key = snapshot.key; video = snapshot.video;
+    const api = options.getApi();
+    if (!api) { reset(); return; }
+    const snapshotKey = playbackKey(snapshot, api);
+    if (key !== snapshotKey || video !== snapshot.video) {
+      reset(); key = snapshotKey; video = snapshot.video;
     }
     if (blocked()) { hide(); return; }
     show(snapshot);
-    const refreshAfter = details?.channel ? 60_000 : details ? Infinity : 10_000;
+    const refreshAfter = details?.retryTrailerOwner ? 5_000 : details?.channel ? 60_000 : details ? Infinity : 10_000;
     if (pending || (lastAttempt && Date.now() - lastAttempt < refreshAfter)) return;
-    const api = options.getApi();
-    if (!api) { hide(); return; }
     pending = true; lastAttempt = Date.now();
     const revision = ++generation;
-    void readDetails(snapshot, api).then(model => {
+    const source = snapshot.video.currentSrc || snapshot.video.src, sourceObject = snapshot.video.srcObject;
+    const isCurrent = () => {
+      const current = options.getPlayback();
+      return !disposed && revision === generation && paused(current)
+        && playbackKey(current, options.getApi()) === snapshotKey && current.video === snapshot.video
+        && (current.video.currentSrc || current.video.src) === source && current.video.srcObject === sourceObject;
+    };
+    void readDetails(snapshot, api, isCurrent).then(model => {
       if (disposed || revision !== generation) return;
       pending = false;
+      if (!isCurrent()) { reset(); return; }
       const current = options.getPlayback();
-      if (!paused(current) || current.key !== key || current.video !== video) { reset(); return; }
+      if (!paused(current) || playbackKey(current, options.getApi()) !== key || current.video !== video) { reset(); return; }
       details = model;
       if (model) render(model);
       show(current);

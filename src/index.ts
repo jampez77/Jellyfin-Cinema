@@ -146,12 +146,12 @@ function currentRoute():Route|null{
     const parentId=params.get('topParentId')||undefined;
     const tab=params.get('tab')||'1';
     if(tab==='3')return {kind:'collections',scope:'movies',parentId};
-    const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','2':'favorites','4':'genres'};
+    const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','2':'favorites','4':'genres','watchlist':'watchlist'};
     if(tabs[tab])return {kind:'movies',parentId,tab:tabs[tab]};
   }
   if(/^tv\/?$/i.test(path)){
     if(!onlyParams(params,['topParentId','serverId','collectionType','tab']))return null;
-    const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','3':'genres'};
+    const tabs:Record<string,LibraryTab>={'0':'all','1':'suggestions','3':'genres','watchlist':'watchlist'};
     const tab=tabs[params.get('tab')||'1'];
     if(tab)return {kind:'shows',parentId:params.get('topParentId')||undefined,tab};
   }

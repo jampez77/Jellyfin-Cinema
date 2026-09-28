@@ -71,11 +71,11 @@ async function device(browser: Browser, server: RowServer, options: { user?: str
   return { page, context };
 }
 const row = (page: Page) => page.locator('#homeTab [data-home-row="platform"]');
-const dialog = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
+const dialog = (page: Page) => page.getByRole('dialog', { name: 'Customize Home rows', exact: true });
 async function openEditor(page: Page) {
   await useDesktopLayout(page);
   await page.evaluate(() => { location.hash = '/list?parentId=library-collections'; });
-  await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click();
+  await page.getByRole('button', { name: 'Customize Home rows', exact: true }).click();
   await expect(dialog(page).getByRole('button', { name: 'Save rows', exact: true })).toBeEnabled();
   return dialog(page);
 }

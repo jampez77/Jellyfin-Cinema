@@ -46,7 +46,7 @@ export class CollectionView {
     this.backButton = button('Back', 'back', 'tvl-back', options.back);
     this.backButton.dataset.focusId = 'back';
     header.append(this.backButton);
-    const customize = button('Customize collection rows', 'grid', 'tvl-collection-customize', () => {
+    const customize = button('Customize Home rows', 'grid', 'tvl-collection-customize', () => {
       if (this.editor || this.disposed || !isDesktopLayout()) return;
       this.removeRemote(); this.element.setAttribute('aria-modal', 'false');
       this.editor = new HomeCollectionEditor(this.api, restore => {

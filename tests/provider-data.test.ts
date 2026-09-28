@@ -265,3 +265,38 @@ test('unsaved catalogue previews use their exact draft and isolate source edits 
   second.resolve(page([item('channel4')])); first.resolve(page([item('bbc')]));
   assert.deepEqual(ids(await a), ['bbc']); assert.deepEqual(ids(await b), ['channel4']);
 });
+
+test('Watchlist rows request the mixed account Watchlist filtered by service and ignore collection overrides', async () => {
+  const calls: unknown[] = [];
+  const data = new ProviderData(api({
+    getProviderItems: async (provider, query) => {
+      calls.push({ provider, query });
+      return page([item('film'), item('show', 'Series'), item('show', 'Series'), item('episode', 'Episode'), { ...item('blocked'), PlayAccess: 'None' }]);
+    },
+    getCollectionItems: async () => { throw new Error('A Watchlist cannot read a collection override'); }
+  }));
+  const result = await data.load('netflix', row('watchlist', { collectionId: 'stale-collection', itemSort: 'title-desc' }), 20, 15);
+  assert.deepEqual(calls, [{ provider: 'netflix', query: { type: 'Mixed', watchlist: true, sort: 'title-desc', startIndex: 20, limit: 15 } }]);
+  assert.deepEqual(ids(result), ['film', 'show']); assert.equal(result.status, 'ready');
+});
+
+test('Watchlist previews use the draft movie and show service choices and the server-side mixed sort', async () => {
+  const config = { ...defaultCustomProvider('custom-family'), movieProviderIds: [591], showProviderIds: [39] };
+  const calls: unknown[] = [];
+  const data = new ProviderData(api({
+    getProviderItems: async () => { throw new Error('Preview must use the unsaved service configuration'); },
+    previewProviderItems: async (provider, query) => { calls.push({ provider, query }); return page([item('show', 'Series', 'Alpha'), item('movie', 'Movie', 'Bravo')]); }
+  }));
+  assert.deepEqual(ids(await data.load(config, row('watchlist'), 0, 8, true)), ['show', 'movie']);
+  assert.deepEqual(calls, [{ provider: config, query: { type: 'Mixed', watchlist: true, sort: 'title', startIndex: 0, limit: 8 } }]);
+});
+
+test('Watchlist requests cannot reuse regular catalogue reads or an old account response', async () => {
+  const response = deferred<ProviderItemsPage>(), calls: unknown[] = [];
+  const source = api({ getProviderItems: async (_provider, query) => { calls.push(query); return response.promise; } });
+  const data = new ProviderData(source);
+  const loading = [data.load('netflix', row('movies')), data.load('netflix', row('watchlist')), data.load('netflix', row('watchlist'))];
+  await tick(); assert.equal(calls.length, 2);
+  source.userId = 'another-user'; response.resolve(page([item('private')]));
+  for (const request of loading) await assert.rejects(request, stale);
+});

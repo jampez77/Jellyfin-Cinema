@@ -12,7 +12,7 @@ import type { Item, MediaApi, ProviderDirectory } from './types';
 import { providerServiceChoices, type ProviderSourceKey } from './provider-service-choices';
 
 type Options = { onBack: () => void; loadPreview: (provider: ProviderHomeConfig, row: ProviderRow) => Promise<Item[]>; providerId?: ProviderId };
-const sources: [ProviderRowSource, string][] = [['movies', 'Films'], ['shows', 'TV shows'], ['trending-movies', 'Trending films'], ['trending-shows', 'Trending TV shows'], ['collection', 'Collection']];
+const sources: [ProviderRowSource, string][] = [['movies', 'Films'], ['shows', 'TV shows'], ['trending-movies', 'Trending films'], ['trending-shows', 'Trending TV shows'], ['collection', 'Collection'], ['watchlist', 'Watchlist']];
 const sorts: [ProviderItemSort, string][] = [['collection', 'Source order'], ['title', 'Title A–Z'], ['title-desc', 'Title Z–A'], ['newest', 'Newest release first'], ['oldest', 'Oldest release first']];
 
 /** One draft workspace for Home and its provider pages. Save is the only writer. */
@@ -287,8 +287,8 @@ export class ProviderSettingsEditor {
   private renderContent(provider: ProviderHomeConfig): void {
     const brand = providerAppearance(provider);
     this.workspace.append(el('h3', '', 'Content rows'), el('p', 'tvl-provider-help', provider.rows.length
-      ? 'Choose a row to select the collection it displays. Saved collection links keep working when you rename a collection.'
-      : 'Choose a Jellyfin collection to add your first row and preview its films and shows.'));
+      ? 'Choose a row to change its content, or add a collection or Watchlist row. Saved collection links keep working when you rename a collection.'
+      : 'Add a collection or Watchlist row to preview its films and shows.'));
     const rowList = el('div', 'tvl-provider-row-list'); rowList.setAttribute('aria-label', `${brand.name} rows`);
     const selected = provider.rows.find(row => row.id === this.selectedRows.get(provider.id)) || provider.rows[0];
     if (selected) this.selectedRows.set(provider.id, selected.id);
@@ -313,6 +313,13 @@ export class ProviderSettingsEditor {
     const add = this.control('Add collection row', 'add-row', () => this.addCollectionRow(provider));
     add.disabled = provider.rows.length >= maxProviderRows;
     this.workspace.append(add);
+    const addWatchlist = this.control('Add Watchlist row', 'add-watchlist', () => {
+      if (provider.rows.length >= maxProviderRows) return;
+      const row: ProviderRow = { id: `watchlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title: 'Watchlist', source: 'watchlist', collectionId: '', enabled: true, ranked: false, itemSort: 'title' };
+      provider.rows.push(row); this.selectedRows.set(provider.id, row.id); this.changed(); this.render('row:title');
+    });
+    addWatchlist.disabled = provider.rows.length >= maxProviderRows;
+    this.workspace.append(addWatchlist);
     if (selected) this.renderRow(provider, selected);
     this.workspace.append(el('p', 'tvl-provider-help', 'To choose individual films or shows, use “Add to collection” on a title, then select that collection here.'));
     if (this.collectionsFailed) this.workspace.append(el('p', 'tvl-provider-field-error', 'Collections could not be loaded. Your service settings are unchanged.'));
@@ -496,6 +503,7 @@ export class ProviderSettingsEditor {
     }
   }
   private rowSourceName(row: ProviderRow): string {
+    if (row.source === 'watchlist') return 'Your Watchlist · matching this service';
     if (row.collectionId) return this.collections.find(item => item.Id === row.collectionId)?.Name || 'Saved collection (currently unavailable)';
     return row.source === 'collection' || row.source.startsWith('trending') ? 'Choose a collection' : 'UK streaming catalogue';
   }
@@ -506,7 +514,11 @@ export class ProviderSettingsEditor {
     fields.append(this.field('Row title', 'row:title', row.title, value => {
       row.title = value; this.updateRowSummary(row); refresh();
     }), this.checkbox('Show this row', 'row:enabled', row.enabled, value => { row.enabled = value; this.updateRowSummary(row); refresh(); }),
-    this.select('Content', 'row:source', row.source, sources, value => { row.source = value as ProviderRowSource; row.collectionId = ''; this.render('row:source'); }));
+    this.select('Content', 'row:source', row.source, sources, value => {
+      const defaultTitle = sources.find(([source]) => source === row.source)?.[1];
+      if (!row.title || row.title === defaultTitle) row.title = sources.find(([source]) => source === value)![1];
+      row.source = value as ProviderRowSource; row.collectionId = ''; this.render('row:source');
+    }));
     const collectionRequired = row.source === 'collection' || row.source.startsWith('trending');
     const collections: [string, string][] = [[ '', collectionRequired ? 'Choose a collection' : 'Automatic' ], ...this.collections.map(item => [item.Id, item.Name] as [string, string])];
     if (row.collectionId && !collections.some(([id]) => id === row.collectionId)) collections.push([row.collectionId, 'Saved collection (currently unavailable)']);
@@ -518,7 +530,7 @@ export class ProviderSettingsEditor {
       }
       row.collectionId = value; this.updateRowSummary(row); fields.querySelector('[aria-invalid]')?.removeAttribute('aria-invalid'); refresh();
     });
-    fields.prepend(collection);
+    if (row.source !== 'watchlist') fields.prepend(collection);
     fields.append(this.select('Item order', 'row:sort', row.itemSort, sorts, value => { row.itemSort = value as ProviderItemSort; refresh(); }),
       this.checkbox('Show rank artwork', 'row:ranked', row.ranked, value => { row.ranked = value; refresh(); }),
       this.control('Remove row', 'remove-row', () => {
@@ -526,12 +538,13 @@ export class ProviderSettingsEditor {
         this.changed(); this.render('add-row');
       }, '', 'tvl-provider-remove'));
     fields.append(el('p', 'tvl-provider-help', row.source.startsWith('trending') ? 'Choose the chart collection for this row. It stays linked if the collection is renamed, and Source order preserves its chart ranking.'
+      : row.source === 'watchlist' ? 'Films and TV shows saved to your Watchlist appear together when they are available with this service in the UK.'
       : row.source === 'collection' ? 'Only titles visible to this Jellyfin account can appear.' : 'Automatic shows titles in your Jellyfin library available with this service in the UK. A collection override uses your chosen collection instead.'));
     editor.append(fields, preview); this.workspace.append(editor); refresh();
   }
   private async renderRowPreview(provider: ProviderHomeConfig, row: ProviderRow, preview: HTMLElement): Promise<void> {
     const generation = ++this.previewGeneration;
-    replace(preview, el('span', 'tvl-provider-preview-label', 'HOME ROW PREVIEW'), el('h3', '', row.title || 'Collection'));
+    replace(preview, el('span', 'tvl-provider-preview-label', 'HOME ROW PREVIEW'), el('h3', '', row.title || sources.find(([source]) => source === row.source)![1]));
     const status = el('p', 'tvl-provider-help'); preview.append(status);
     if (!row.enabled) { status.textContent = 'This row is hidden on the provider page.'; return; }
     if ((row.source === 'collection' || row.source.startsWith('trending')) && !row.collectionId) { status.textContent = 'Choose a collection to preview this row.'; return; }
@@ -548,7 +561,7 @@ export class ProviderSettingsEditor {
         items = await request;
       }
       if (this.disposed || generation !== this.previewGeneration) return;
-      status.textContent = items.length ? '' : 'No matching titles are available in this account’s library yet.';
+      status.textContent = items.length ? '' : row.source === 'watchlist' ? 'No films or TV shows in your Watchlist match this service yet.' : 'No matching titles are available in this account’s library yet.';
       const cards = el('div', 'tvl-home-row-cards');
       items.slice(0, 8).forEach((item, index) => {
         const entry = el('div', 'tvl-home-row-entry'); entry.append(homeRowCard(this.api, item, row.ranked ? index + 1 : undefined)); cards.append(entry);

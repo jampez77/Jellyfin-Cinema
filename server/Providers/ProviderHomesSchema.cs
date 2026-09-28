@@ -93,7 +93,7 @@ public static class ProviderHomesSchema
             foreach (var row in rows.EnumerateArray())
                 if (!Properties(row, "id", "title", "source", "collectionId", "enabled", "ranked", "itemSort")
                     || !Text(row, "id", 100, false) || !rowIds.Add(row.GetProperty("id").GetString()!) || !Text(row, "title", 80)
-                    || !Choice(row, "source", "movies", "shows", "trending-movies", "trending-shows", "collection")
+                    || !Choice(row, "source", "movies", "shows", "trending-movies", "trending-shows", "collection", "watchlist")
                     || !Text(row, "collectionId", 199) || !Boolean(row, "enabled") || !Boolean(row, "ranked")
                     || !Choice(row, "itemSort", "collection", "title", "title-desc", "newest", "oldest")) return false;
         }

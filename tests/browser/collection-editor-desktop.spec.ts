@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { useDesktopLayout } from './layout-fixture';
 
 const collections = (page: Page) => page.getByRole('dialog', { name: 'Collections', exact: true });
-const launcher = (page: Page) => page.getByRole('button', { name: 'Customize collection rows', exact: true });
-const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
+const launcher = (page: Page) => page.getByRole('button', { name: 'Customize Home rows', exact: true });
+const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize Home rows', exact: true });
 const saved = (page: Page) => page.evaluate(() => localStorage.getItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`));
 
 test('TV Collections remains browsable without the customization launcher; desktop exposes it only on Collections', async ({ page }) => {

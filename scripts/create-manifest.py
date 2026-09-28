@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Moves trailer buttons just above Jellyfin's actual playback controls and retains their position when controls fade. Long pause descriptions fade out before reaching the buttons; short descriptions remain clear. Watchlist feedback appears above the row. Preserves initial Skip focus, first-playback availability and autoplay. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Adds Watchlist tabs in Movies and TV Shows, title-detail save/remove actions, optional mixed Watchlist rows on Home and provider-filtered service pages. Preserves existing trailer movie saves and stores whole TV shows without expanding episodes. Paused cinema trailers now show verified advertised-film metadata and artwork. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
@@ -56,8 +56,8 @@ versions.sort(key=lambda item: tuple(map(int, item['version'].split('.'))), reve
 manifest = [{
     'guid': plugin_id,
     'name': 'ScreenHarbour',
-    'overview': 'Cinematic TV and desktop browsing, personal collection rows and in-player navigation.',
-    'description': 'An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
+    'overview': 'Cinematic TV and desktop browsing, personal Watchlist and collection rows, and in-player navigation.',
+    'description': 'An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with a personal film/series Watchlist, optional mixed Watchlist Home rows, branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.',
     'owner': 'jampez77',
     'category': 'General',
     'imageUrl': f'https://raw.githubusercontent.com/{repository}/main/assets/catalogue/screenharbour.png',

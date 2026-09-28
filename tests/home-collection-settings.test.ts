@@ -56,3 +56,12 @@ test('tab preferences reject malformed entries, bound arrays and never affect co
   const legacy=parseHomeCollections({version:1,rows:[{id:'legacy',kind:'items',collectionIds:['old'],itemSort:'title'}]}).rows[0];
   assert.equal(legacy.tabs,undefined);assert.equal(homeCollectionTabs(legacy)[0].collectionId,'old');assert.equal(homeCollectionTabs(legacy)[0].itemSort,'title');
 });
+
+
+test('watchlist rows keep presentation settings without collection sources or ranks', () => {
+  const row = parseHomeCollections({ version: 1, rows: [{ id: 'saved', kind: 'watchlist', title: ' Watch next ',
+    collectionIds: ['forged'], ranked: true, placement: 'native:next up:1', itemSort: 'custom', itemOrder: ['movie', 'show', 'movie'],
+    tabs: [{ id: 'tab', collectionId: 'forged' }] }] }).rows[0];
+  assert.deepEqual(row, { id: 'saved', kind: 'watchlist', title: 'Watch next', collectionIds: [], ranked: false,
+    placement: 'native:next up:1', itemSort: 'custom', itemOrder: ['movie', 'show'] });
+});

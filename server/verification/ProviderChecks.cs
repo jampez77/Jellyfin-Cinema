@@ -1,3 +1,5 @@
+using Jellyfin.Plugin.TvItemLayout.Watchlists;
+using MediaBrowser.Controller.Playlists;
 using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -280,7 +282,9 @@ public static class ProviderChecks
         });
         var directory = Path.Combine(Path.GetTempPath(), "cinema-catalogue-check-" + Guid.NewGuid().ToString("N"));
         var paths = InterfaceStub.Create<IApplicationPaths>((method, _) => method.Name == "get_DataPath" ? directory : throw new Exception("Unexpected path"));
-        var controller = new ProviderItemsController(authorization, sessions, users, devices, network, library, dtos, availability, paths, directorySource)
+        var watchlists = new WatchlistService(InterfaceStub.Create<IPlaylistManager>((method, _) =>
+            method.Name == "GetPlaylists" ? Array.Empty<Playlist>() : throw new Exception("Unexpected provider Watchlist mutation")), paths, library);
+        var controller = new ProviderItemsController(authorization, sessions, users, devices, network, library, dtos, availability, paths, directorySource, watchlists)
         { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         controller.HttpContext.Connection.RemoteIpAddress = IPAddress.Loopback;
         var providerDirectory = (ProviderDirectory)((OkObjectResult)await controller.GetProviderDirectory()).Value!;
@@ -363,7 +367,7 @@ public static class ProviderChecks
         {
             services.AddSingleton(authorization); services.AddSingleton(sessions); services.AddSingleton(users); services.AddSingleton(devices);
             services.AddSingleton(network); services.AddSingleton(library); services.AddSingleton(dtos); services.AddSingleton(availability); services.AddSingleton(paths);
-            services.AddSingleton(directorySource);
+            services.AddSingleton(directorySource); services.AddSingleton(watchlists);
         }, value => auth.IsApiKey = value, draft, beta.Id);
         visible = [alpha, gamma];
         var beforeUnauthorized = libraryCalls;

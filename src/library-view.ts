@@ -2,8 +2,9 @@ import type { Item, MediaApi, LibraryQuery, SuggestionSection } from './types';
 import { button, el, icon, picture, replace } from './dom';
 import { attachRemote } from './remote';
 import { progress, resumePosition } from './utils';
+import { subscribeWatchlist } from './watchlist';
 
-export type LibraryTab = 'all' | 'suggestions' | 'favorites' | 'genres';
+export type LibraryTab = 'all' | 'suggestions' | 'favorites' | 'genres' | 'watchlist';
 export type LibraryBrowseState = {
   tab: LibraryTab;
   search: string;
@@ -55,6 +56,7 @@ export class LibraryView {
   private disposed = false;
   private revision = 0;
   private removeRemote: () => void;
+  private stopWatchlist: () => void;
 
   constructor(private api: MediaApi, private options: Options) {
     this.state = { tab: options.initialTab || 'suggestions', search: '', letter: '', loadedCount: 0, ...options.state };
@@ -79,6 +81,11 @@ export class LibraryView {
     this.element.append(this.content);
     this.renderControls();
     this.removeRemote = attachRemote(this.element, options.back);
+    this.stopWatchlist = subscribeWatchlist(api, () => {
+      if (this.state.tab !== 'watchlist') return;
+      this.nextFocus = (document.activeElement as HTMLElement | null)?.dataset.focusId || '';
+      void this.loadResults();
+    });
     this.element.addEventListener('focusin', event => {
       if (this.internalFocus) return;
       const id = (event.target as HTMLElement).dataset.focusId;
@@ -114,7 +121,7 @@ export class LibraryView {
     replace(this.navigation);
     const collections = button('Collections', 'grid', 'tvl-library-tab tvl-library-collections', this.options.openCollections);
     collections.dataset.focusId = 'collections';
-    const tabs: [LibraryTab, string][] = [['suggestions', 'Suggestions'], ['favorites', 'Favourites'], ['genres', 'Genres'], ['all', `All ${this.plural}`]];
+    const tabs: [LibraryTab, string][] = [['suggestions', 'Suggestions'], ['watchlist', 'Watchlist'], ['favorites', 'Favourites'], ['genres', 'Genres'], ['all', `All ${this.plural}`]];
     for (const [tab, label] of tabs) {
       if (tab === 'all') this.navigation.append(collections);
       const control = button(label, '', 'tvl-library-tab', () => {
@@ -145,7 +152,7 @@ export class LibraryView {
       clear.dataset.focusId = 'clear-search'; form.append(clear);
     }
     const controls: HTMLElement[] = [form];
-    if (this.state.tab === 'all' || this.state.tab === 'favorites' || this.state.genreId) {
+    if (this.state.tab === 'all' || this.state.tab === 'favorites' || this.state.tab === 'watchlist' || this.state.genreId) {
       const alphabet = el('nav', 'tvl-library-alphabet');
       alphabet.setAttribute('aria-label', 'Browse by title');
       for (const letter of ['', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']) {
@@ -200,7 +207,8 @@ export class LibraryView {
         let more = true;
         let total: number | null = null;
         do {
-          const page = await (this.isShows ? this.api.getShows(this.query(offset)) : this.api.getMovies(this.query(offset)));
+          if (this.state.tab === 'watchlist' && !this.api.getWatchlist) throw new Error('Watchlist is unavailable.');
+          const page = await (this.state.tab === 'watchlist' ? this.api.getWatchlist!({ ...this.query(offset), type: this.isShows ? 'Series' : 'Movie' }) : this.isShows ? this.api.getShows(this.query(offset)) : this.api.getMovies(this.query(offset)));
           if (!current()) return;
           for (const item of page.items) unique.set(item.Id, item);
           total = typeof page.total === 'number' && Number.isFinite(page.total) ? page.total : null;
@@ -242,7 +250,7 @@ export class LibraryView {
 
   private renderItems(): void {
     const heading = el('div', 'tvl-library-section-heading');
-    let label = this.state.tab === 'favorites' ? 'Your favourites' : this.state.genreName || `All ${this.plural}`;
+    let label = this.state.tab === 'watchlist' ? 'Your watchlist' : this.state.tab === 'favorites' ? 'Your favourites' : this.state.genreName || `All ${this.plural}`;
     if (this.state.search) label = `Results for “${this.state.search}”`;
     else if (this.state.letter) label += ` · ${this.state.letter}`;
     heading.append(el('h2', '', label));
@@ -252,8 +260,8 @@ export class LibraryView {
     }
     replace(this.results, heading);
     if (this.items.length) this.results.append(this.grid(this.items, label));
-    else this.results.append(this.empty(this.state.tab === 'favorites' ? 'No favourites found' : `No ${this.plural} found`,
-      this.state.search || this.state.letter || this.state.genreId ? 'Try a different search or filter.' : this.state.tab === 'favorites' ? `Your favourite ${this.plural} will appear here.` : `${this.title} in this library will appear here.`));
+    else this.results.append(this.empty(this.state.tab === 'watchlist' ? 'No saved titles found' : this.state.tab === 'favorites' ? 'No favourites found' : `No ${this.plural} found`,
+      this.state.search || this.state.letter || this.state.genreId ? 'Try a different search or filter.' : this.state.tab === 'watchlist' ? `Add ${this.plural} to your watchlist from their details${this.isShows ? '' : ' or trailers'}.` : this.state.tab === 'favorites' ? `Your favourite ${this.plural} will appear here.` : `${this.title} in this library will appear here.`));
     if (this.hasMore) {
       const footer = el('div', 'tvl-library-more');
       const more = button('Show more', '', 'tvl-primary', () => { void this.loadResults(true); });
@@ -357,6 +365,6 @@ export class LibraryView {
 
   destroy(): void {
     this.save(); this.disposed = true; this.revision++;
-    this.removeRemote(); this.element.remove();
+    this.stopWatchlist(); this.removeRemote(); this.element.remove();
   }
 }

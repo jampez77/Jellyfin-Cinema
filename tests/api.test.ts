@@ -1023,3 +1023,76 @@ test('named service directory rejects responses after account changes and preser
   const unavailable = client({ getUrl: (path: string) => path, getJSON: async () => { throw { status: 503 }; } });
   await assert.rejects(unavailable.getProviderDirectory!(), /connection/i);
 });
+
+test('Watchlist browsing sends bounded typed library filters and preserves raw paging after inaccessible items', async () => {
+  const urls: { path: string; query?: unknown }[] = [];
+  const api = client({ getUrl: (path: string, query?: unknown) => { urls.push({ path, query }); return path; },
+    getJSON: async () => ({ Items: [{ Id: 'film', Name: 'Film', Type: 'Movie' }, { Id: 'hidden', Name: 'Hidden', Type: 'Movie', IsPlaceHolder: true }], StartIndex: 0, TotalRecordCount: 3 }) });
+  const result = await api.getWatchlist!({ type: 'Movie', parentId: 'library', search: '  sea  ', letter: ' a ', genreId: 'drama', limit: 200, startIndex: -4 });
+  assert.deepEqual(urls, [{ path: 'TvItemLayout/Watchlist', query: { type: 'Movie', parentId: 'library', searchTerm: 'sea', letter: 'A', genreId: 'drama', limit: 100, startIndex: 0, sort: 'title' } }]);
+  assert.deepEqual(result.items.map(item => item.Id), ['film']); assert.equal(result.nextStartIndex, 2); assert.equal(result.total, 3);
+});
+
+test('Watchlist browsing rejects malformed pages, wrong media types and invalid filters before fetching', async () => {
+  const movie = { Id: 'film', Name: 'Film', Type: 'Movie' };
+  for (const data of [null, {}, { Items: [movie], StartIndex: 1, TotalRecordCount: 1 }, { Items: [movie], StartIndex: 0, TotalRecordCount: 0 },
+    { Items: [], StartIndex: 0, TotalRecordCount: 2 }, { Items: [movie], StartIndex: 0, TotalRecordCount: 1.5 },
+    { Items: [{ ...movie, Type: 'Series' }], StartIndex: 0, TotalRecordCount: 1 }, { Items: [{ ...movie, Id: '' }], StartIndex: 0, TotalRecordCount: 1 },
+    { Items: [movie, movie], StartIndex: 0, TotalRecordCount: 2 }]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => data });
+    await assert.rejects(api.getWatchlist!({ type: 'Movie', limit: 1 }), /invalid watchlist page/i);
+  }
+  let calls = 0;
+  const api = client({ getUrl: (path: string) => path, getJSON: async () => { calls++; return {}; } });
+  await assert.rejects(api.getWatchlist!({ type: 'Episode' as 'Movie' }), /invalid watchlist filter/i);
+  await assert.rejects(api.getWatchlist!({ letter: 'AB' }), /invalid watchlist filter/i); assert.equal(calls, 0);
+});
+
+test('Watchlist writes use POST and DELETE and only confirmed saved states dispatch account-scoped changes', async () => {
+  const events: unknown[] = [], requests: Record<string, unknown>[] = [];
+  const target = new EventTarget(); global('window', target);
+  target.addEventListener('tvl-watchlist-change', event => events.push((event as CustomEvent).detail));
+  const id = 'aabbccdd-1122-3344-5566-778899aabbcc';
+  const api = client({ getUrl: (path: string) => path, getJSON: async () => ({ ItemId: id.replace(/-/g, '').toUpperCase(), InWatchlist: false }),
+    ajax: async (request: Record<string, unknown>) => { requests.push(request); return { ItemId: id, InWatchlist: request.type === 'POST' }; } });
+  assert.equal((await api.getWatchlistState!(id)).InWatchlist, false);
+  assert.equal((await api.setWatchlist!(id, true)).InWatchlist, true);
+  assert.equal((await api.setWatchlist!(id, false)).InWatchlist, false);
+  assert.deepEqual(requests, ['POST', 'DELETE'].map(type => ({ type, url: `TvItemLayout/Watchlist/${id}`, dataType: 'json' })));
+  assert.deepEqual(events, [true, false].map(InWatchlist => ({ serverId: 'server-a', userId: 'user-a', ItemId: id, InWatchlist })));
+});
+
+test('Watchlist membership and writes cannot acknowledge another item or a false save', async () => {
+  const target = new EventTarget(); global('window', target); let changes = 0;
+  target.addEventListener('tvl-watchlist-change', () => changes++);
+  for (const data of [null, {}, { ItemId: 'other', InWatchlist: true }, { ItemId: 'film', InWatchlist: 'true' }]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => data, ajax: async () => data });
+    await assert.rejects(api.getWatchlistState!('film'), /invalid watchlist information/i);
+    await assert.rejects(api.setWatchlist!('film', true), /invalid watchlist information/i);
+  }
+  const api = client({ getUrl: (path: string) => path, ajax: async () => ({ ItemId: 'film', InWatchlist: false }) });
+  await assert.rejects(api.setWatchlist!('film', true), /invalid watchlist information/i); assert.equal(changes, 0);
+});
+
+test('Watchlist APIs reject results after an account or server change and never publish stale saves', async () => {
+  const target = new EventTarget(); global('window', target); let changes = 0;
+  target.addEventListener('tvl-watchlist-change', () => changes++);
+  for (const method of ['getWatchlist', 'getWatchlistState', 'setWatchlist'] as const) for (const changed of ['user', 'server']) {
+    let user = 'user-a', server = 'server-a', requests = 0; let finish!: (data: unknown) => void;
+    const pending = () => { requests++; return new Promise(resolve => { finish = resolve; }); };
+    const api = client({ getCurrentUserId: () => user, serverId: () => server, getUrl: (path: string) => path, getJSON: pending, ajax: pending });
+    const invoke = () => method === 'getWatchlist' ? api.getWatchlist!() : method === 'getWatchlistState' ? api.getWatchlistState!('film') : api.setWatchlist!('film', true);
+    const response = invoke(); if (changed === 'user') user = 'user-b'; else server = 'server-b';
+    finish(method === 'getWatchlist' ? { Items: [], StartIndex: 0, TotalRecordCount: 0 } : { ItemId: 'film', InWatchlist: true });
+    await assert.rejects(response, /account changed/i); await assert.rejects(invoke(), /account changed/i); assert.equal(requests, 1);
+  }
+  assert.equal(changes, 0);
+});
+
+test('Watchlist write failures expose denied access, missing titles and duplicate private playlists without retries', async () => {
+  for (const [status, expected] of [[401, /sign in/i], [403, /access/i], [404, /no longer available/i], [422, /rename one in playlists/i], [500, /unable to update/i]] as const) {
+    let calls = 0;
+    const api = client({ getUrl: (path: string) => path, ajax: async () => { calls++; throw { status }; } });
+    await assert.rejects(api.setWatchlist!('film', true), expected); assert.equal(calls, 1);
+  }
+});

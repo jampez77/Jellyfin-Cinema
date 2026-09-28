@@ -7,7 +7,7 @@ const rowConfig = { version: 1, rows: [
   { id: 'trending', kind: 'items', title: 'Trending Movies', collectionIds: [coast], ranked: true }
 ] };
 const home = (page: Page) => page.locator('#indexPage #homeTab');
-const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
+const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize Home rows', exact: true });
 const row = (page: Page, name: string) => home(page).getByRole('region', { name, exact: true });
 const rowItems = (page: Page, name: string) => row(page, name).locator('.tvl-home-row-card');
 
@@ -29,7 +29,7 @@ async function goHome(page: Page) {
 }
 async function openEditor(page: Page) {
   await useDesktopLayout(page);
-  const customize = page.getByRole('button', { name: 'Customize collection rows', exact: true });
+  const customize = page.getByRole('button', { name: 'Customize Home rows', exact: true });
   if (!await customize.isVisible()) await page.evaluate(() => { location.hash = '/list?parentId=library-collections'; });
   await customize.click();
   await expect(editor(page).getByRole('button', { name: 'Save rows', exact: true })).toBeEnabled();
@@ -53,7 +53,7 @@ async function moveBefore(dialog: Locator, nativeLabel: string) {
 
 test('Collections owns the editor; choose rows, save and restore ranked Home navigation', async ({ page }) => {
   await page.goto('/?featured=0#/home');
-  await expect(home(page).getByRole('button', { name: 'Customize collection rows', exact: true })).toHaveCount(0);
+  await expect(home(page).getByRole('button', { name: 'Customize Home rows', exact: true })).toHaveCount(0);
   await home(page).getByRole('region', { name: 'My Media', exact: true }).getByRole('button', { name: 'Collections', exact: true }).click();
   const dialog = await openEditor(page);
   await dialog.getByRole('button', { name: 'Add Collections row', exact: true }).click();
@@ -66,7 +66,7 @@ test('Collections owns the editor; choose rows, save and restore ranked Home nav
   await members.getByRole('button', { name: 'Ranked artwork', exact: true }).click();
   await dialog.getByRole('button', { name: 'Save rows', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Customize collection rows', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Customize Home rows', exact: true })).toBeFocused();
   await goHome(page);
   await expect(rowItems(page, 'Trending Movies')).toHaveCount(2);
   await expect(row(page, 'Trending Movies').locator('.tvl-home-rank')).toHaveCount(2);
@@ -96,7 +96,7 @@ test('one row editor validates selection, supports remote Select, and Cancel dis
   await expect(dialog.getByRole('status')).toContainText('Choose at least one');
   await expect(dialog.getByLabel('Row title', { exact: true })).toBeFocused();
   await remote(page, 'back'); await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Customize collection rows', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Customize Home rows', exact: true })).toBeFocused();
   expect(await saved(page)).toEqual(rowConfig);
   const reopened = await openEditor(page);
   await expect(reopened.locator('.tvl-home-row-choice')).toHaveCount(2);
