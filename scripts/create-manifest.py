@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds Watchlist tabs in Movies and TV Shows, title-detail save/remove actions, optional mixed Watchlist rows on Home and provider-filtered service pages. Preserves existing trailer movie saves and stores whole TV shows without expanding episodes. Paused cinema trailers now show verified advertised-film metadata and artwork. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Hides empty Watchlist rows on Home and streaming-service pages and removes the service-page missing-metadata notice. Paused trailers now resolve their verified advertised film even when Jellyfin reports only the trailer in its queue, without changing cinema Skip or Save eligibility. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

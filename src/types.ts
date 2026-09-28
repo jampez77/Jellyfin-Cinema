@@ -56,8 +56,10 @@ export type PlaybackContext = {
 };
 
 export type TrailerIdentity = { PlayingItemId: string; PlaylistItemId?: string };
-export type TrailerActionsContext = TrailerIdentity & {
+export type TrailerDetailsContext = TrailerIdentity & {
   Movie: { Id: string; Name: string } | null;
+};
+export type TrailerActionsContext = TrailerDetailsContext & {
   InWatchlist: boolean;
   WatchlistId?: string;
 };
@@ -72,6 +74,7 @@ export interface MediaApi extends BrowseApi {
   previewProviderItems?(provider: ProviderHomeConfig, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
   getItem(id: string): Promise<Item>;
   getPlaybackContext?(): Promise<PlaybackContext | null>;
+  getTrailerDetails?(expected: TrailerIdentity): Promise<TrailerDetailsContext | null>;
   getTrailerActions?(expected: TrailerIdentity): Promise<TrailerActionsContext | null>;
   addTrailerToWatchlist?(expected: TrailerIdentity): Promise<TrailerActionsContext>;
   getWatchlist?(query?: WatchlistQuery): Promise<ItemPage>;

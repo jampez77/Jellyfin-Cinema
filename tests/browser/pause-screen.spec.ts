@@ -24,6 +24,7 @@ async function fixture(page: Page, extra = '') {
         ? (item.ImageTags?.[kind === 'logo' ? 'Logo' : kind === 'disc' ? 'Disc' : 'Primary'] ? '/pause-assets/' + item.Id + '-' + kind + '.svg' : null)
         : originalImage(item, kind);
       api.getPlaybackContext = async () => null;
+      api.getTrailerDetails = expected => api.getTrailerActions(expected);
       ${extra}
     })();`;
     await route.fulfill({ response, body: `${await response.text()}\n${source}` });
@@ -234,6 +235,18 @@ test('paused cinema trailers show the advertised movie metadata and artwork rath
   await expect(screen(page).locator('.tvl-pause-disc')).toBeVisible();
   await expect(screen(page)).not.toContainText('The Other Shore');
   await expect(screen(page)).not.toContainText('3m');
+});
+
+test('a standalone trailer with a singleton queue still shows its advertised movie while cinema actions stay hidden', async ({ page }) => {
+  await fixture(page, `api.getPlaybackContext=async()=>({PlayingItemId:'pause-trailer',PlayingItemType:'Trailer',PlaylistItemId:'trailer-0',Queue:[{Id:'pause-trailer',PlaylistItemId:'trailer-0'}]});
+    api.getTrailerActions=async()=>null; api.getTrailerDetails=async()=>({...${trailerMapping},Movie:{Id:'pause-movie',Name:'Moon Glass'}});`);
+  await page.goto('/#/video'); await player(page, 'pause-trailer'); await pause(page);
+  await expect(screen(page)).toContainText('A cartographer follows a vanished coastline.');
+  await expect(screen(page)).toContainText('Every tide leaves a trace.');
+  await expect(screen(page)).toContainText('1h 30m');
+  await expect(screen(page).getByRole('img', { name: 'Moon Glass' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Skip trailer', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Add to watchlist', exact: true })).toBeHidden();
 });
 
 test('a late first-trailer mapping replaces generic pause details while unmapped trailers never borrow the queued feature', async ({ page }) => {

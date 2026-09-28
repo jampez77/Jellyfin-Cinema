@@ -69,8 +69,8 @@ test('unmapped trailers remain skippable without inventing a watchlist target', 
   assert.deepEqual(await api.getTrailerActions!({ PlayingItemId: 'trailer' }), response);
 });
 
-test('trailer watchlist reads and writes reject changed accounts and servers', async () => {
-  for (const method of ['getTrailerActions', 'addTrailerToWatchlist'] as const) {
+test('trailer metadata, watchlist reads and writes reject changed accounts and servers', async () => {
+  for (const method of ['getTrailerDetails', 'getTrailerActions', 'addTrailerToWatchlist'] as const) {
     for (const change of ['user', 'server']) {
       let user = 'user-a', server = 'server-a', requests = 0;
       let finish!: (value: unknown) => void;
@@ -83,6 +83,33 @@ test('trailer watchlist reads and writes reject changed accounts and servers', a
       await assert.rejects(api[method]!({ PlayingItemId: 'trailer' }), /account changed/i);
       assert.equal(requests, 1);
     }
+  }
+});
+
+test('trailer metadata uses current playback identity without requiring cinema actions', async () => {
+  const expected = { PlayingItemId: 'trailer', PlaylistItemId: 'standalone-1' };
+  const details = { ...expected, Movie: { Id: 'advertised-film', Name: 'Mayday' } };
+  const urls: { path: string; query?: unknown }[] = [];
+  const api = client({
+    getUrl: (path: string, query?: unknown) => { urls.push({ path, query }); return path; },
+    getJSON: async (path: string) => path.endsWith('TrailerDetails') ? details : null,
+  });
+  assert.deepEqual(await api.getTrailerDetails!({ ...expected, MovieId: 'queued-feature', UserId: 'other-user' } as typeof expected), details);
+  assert.equal(await api.getTrailerActions!(expected), null);
+  assert.deepEqual(urls[0], { path: 'TvItemLayout/TrailerDetails', query: { playingItemId: 'trailer', playlistItemId: 'standalone-1' } });
+});
+
+test('trailer metadata rejects malformed mappings and mismatched current playback identity', async () => {
+  const expected = { PlayingItemId: 'trailer', PlaylistItemId: 'standalone-1' };
+  const valid = { ...expected, Movie: { Id: 'advertised-film', Name: 'Mayday' } };
+  for (const response of [undefined, {}, { ...valid, PlayingItemId: 'other' }, { ...valid, PlaylistItemId: 'other' },
+    { ...valid, Movie: {} }, { ...valid, Movie: undefined }, { ...valid, Movie: { Id: 'film', Name: '' } }]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => response });
+    await assert.rejects(api.getTrailerDetails!(expected), /invalid trailer/i);
+  }
+  for (const response of [null, { ...expected, Movie: null }]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => response });
+    assert.deepEqual(await api.getTrailerDetails!(expected), response);
   }
 });
 

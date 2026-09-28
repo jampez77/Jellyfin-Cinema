@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.32.3",
+        "changelog": "Hides empty Watchlist rows on Home and streaming-service pages and removes the service-page missing-metadata notice. Paused trailers now resolve their verified advertised film even when Jellyfin reports only the trailer in its queue, without changing cinema Skip or Save eligibility. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.32/TvItemLayout_0.2.32.3_jellyfin-12.0.0.zip",
+        "checksum": "490aba5ea0a393f00eeb8ea8136d36cd",
+        "timestamp": "2026-09-28T15:29:49Z"
+      },
+      {
+        "version": "0.2.32.2",
+        "changelog": "Hides empty Watchlist rows on Home and streaming-service pages and removes the service-page missing-metadata notice. Paused trailers now resolve their verified advertised film even when Jellyfin reports only the trailer in its queue, without changing cinema Skip or Save eligibility. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.32/TvItemLayout_0.2.32.2_jellyfin-10.11.0.zip",
+        "checksum": "f64c32f8cbbabc189fef927b9785060e",
+        "timestamp": "2026-09-28T15:29:49Z"
+      },
+      {
+        "version": "0.2.32.1",
+        "changelog": "Hides empty Watchlist rows on Home and streaming-service pages and removes the service-page missing-metadata notice. Paused trailers now resolve their verified advertised film even when Jellyfin reports only the trailer in its queue, without changing cinema Skip or Save eligibility. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.32/TvItemLayout_0.2.32.1_jellyfin-10.10.7.zip",
+        "checksum": "0d6f3947a833eab45c204aaccc409b09",
+        "timestamp": "2026-09-28T15:29:49Z"
+      },
+      {
         "version": "0.2.31.3",
         "changelog": "Adds Watchlist tabs in Movies and TV Shows, title-detail save/remove actions, optional mixed Watchlist rows on Home and provider-filtered service pages. Preserves existing trailer movie saves and stores whole TV shows without expanding episodes. Paused cinema trailers now show verified advertised-film metadata and artwork. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

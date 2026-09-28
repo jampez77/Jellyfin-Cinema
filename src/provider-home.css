@@ -28,6 +28,7 @@
 .tvl-provider-nav { display:flex;justify-content:center;flex-wrap:wrap;margin-top:.8rem; }
 .tvl-provider-nav .tvl-button { border-radius:999px;margin:.15rem .3rem;padding:.4rem 1rem;min-height:2.3em;font-size:.72em;color:#c4ccc7; }
 .tvl-provider-nav .tvl-button[aria-current=page] { color:#101112;background:#d3e7de; }
+.tvl-provider-nav .tvl-button[hidden] { display:none; }
 .tvl-provider-home .tvl-button:focus { outline:2px solid #f2faf4;outline-offset:3px; }
 .tvl-provider-content { overflow:auto;overflow-x:hidden;flex:1;min-height:0;scrollbar-width:none; }
 .tvl-provider-content::-webkit-scrollbar { width:0;display:none; }

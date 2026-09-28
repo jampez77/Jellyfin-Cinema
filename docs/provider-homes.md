@@ -15,7 +15,7 @@ On desktop, open a service page and choose **Edit service**. Its settings open d
 
 Available content sources are **Films**, **TV shows**, **Trending films**, **Trending TV shows**, **Collection** and **Watchlist**. Trending and Collection rows use the collection you select. An unconfigured trending row stays empty until you choose one; an enabled new Collection row requires a choice before saving. It can contain films and TV series. Collection overrides on a Films/TV source retain that source's media-type filter.
 
-Choose **Add Watchlist row** to mix saved films and whole TV shows available on this service. The row uses your Watchlist intersected with the service’s configured UK availability, so it needs no collection selection. It is optional; set its title, visibility, item order and position, preview it, then save. Membership updates after titles are added or removed. A custom service must have automatic catalogue matching configured for this source.
+Choose **Add Watchlist row** to mix saved films and whole TV shows available on this service. The row uses your Watchlist intersected with the service’s configured UK availability, so it needs no collection selection. It is optional; set its title, visibility, item order and position, preview it, then save. Membership updates after titles are added or removed. Empty Watchlist rows and their section buttons stay hidden while browsing, including while initial availability checks are pending. Saved configuration remains in place, and the row appears automatically when matches become available. The editor still shows empty/error feedback for configuring a row. A custom service must have automatic catalogue matching configured for this source.
 
 ### Connect a custom service to your titles
 
@@ -66,12 +66,13 @@ A fixed cinema projector animation stays visible in the viewport while the initi
 | --- | --- |
 | **Checking UK availability…** | Initial or newly required metadata lookups are queued. The page checks progress automatically; large libraries take longer. |
 | **No matching titles in your library.** | The loaded source has no permitted matches. A streaming service's external catalogue can include many titles you do not own. |
-| **Library titles need matching metadata…** | Some movies or series lack usable TMDB IDs. Correct/identify their Jellyfin metadata, then revisit the provider page. |
 | **UK availability is temporarily unavailable.** | The server cannot currently provide availability. Check its installed TMDB integration and connectivity; this is not confirmation of an empty catalogue. |
 | **Some availability could not be refreshed…** | Previously known matches remain visible while a refresh is unavailable. Requests retry with backoff. |
 | **Choose a collection for this row…** | Use **Edit service** on desktop, select the row, choose its Collection, and save. |
 | **The selected collection is unavailable for this account.** | Check the saved collection still exists and this account can access it. |
 | **This row could not be loaded.** / **could not refresh** | The row request failed. Use **Retry**; existing results remain visible when available. |
+
+Titles without usable TMDB metadata remain excluded from automatic matching, but browsing pages do not show a library-wide metadata warning. If a particular title is missing, check its exact edition and metadata: a remake and the original have separate availability, and a studio association alone does not establish a streaming match.
 
 The installed server plugin and client bundle must both include provider support. If Settings reports **Update ScreenHarbour**, update the matching server package, restart Jellyfin and fully close/reopen the web client. See [server installation and provider troubleshooting](server.md#provider-home-data-and-settings).
 

@@ -514,6 +514,10 @@ function providerPage(config: ProviderHomeConfig | undefined, query: ProviderIte
 }
 const api: MediaApi = {
   getPlaybackContext: () => respond(() => cinemaPlayback ? { ...cinemaPlayback, Queue:cinemaPlayback.Queue.map(entry => ({...entry})) } : null),
+  getTrailerDetails: expected => respond(() => {
+    const model = trailerActions(expected);
+    return model ? { PlayingItemId: model.PlayingItemId, PlaylistItemId: model.PlaylistItemId, Movie: model.Movie } : null;
+  }),
   getTrailerActions: expected => respond(() => trailerActions(expected)),
   addTrailerToWatchlist: expected => respond(() => {
     const model = trailerActions(expected);

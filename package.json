@@ -1,6 +1,6 @@
 {
   "name": "screenharbour",
-  "version": "0.2.31",
+  "version": "0.2.32",
   "private": true,
   "description": "A cinematic interface for Jellyfin, with personal collection rows and in-player navigation",
   "scripts": {
