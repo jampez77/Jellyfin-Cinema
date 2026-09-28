@@ -11,11 +11,12 @@ import { createProviderHomesStore, type ProviderHomesStore } from './provider-se
 import type { ProviderHomesSettings, ProviderId } from './provider-settings';
 import { providerHomeRow } from './provider-home';
 import { isDesktopLayout } from './layout';
+import { getAllWatchlistItems, subscribeWatchlist } from './watchlist';
 
 type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void> };
 type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement; retry?: boolean };
 type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string; value?: Item[] };
-type HomeSnapshot = { key: string; collections?: Item[]; items: Map<string, { value: Item[]; fingerprint: string }>; sources: Map<string, string> };
+type HomeSnapshot = { key: string; collections?: Item[]; items: Map<string, { value: Item[]; fingerprint: string }>; sources: Map<string, string>; watchlistShown: Map<string, number>; watchlist?: { value: Item[]; fingerprint: string } };
 // Reuse successful data, never DOM handlers or promises owned by a disposed view.
 // Only the last account is retained, in memory, until sign-out/server change.
 let lastHome: HomeSnapshot | undefined;
@@ -85,6 +86,10 @@ export class HomeCollections {
   private collections?: Item[];
   private collectionRequest?: Promise<Item[]>;
   private itemRefresh?: Promise<boolean>;
+  private watchlist?: CollectionItems;
+  private watchlistShown = new Map<string, number>();
+  private removeWatchlist: () => void;
+  private lastWatchlistSync = 0;
   private warmReturn = false;
   private initialRefreshPending = false;
   private refreshFrame?: number;
@@ -115,10 +120,19 @@ export class HomeCollections {
     if (cached) {
       this.warmReturn = true; this.initialRefreshPending = true; this.collections = cached.collections || [];
       this.selectedSources = new Map(cached.sources);
+      this.watchlistShown = new Map(cached.watchlistShown);
+      if (cached.watchlist) this.watchlist = { ...cached.watchlist, promise: Promise.resolve(cached.watchlist.value) };
       for (const [id, entry] of cached.items) this.items.set(id, { ...entry, promise: Promise.resolve(entry.value) });
     }
     this.initialSettingsReady = this.warmReturn || !this.store.synced && !this.providerStore.synced;
     this.accountIdentity = JSON.stringify([api.serverId, api.userId]);
+    this.removeWatchlist = subscribeWatchlist(api, () => {
+      this.watchlist = undefined;
+      if (!this.settings.rows.some(row => row.kind === 'watchlist')) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (this.owns(active)) this.restoreFocus = active?.dataset.focusId;
+      void this.render();
+    });
     this.channelArtwork = new HomeChannelArtwork(api);
     this.positionToRestore = homePositions.get(this.key);
     if (this.warmReturn) this.nativePositionToRestore = this.positionToRestore;
@@ -145,7 +159,7 @@ export class HomeCollections {
     });
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style', 'aria-busy'] });
     this.attach(); void this.render();
-    if (this.store.synced || this.providerStore.synced) {
+    if (this.store.synced || this.providerStore.synced || this.api.getWatchlist) {
       this.syncTimer = window.setInterval(this.onVisible, 60_000);
     }
     if (!this.warmReturn && (this.store.synced || this.providerStore.synced)) void this.loadInitialSettings();
@@ -291,7 +305,9 @@ export class HomeCollections {
   };
   private onNativeShow = (event: Event): void => {
     const host = this.root.parentElement, page = event.target;
-    if (!this.nativePositionToRestore || !host || !(page instanceof HTMLElement) || !page.contains(host)) return;
+    if (!host || !(page instanceof HTMLElement) || !page.contains(host)) return;
+    if (showingHome(host)) void this.refreshSettings(true);
+    if (!this.nativePositionToRestore) return;
     const saved = this.nativePositionToRestore; this.nativePositionToRestore = undefined;
     // Jellyfin unhides its cached view, then auto-focuses it before viewshow.
     // Restore once after that native step; real input always takes priority.
@@ -335,6 +351,10 @@ export class HomeCollections {
   async refreshSettings(force = false): Promise<void> {
     if (this.initialRefreshPending) { this.providerRefreshPending ||= force; return; }
     void this.refreshProviders(force);
+    if (!this.store.synced && this.settings.rows.some(row => row.kind === 'watchlist') && (force || Date.now() - this.lastWatchlistSync >= 5_000)) {
+      this.lastWatchlistSync = Date.now();
+      if (await this.refreshWatchlist() && !this.disposed) await this.render();
+    }
     if (this.disposed || !this.store.synced || this.syncing || !force && Date.now() - this.lastSync < 5_000) return;
     this.syncing = true; this.lastSync = Date.now();
     try {
@@ -363,6 +383,27 @@ export class HomeCollections {
       this.items.set(id, entry); cached = entry;
     }
     return cached.promise;
+  }
+
+  private watchlistItems(): Promise<Item[]> {
+    if (!this.watchlist) {
+      const entry: CollectionItems = { promise: getAllWatchlistItems(this.api).then(items => {
+        entry.fingerprint = JSON.stringify(items); entry.value = items; return items;
+      }).catch(error => { if (this.watchlist === entry) this.watchlist = undefined; throw error; }) };
+      this.watchlist = entry;
+    }
+    return this.watchlist.promise;
+  }
+  private async refreshWatchlist(): Promise<boolean> {
+    if (!this.settings.rows.some(row => row.kind === 'watchlist')) return false;
+    const before = this.watchlist;
+    try {
+      const items = await getAllWatchlistItems(this.api);
+      if (this.disposed || this.watchlist !== before || JSON.stringify([this.api.serverId, this.api.userId]) !== this.accountIdentity) return false;
+      const fingerprint = JSON.stringify(items);
+      if (fingerprint === before?.fingerprint) return false;
+      this.watchlist = { promise: Promise.resolve(items), value: items, fingerprint }; return true;
+    } catch { return false; }
   }
 
   private collectionList(refresh = false): Promise<Item[]> {
@@ -420,8 +461,8 @@ export class HomeCollections {
         } catch { /* Keep the last successfully loaded members until a later poll. */ }
       }
     };
-    await Promise.all([refreshNext(), refreshNext()]);
-    return changed;
+    const [, , watchlistChanged] = await Promise.all([refreshNext(), refreshNext(), this.refreshWatchlist()]);
+    return changed || watchlistChanged;
   }
 
   private attach(): void {
@@ -593,7 +634,7 @@ export class HomeCollections {
       element: providerElement, reconcileSource: async () => {} }] : [];
     if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: providerRows }; this.attach(); return; }
     try {
-      const available = new Map((await this.collectionList(refreshList)).map(item => [item.Id, item]));
+      const available = new Map((this.settings.rows.some(row => row.kind !== 'watchlist') ? await this.collectionList(refreshList) : []).map(item => [item.Id, item]));
       if (this.disposed || revision !== this.revision) return;
       const rendered = await Promise.all(this.settings.rows.map(row => this.section(row, available, revision)));
       if (this.disposed || revision !== this.revision) return;
@@ -602,7 +643,7 @@ export class HomeCollections {
       if (this.disposed || revision !== this.revision) return;
       this.renderRetry = true;
       const error = el('div', 'tvl-home-row-status'); error.setAttribute('role', 'status');
-      error.append(el('p', '', 'Your collection rows could not be loaded.'), button('Retry collection rows', '', '', () => { void this.render(true); }));
+      error.append(el('p', '', 'Your Home rows could not be loaded.'), button('Retry Home rows', '', '', () => { void this.render(true); }));
       this.staged = { revision, inputRevision, error, retry: true,
         sections: [...providerRows, ...this.sections.filter(section => !section.element.classList.contains('tvl-home-provider-row'))] }; this.attach();
     }
@@ -610,7 +651,7 @@ export class HomeCollections {
 
   private async section(row: HomeCollectionRow, available: Map<string, Item>, revision: number): Promise<RenderedRow> {
     const chosen = row.collectionIds.map(id => available.get(id)).filter((item): item is Item => !!item);
-    const title = row.title || (row.kind === 'collections' ? 'Collections' : chosen[0]?.Name || 'Collection');
+    const title = row.title || (row.kind === 'watchlist' ? 'Watchlist' : row.kind === 'collections' ? 'Collections' : chosen[0]?.Name || 'Collection');
     const section = el('section', 'verticalSection tvl-home-collection-row');section.dataset.homeRow = row.id;
     section.setAttribute('aria-label', title);section.append(el('h2', 'tvl-home-row-title', title));
     const cards = el('div', 'tvl-home-row-cards focuscontainer-x');cards.setAttribute('role', 'list');
@@ -645,22 +686,37 @@ export class HomeCollections {
       const collection = available.get(source.collectionId);
       replace(cards); cards.scrollLeft = 0; cards.removeAttribute('aria-busy');
       if (tabbed) panel.setAttribute('aria-labelledby', `${prefix}-tab-${encodeURIComponent(source.id)}`);
-      if (row.kind === 'items' ? !collection : !chosen.length) {
+      if (row.kind !== 'watchlist' && (row.kind === 'items' ? !collection : !chosen.length)) {
         cards.append(el('p', 'tvl-home-row-status', 'No accessible collections selected.')); return;
       }
       cards.setAttribute('aria-busy', 'true');
-      cards.append(el('p', 'tvl-home-row-status', 'Loading collection…'));
+      cards.append(el('p', 'tvl-home-row-status', row.kind === 'watchlist' ? 'Loading Watchlist…' : 'Loading collection…'));
       try {
-        const items = row.kind === 'items' ? orderHomeItems(await this.collectionItems(collection!.Id), source) : chosen;
+        const items = row.kind === 'watchlist' ? orderHomeItems(await this.watchlistItems(), row) : row.kind === 'items' ? orderHomeItems(await this.collectionItems(collection!.Id), source) : chosen;
         if (!this.current(revision) || currentSource !== sourceRevision) return;
         replace(cards);
-      for (const [index, item] of items.slice(0, 60).entries()) {
-        const entry = el('div', 'tvl-home-row-entry');entry.setAttribute('role', 'listitem');
-        const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, () => { if (!this.disposed) this.navigate(item.Id); });
-        card.dataset.focusId = tabbed ? `${focusPrefix(source.id)}${encodeURIComponent(item.Id)}` : `home:${row.id}:${item.Id}`;
-        entry.append(card);cards.append(entry);
-      }
-      if (!items.length) cards.append(el('p', 'tvl-home-row-status', 'This collection is empty.'));
+        let shown = 0;
+        const more = button('Show more Watchlist', 'grid', '', () => {
+          const next = shown; more.remove(); appendItems();
+          cards.querySelector<HTMLElement>(`[data-watchlist-index="${next}"]`)?.focus();
+        });
+        const appendItems = (limit = 60) => {
+          for (const [offset, item] of items.slice(shown, shown + limit).entries()) {
+            const index = shown + offset;
+            const entry = el('div', 'tvl-home-row-entry'); entry.setAttribute('role', 'listitem');
+            const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, () => { if (!this.disposed) this.navigate(item.Id); });
+            card.dataset.focusId = tabbed ? `${focusPrefix(source.id)}${encodeURIComponent(item.Id)}` : `home:${row.id}:${item.Id}`;
+            if (row.kind === 'watchlist') card.dataset.watchlistIndex = String(index);
+            entry.append(card); cards.append(entry);
+          }
+          shown = Math.min(items.length, shown + limit);
+          if (row.kind === 'watchlist') this.watchlistShown.set(row.id, shown);
+          if (row.kind === 'watchlist' && shown < items.length) { more.dataset.focusId = `home:${row.id}:more`; cards.append(more); }
+        };
+        const restore = this.restoreFocus || this.positionToRestore?.focusId;
+        const focusedIndex = row.kind === 'watchlist' ? items.findIndex(item => restore === `home:${row.id}:${item.Id}`) : -1;
+        appendItems(Math.max(60, row.kind === 'watchlist' ? this.watchlistShown.get(row.id) || 0 : 0, Math.ceil((focusedIndex + 1) / 60) * 60));
+        if (!items.length) cards.append(el('p', 'tvl-home-row-status', row.kind === 'watchlist' ? 'Your Watchlist is empty. Save a movie or TV show to see it here.' : 'This collection is empty.'));
         if (row.kind === 'items' && items.length > 60) {
           const full = button('View full collection', 'grid', '', () => this.navigate(collection!.Id));
           if (tabbed) full.dataset.focusId = `${focusPrefix(source.id)}full-collection`;
@@ -668,7 +724,7 @@ export class HomeCollections {
         }
       } catch {
         if (!this.current(revision) || currentSource !== sourceRevision) return;
-        replace(cards, el('p', 'tvl-home-row-status', 'This collection could not be loaded.'), button('Retry collection', '', '', () => {
+        replace(cards, el('p', 'tvl-home-row-status', row.kind === 'watchlist' ? 'Your Watchlist could not be loaded.' : 'This collection could not be loaded.'), button(row.kind === 'watchlist' ? 'Retry Watchlist' : 'Retry collection', '', '', () => {
           const focused = cards.contains(document.activeElement);
           const inputRevision = this.inputRevision;
           const pending = renderItems(), retrySource = sourceRevision;
@@ -700,7 +756,8 @@ export class HomeCollections {
       && (!this.api.homeCollections || this.api.homeCollections.isCurrent()) && (!this.api.providerHomes || this.api.providerHomes.isCurrent())) {
       const items: HomeSnapshot['items'] = new Map();
       for (const [id, entry] of this.items) if (entry.value && entry.fingerprint !== undefined) items.set(id, { value: entry.value, fingerprint: entry.fingerprint });
-      lastHome = { key: this.key, collections: this.collections, items, sources: new Map(this.selectedSources) };
+      lastHome = { key: this.key, collections: this.collections, items, sources: new Map(this.selectedSources), watchlistShown: new Map(this.watchlistShown),
+        watchlist: this.watchlist?.value && this.watchlist.fingerprint !== undefined ? { value: this.watchlist.value, fingerprint: this.watchlist.fingerprint } : undefined };
     }
     this.rememberPosition();
     if (this.lastPosition) {
@@ -709,7 +766,7 @@ export class HomeCollections {
     }
     this.rememberNativeFocus();
     this.disposed = true; this.revision++; this.observer.disconnect();
-    this.channelArtwork.destroy();
+    this.channelArtwork.destroy(); this.removeWatchlist();
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);

@@ -4,7 +4,7 @@ import { defaultProviderConfig, type ProviderRow, type ProviderHomeConfig } from
 import type { Item, MediaApi } from './types';
 
 export type ProviderItemsQuery = {
-  type: 'Movie' | 'Series'; startIndex?: number; limit?: number;
+  type: 'Movie' | 'Series' | 'Mixed'; watchlist?: boolean; startIndex?: number; limit?: number;
   sort?: 'title' | 'title-desc' | 'newest' | 'oldest';
 };
 export type ProviderItemsPage = {
@@ -85,12 +85,13 @@ export class ProviderData {
     const type = row.source === 'movies' || row.source === 'trending-movies' ? 'Movie'
       : row.source === 'shows' || row.source === 'trending-shows' ? 'Series' : undefined;
     const collectionId = row.collectionId.trim();
-    if (!collectionId && (row.source === 'movies' || row.source === 'shows')) {
+    const watchlist = row.source === 'watchlist';
+    if (watchlist || !collectionId && (row.source === 'movies' || row.source === 'shows')) {
       const sourceLabel = 'UK streaming availability · JustWatch';
       const sourceUrl = 'https://www.justwatch.com/uk';
       if (preview ? !this.api.previewProviderItems : !this.api.getProviderItems) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl };
-      const query: ProviderItemsQuery = { type: type!, startIndex: start, limit: size, sort: row.itemSort === 'collection' ? 'title' : row.itemSort };
-      const key = `${preview ? JSON.stringify(config) : config.id}:${query.type}:${query.sort}:${start}:${size}`;
+      const query: ProviderItemsQuery = { type: watchlist ? 'Mixed' : type!, ...(watchlist ? { watchlist: true } : {}), startIndex: start, limit: size, sort: row.itemSort === 'collection' ? 'title' : row.itemSort };
+      const key = `${preview ? JSON.stringify(config) : config.id}:${query.type}:${!!query.watchlist}:${query.sort}:${start}:${size}`;
       let promise = this.cataloguePending.get(key);
       if (!promise) {
         promise = Promise.resolve().then(() => { this.current(generation); return preview ? this.api.previewProviderItems!(config, query) : this.api.getProviderItems!(config.id, query); });

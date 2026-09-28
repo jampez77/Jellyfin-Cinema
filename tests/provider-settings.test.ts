@@ -25,6 +25,14 @@ test('strict parser preserves explicit hidden services, empty pages, row order a
   const copy = cloneProviderHomes(settings); copy.providers[1].rows[0].title = 'Draft';
   assert.notEqual(settings.providers[1].rows[0].title, 'Draft');
 });
+test('Watchlist rows are opt-in and preserve each service placement, visibility and mixed-row title', () => {
+  const settings = defaultProviderHomes();
+  assert.ok(settings.providers.every(provider => provider.rows.every(row => row.source !== 'watchlist')));
+  settings.providers[0].rows.splice(1, 0, { id: 'my-watchlist', title: 'Watch later', source: 'watchlist', collectionId: '', enabled: false, ranked: false, itemSort: 'title' });
+  assert.deepEqual(parseProviderHomes(settings), settings);
+  assert.equal(cloneProviderHomes(settings).providers[0].rows[1].source, 'watchlist');
+  assert.equal(settings.providers[1].rows.some(row => row.source === 'watchlist'), false);
+});
 test('malformed snapshots are rejected without trimming or silently restoring defaults', () => {
   const cases: ((value: any) => void)[] = [
     value => value.version = 3, value => value.extra = true, value => delete value.enabled,

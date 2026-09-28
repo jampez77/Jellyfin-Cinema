@@ -1,16 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 import { useDesktopLayout } from './layout-fixture';
 
-const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
+const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize Home rows', exact: true });
 const preview = (page: Page) => editor(page).getByRole('complementary', { name: 'Home row preview', exact: true });
 const cards = (page: Page) => preview(page).locator('.tvl-home-row-card');
 
 test('missing collection and item thumbnails stay contained and do not cover editor controls', async ({ page }) => {
   await page.goto('/?featured=0#/list?parentId=library-collections');
   await useDesktopLayout(page);
-  await expect(page.getByRole('button', { name: 'Customize collection rows', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Customize Home rows', exact: true })).toBeVisible();
   await page.evaluate(() => { window.TvItemLayoutDemo!.api.image = () => null; });
-  await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click();
+  await page.getByRole('button', { name: 'Customize Home rows', exact: true }).click();
   await editor(page).getByRole('button', { name: 'Add collection items row', exact: true }).click();
   const contained = (selector: string) => editor(page).locator(selector).evaluateAll(nodes => nodes.every(node => {
     const fallback = getComputedStyle(node, '::before'), bounds = node.getBoundingClientRect();
@@ -46,7 +46,7 @@ async function openEditor(page: Page, visitHome = true) {
       localStorage.removeItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo:positions`);
     });
   }
-  await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click();
+  await page.getByRole('button', { name: 'Customize Home rows', exact: true }).click();
   await expect(editor(page).getByRole('button', { name: 'Save rows', exact: true })).toBeEnabled();
 }
 async function addItemRow(page: Page) {
@@ -134,7 +134,7 @@ test('late preview results preserve the title input and caret and cannot overwri
   // A second editor has no cached items. Change collection before the old request completes.
   await editor(page).getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.evaluate(() => { delete (window as any).__finishPreview; });
-  await page.getByRole('button', { name: 'Customize collection rows', exact: true }).click(); await addItemRow(page);
+  await page.getByRole('button', { name: 'Customize Home rows', exact: true }).click(); await addItemRow(page);
   await expect(preview(page)).toContainText('Loading preview…');
   await expect.poll(() => page.evaluate(() => typeof (window as any).__finishPreview)).toBe('function');
   await editor(page).getByRole('button', { name: 'Into the Wilderness', exact: true }).click();

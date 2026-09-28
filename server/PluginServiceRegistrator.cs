@@ -1,6 +1,7 @@
 // Service registration adapted from InPlayerEpisodePreview-TV (MIT); see LICENSE.InPlayerEpisodePreview.md.
 using Jellyfin.Plugin.TvItemLayout.Integration;
 using Jellyfin.Plugin.TvItemLayout.Providers;
+using Jellyfin.Plugin.TvItemLayout.Watchlists;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,7 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<StartupService>();
         serviceCollection.AddSingleton<PlaybackQueueStore>();
+        serviceCollection.AddSingleton<WatchlistService>();
         serviceCollection.AddScoped<PlaybackQueueCaptureFilter>();
         serviceCollection.Configure<MvcOptions>(options => options.Filters.AddService<PlaybackQueueCaptureFilter>());
         serviceCollection.AddHttpClient("JellyfinCinemaProviders", client =>

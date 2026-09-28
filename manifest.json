@@ -2,12 +2,36 @@
   {
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "ScreenHarbour",
-    "overview": "Cinematic TV and desktop browsing, personal collection rows and in-player navigation.",
-    "description": "An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "overview": "Cinematic TV and desktop browsing, personal Watchlist and collection rows, and in-player navigation.",
+    "description": "An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with a personal film/series Watchlist, optional mixed Watchlist Home rows, branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
+      {
+        "version": "0.2.31.3",
+        "changelog": "Adds Watchlist tabs in Movies and TV Shows, title-detail save/remove actions, optional mixed Watchlist rows on Home and provider-filtered service pages. Preserves existing trailer movie saves and stores whole TV shows without expanding episodes. Paused cinema trailers now show verified advertised-film metadata and artwork. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.31/TvItemLayout_0.2.31.3_jellyfin-12.0.0.zip",
+        "checksum": "867f2bdda40d7410a643461b50ca1ff0",
+        "timestamp": "2026-09-28T15:04:41Z"
+      },
+      {
+        "version": "0.2.31.2",
+        "changelog": "Adds Watchlist tabs in Movies and TV Shows, title-detail save/remove actions, optional mixed Watchlist rows on Home and provider-filtered service pages. Preserves existing trailer movie saves and stores whole TV shows without expanding episodes. Paused cinema trailers now show verified advertised-film metadata and artwork. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.31/TvItemLayout_0.2.31.2_jellyfin-10.11.0.zip",
+        "checksum": "8c88f178551d5e0318232045181c16fd",
+        "timestamp": "2026-09-28T15:04:41Z"
+      },
+      {
+        "version": "0.2.31.1",
+        "changelog": "Adds Watchlist tabs in Movies and TV Shows, title-detail save/remove actions, optional mixed Watchlist rows on Home and provider-filtered service pages. Preserves existing trailer movie saves and stores whole TV shows without expanding episodes. Paused cinema trailers now show verified advertised-film metadata and artwork. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.31/TvItemLayout_0.2.31.1_jellyfin-10.10.7.zip",
+        "checksum": "f9eace534de75d7af815480957015101",
+        "timestamp": "2026-09-28T15:04:41Z"
+      },
       {
         "version": "0.2.30.3",
         "changelog": "Moves trailer buttons just above Jellyfin's actual playback controls and retains their position when controls fade. Long pause descriptions fade out before reaching the buttons; short descriptions remain clear. Watchlist feedback appears above the row. Preserves initial Skip focus, first-playback availability and autoplay. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",

@@ -4,6 +4,7 @@ import { providerBrands, type ProviderBrandId } from '../src/provider-brands';
 import { defaultProviderHomes, defaultProviderConfig, parseProviderHomes, providerHomesKey, type ProviderHomeConfig } from '../src/provider-settings';
 import type { ProviderItemsQuery, ProviderItemsPage } from '../src/provider-data';
 import { orderHomeItems } from '../src/home-collection-settings';
+import { notifyWatchlistChanged } from '../src/watchlist';
 
 // This file belongs to the preview only. It is never included in the installer bundle.
 const MINUTE = 60 * 10_000_000;
@@ -228,21 +229,22 @@ const playlistMembers = new Map<string, Item[]>([
 // Preview-only storage belongs to the fictional demo account, never a Jellyfin user.
 const watchlistStorageKey = 'screenharbour-demo:demo:trailer-watchlist';
 const watchlistId = 'playlist-demo-watchlist';
-const watchlistMovies = new Set<string>();
+const watchlistItems = new Set<string>();
 try {
   const saved: unknown = JSON.parse(localStorage.getItem(watchlistStorageKey) || '[]');
-  if (Array.isArray(saved)) for (const id of saved) if (typeof id === 'string' && movieIds.includes(id)) watchlistMovies.add(id);
+  if (Array.isArray(saved)) for (const id of saved) if (typeof id === 'string' && (movieIds.includes(id) || seriesIds.includes(id))) watchlistItems.add(id);
 } catch { /* An unavailable or invalid preview store starts empty. */ }
 function syncDemoWatchlist(): void {
-  if (!watchlistMovies.size && scenario !== 'cinema-trailers') return;
+  if (!watchlistItems.size && scenario !== 'cinema-trailers' && !library.has(watchlistId)) return;
   let item = library.get(watchlistId);
   if (!item) {
     item = register({ Id:watchlistId, Type:'Playlist', Name:'Watchlist', MediaType:'Video', IsFolder:true,
       Overview:'Films saved from the fictional trailer preview. This watchlist is stored only in this browser.', ImageTags:{Primary:'demo'} }, 'forest');
     playlists.push(item);
   }
-  item.ChildCount = watchlistMovies.size;
-  playlistMembers.set(watchlistId, [...watchlistMovies].map(id => ({ ...library.get(id)!, PlaylistItemId:`watchlist-${id}` })));
+  const movies = [...watchlistItems].filter(id => movieIds.includes(id));
+  item.ChildCount = movies.length;
+  playlistMembers.set(watchlistId, movies.map(id => ({ ...library.get(id)!, PlaylistItemId:`watchlist-${id}` })));
 }
 syncDemoWatchlist();
 register({Id:'library-music',Type:'CollectionFolder',Name:'Music',CollectionType:'music'},'forest');
@@ -342,7 +344,7 @@ function trailerActions(expected: TrailerIdentity): TrailerActionsContext | null
   const movie = movieId ? library.get(movieId) : null;
   if (!movie) return null;
   return { PlayingItemId:playback.PlayingItemId, PlaylistItemId:playback.PlaylistItemId,
-    Movie:{Id:movie.Id, Name:movie.Name}, InWatchlist:watchlistMovies.has(movie.Id), WatchlistId:watchlistId };
+    Movie:{Id:movie.Id, Name:movie.Name}, InWatchlist:watchlistItems.has(movie.Id), WatchlistId:watchlistId };
 }
 
 function showCinemaPlayer(): void {
@@ -490,18 +492,25 @@ function browseLibrary(ids: string[], genres: Item[], parentId: string, query: L
 }
 
 function providerPage(config: ProviderHomeConfig | undefined, query: ProviderItemsQuery): ProviderItemsPage {
-  const type = query.type === 'Movie' ? 'movies' : 'shows';
-  const sourceIds = config ? query.type === 'Movie' ? config.movieProviderIds : config.showProviderIds : [];
-  const matched = providerBrands.filter(brand => {
-    const preset = defaultProviderConfig(brand.id);
-    return preset.offerTypes.some(offer => config?.offerTypes.includes(offer))
-      && (query.type === 'Movie' ? preset.movieProviderIds : preset.showProviderIds).some(id => sourceIds.includes(id));
-  });
-  const ids = [...new Set(matched.flatMap(brand => providerCatalogues[brand.id][type]))];
-  const items = orderHomeItems(list(ids.map(id => library.get(id)!)), { itemSort: query.sort || 'title', itemOrder: [] });
+  const types = query.type === 'Mixed' ? ['Movie', 'Series'] : [query.type];
+  const ids = new Set<string>();
+  let configured = false;
+  for (const type of types) {
+    const sourceIds = config ? type === 'Movie' ? config.movieProviderIds : config.showProviderIds : [];
+    configured ||= !!sourceIds.length;
+    const matched = providerBrands.filter(brand => {
+      const preset = defaultProviderConfig(brand.id);
+      return preset.offerTypes.some(offer => config?.offerTypes.includes(offer))
+        && (type === 'Movie' ? preset.movieProviderIds : preset.showProviderIds).some(id => sourceIds.includes(id));
+    });
+    for (const id of matched.flatMap(brand => providerCatalogues[brand.id][type === 'Movie' ? 'movies' : 'shows'])) {
+      if (!query.watchlist || watchlistItems.has(id)) ids.add(id);
+    }
+  }
+  const items = orderHomeItems(list([...ids].map(id => library.get(id)!)), { itemSort: query.sort || 'title', itemOrder: [] });
   const start = query.startIndex || 0;
   return { Items: items.slice(start, start + (query.limit || 60)), TotalRecordCount: items.length, Pending: 0, Total: items.length,
-    Status: sourceIds.length ? 'ready' : 'unavailable', Region: 'GB', UpdatedAt: new Date().toISOString(), MissingIds: 0, FailedIds: 0 };
+    Status: configured ? 'ready' : 'unavailable', Region: 'GB', UpdatedAt: new Date().toISOString(), MissingIds: 0, FailedIds: 0 };
 }
 const api: MediaApi = {
   getPlaybackContext: () => respond(() => cinemaPlayback ? { ...cinemaPlayback, Queue:cinemaPlayback.Queue.map(entry => ({...entry})) } : null),
@@ -509,11 +518,39 @@ const api: MediaApi = {
   addTrailerToWatchlist: expected => respond(() => {
     const model = trailerActions(expected);
     if (!model?.Movie) throw new Error('The trailer changed. Try again.');
-    const ids = new Set(watchlistMovies); ids.add(model.Movie.Id);
+    const ids = new Set(watchlistItems); ids.add(model.Movie.Id);
     // Persist before changing the UI: unavailable browser storage is a real failure.
     localStorage.setItem(watchlistStorageKey, JSON.stringify([...ids]));
-    watchlistMovies.add(model.Movie.Id); syncDemoWatchlist();
+    watchlistItems.add(model.Movie.Id); syncDemoWatchlist();
+    notifyWatchlistChanged(api, { ItemId: model.Movie.Id, InWatchlist: true });
     return { ...model, InWatchlist:true };
+  }),
+  getWatchlist: (query = {}) => respond(() => {
+    const type = query.type || 'All';
+    const ids = [...watchlistItems].filter(id => (type === 'All' || library.get(id)?.Type === type)
+      && (!query.parentId || query.parentId === 'library-movies' && movieIds.includes(id)
+        || query.parentId === 'library-tv' && seriesIds.includes(id)));
+    const filtered = browseLibrary(ids, [...movieGenres, ...showGenres], '', { ...query, parentId: undefined, startIndex: 0, limit: 10000 });
+    const filteredIds = new Set(filtered.items.map(item => item.Id));
+    const ordered = query.sort === 'collection' ? list(ids.filter(id => filteredIds.has(id)).map(id => library.get(id)!))
+      : orderHomeItems(filtered.items, { itemSort: query.sort || 'title', itemOrder: [] });
+    const start = query.startIndex || 0, page = ordered.slice(start, start + (query.limit || 60));
+    return { items: page, total: ordered.length, nextStartIndex: start + page.length };
+  }),
+  getWatchlistState: id => respond(() => {
+    if (!movieIds.includes(id) && !seriesIds.includes(id)) throw new Error('This title is not available.');
+    return { ItemId: id, InWatchlist: watchlistItems.has(id) };
+  }),
+  setWatchlist: (id, saved) => respond(() => {
+    if (!movieIds.includes(id) && !seriesIds.includes(id)) throw new Error('This title is not available.');
+    const ids = new Set(watchlistItems);
+    if (saved) ids.add(id); else ids.delete(id);
+    localStorage.setItem(watchlistStorageKey, JSON.stringify([...ids]));
+    if (saved) watchlistItems.add(id); else watchlistItems.delete(id);
+    syncDemoWatchlist();
+    const state = { ItemId: id, InWatchlist: saved };
+    notifyWatchlistChanged(api, state);
+    return state;
   }),
   getProviderDirectory: () => respond(() => {
     const common = [

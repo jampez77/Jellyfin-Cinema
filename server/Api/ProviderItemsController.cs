@@ -10,6 +10,7 @@ using Jellyfin.Database.Implementations.Enums;
 using User = Jellyfin.Database.Implementations.Entities.User;
 #endif
 using Jellyfin.Plugin.TvItemLayout.Providers;
+using Jellyfin.Plugin.TvItemLayout.Watchlists;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Net;
@@ -40,7 +41,7 @@ public sealed class ProviderItemsController(
     IDtoService dtoService,
     IProviderAvailability availability,
     IApplicationPaths paths,
-    TmdbProviderSource source) : ControllerBase
+    TmdbProviderSource source, WatchlistService watchlists) : ControllerBase
 {
     private async Task<User?> CurrentUser()
     {
@@ -70,7 +71,7 @@ public sealed class ProviderItemsController(
     [HttpGet("{providerId}/Items")]
     public async Task<IActionResult> GetProviderItems(string providerId, [FromQuery] string type = "Movie",
         [FromQuery] int startIndex = 0, [FromQuery] int limit = 60, [FromQuery] string sort = "title",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, [FromQuery] bool watchlist = false)
     {
         var user = await CurrentUser();
         if (user is null) return Unauthorized();
@@ -79,14 +80,14 @@ public sealed class ProviderItemsController(
         var settings = await ProviderHomesController.ReadForUser(paths, user.Id, cancellationToken);
         var configured = ProviderHomesSchema.Resolve(settings.Settings, providerId);
         if (configured is null || !configured.Enabled) return NotFound("This streaming service is not enabled for the current account.");
-        return await Items(user, configured, type, startIndex, limit, sort, cancellationToken);
+        return await Items(user, configured, type, startIndex, limit, sort, watchlist, cancellationToken);
     }
 
     [HttpPost("Preview")]
     [RequestSizeLimit(ProviderHomesController.MaximumBytes)]
     public async Task<IActionResult> PreviewProviderItems([FromBody] JsonElement provider, [FromQuery] string mediaType = "Movie",
         [FromQuery] int startIndex = 0, [FromQuery] int limit = 60, [FromQuery] string sort = "title",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, [FromQuery] bool watchlist = false)
     {
         var user = await CurrentUser();
         if (user is null) return Unauthorized();
@@ -97,32 +98,40 @@ public sealed class ProviderItemsController(
         var draft = JsonSerializer.SerializeToElement(new { version = 2, enabled = true, title = "", placement = "start", tileScale = 100, showNames = true, providers = new[] { provider } });
         if (!ProviderHomesSchema.ValidSettings(draft)) return BadRequest("Invalid provider preview settings.");
         var configured = ProviderHomesSchema.Resolve(draft, provider.GetProperty("id").GetString()!)!;
-        return await Items(user, configured, mediaType, startIndex, limit, sort, cancellationToken);
+        return await Items(user, configured, mediaType, startIndex, limit, sort, watchlist, cancellationToken);
     }
 
-    private static bool ValidQuery(string type, int startIndex, int limit, string sort) => type is "Movie" or "Series"
+    private static bool ValidQuery(string type, int startIndex, int limit, string sort) => type is "Movie" or "Series" or "Mixed"
         && startIndex >= 0 && limit is >= 1 and <= 200 && sort is "title" or "title-desc" or "newest" or "oldest";
 
-    private async Task<IActionResult> Items(User user, ConfiguredProvider configured, string type, int startIndex, int limit, string sort, CancellationToken cancellationToken)
+    private async Task<IActionResult> Items(User user, ConfiguredProvider configured, string type, int startIndex, int limit, string sort, bool watchlist, CancellationToken cancellationToken)
     {
-        var acceptedIds = type == "Movie" ? configured.MovieProviderIds : configured.ShowProviderIds;
-        if (acceptedIds.Length == 0)
+        if (type == "Movie" && configured.MovieProviderIds.Length == 0 || type == "Series" && configured.ShowProviderIds.Length == 0
+            || type == "Mixed" && configured.MovieProviderIds.Length == 0 && configured.ShowProviderIds.Length == 0)
             return Ok(new ProviderItemsResponse([], 0, 0, 0, null, "unavailable", TmdbProviderSource.Region, 0, 0));
         // Construct with the current User (not merely UserId) to apply parental ratings,
         // blocked/unrated content and tags. Leave all explicit item/parent constraints empty:
         // ILibraryManager then applies that user's permitted library roots on every request.
         var query = new InternalItemsQuery(user)
         {
-            IncludeItemTypes = [type == "Movie" ? BaseItemKind.Movie : BaseItemKind.Series],
+            IncludeItemTypes = type == "Mixed" ? [BaseItemKind.Movie, BaseItemKind.Series] : [type == "Movie" ? BaseItemKind.Movie : BaseItemKind.Series],
             Recursive = true, IsVirtualItem = false, IsMissing = false,
             EnableTotalRecordCount = false
         };
-        var permitted = libraryManager.GetItemList(query);
+        IEnumerable<BaseItem> permitted = libraryManager.GetItemList(query);
         cancellationToken.ThrowIfCancellationRequested();
-        var identified = permitted.Select(item => (Item: item, Key: LookupKey(item, type))).ToArray();
+        if (watchlist)
+        {
+            HashSet<Guid> saved;
+            try { saved = await watchlists.ReadIds(user, cancellationToken); }
+            catch (WatchlistException error) { return UnprocessableEntity(error.Message); }
+            permitted = permitted.Where(item => saved.Contains(item.Id));
+        }
+        var identified = permitted.Select(item => (Item: item, Key: LookupKey(item,
+            type == "Mixed" ? item is MediaBrowser.Controller.Entities.TV.Series ? "Series" : "Movie" : type))).ToArray();
         var snapshot = await availability.ReadAsync(identified.Where(item => item.Key is not null).Select(item => item.Key!), cancellationToken);
         var matching = identified.Where(item => item.Key is not null && snapshot.Memberships.TryGetValue(item.Key, out var providers)
-            && providers.Includes(acceptedIds, configured.OfferTypes)).Select(item => item.Item);
+            && providers.Includes(item.Item is MediaBrowser.Controller.Entities.TV.Series ? configured.ShowProviderIds : configured.MovieProviderIds, configured.OfferTypes)).Select(item => item.Item);
         IOrderedEnumerable<BaseItem> ordered = sort switch
         {
             "title-desc" => matching.OrderByDescending(item => item.SortName, StringComparer.OrdinalIgnoreCase),

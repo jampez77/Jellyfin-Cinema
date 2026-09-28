@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using Jellyfin.Plugin.TvItemLayout.Watchlists;
 using System.Text.Json.Serialization;
 #if JELLYFIN_1010
 using Jellyfin.Data.Entities;
@@ -40,9 +40,6 @@ public sealed class TrailerActionsController(
     ILibraryManager libraryManager,
     IPlaylistManager playlistManager, PlaybackQueueStore playbackQueues) : ControllerBase
 {
-    // Serialize this user's first creation and later adds across devices/requests.
-    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> UserLocks = new();
-
     private async Task<(User User, SessionInfo Session)?> CurrentSession()
     {
         var auth = await authorizationContext.GetAuthorizationInfo(HttpContext);
@@ -97,22 +94,8 @@ public sealed class TrailerActionsController(
         return movie;
     }
 
-    private Playlist[] Watchlists(User user) => playlistManager.GetPlaylists(user.Id).Where(list =>
-        list.OwnerUserId == user.Id && !list.OpenAccess && list.Shares.Count == 0
-        && string.Equals(list.Name?.Trim(), "Watchlist", StringComparison.OrdinalIgnoreCase)
-        && (list.MediaType == MediaType.Video || list.MediaType == MediaType.Unknown)
-        // Generated lists can be overwritten at the next SmartLists refresh.
-        && !list.ProviderIds.Keys.Any(key => key.Contains("SmartList", StringComparison.OrdinalIgnoreCase)))
-        .Take(2).ToArray();
-
-    private static bool Contains(Playlist playlist, Guid id)
-    {
-        var links = playlist.LinkedChildren;
-        if (links.Any(link => link.ItemId == id)) return true;
-        // Older native playlists may identify their entries by path instead.
-        return links.Any(link => !link.ItemId.HasValue || link.ItemId == Guid.Empty)
-            && playlist.GetManageableItems().Any(entry => entry.Item2.Id == id);
-    }
+    private Playlist[] Watchlists(User user) => WatchlistService.MovieLists(playlistManager, user);
+    private static bool Contains(Playlist playlist, Guid id) => WatchlistService.Contains(playlist, id);
 
     private static TrailerActionsResponse Describe(string? playlistItemId, BaseItem trailer, Movie? movie, Playlist? list) =>
         new(trailer.Id, playlistItemId, movie is null ? null : new(movie.Id, movie.Name),
@@ -143,47 +126,42 @@ public sealed class TrailerActionsController(
         var initial = await CurrentSession();
         if (initial is null) return Unauthorized();
         if (!Valid(expected)) return BadRequest("Invalid trailer identity.");
-        var userLock = UserLocks.GetOrAdd(initial.Value.User.Id, _ => new SemaphoreSlim(1, 1));
-        await userLock.WaitAsync(cancellationToken);
-        try
+        using var userLock = await WatchlistService.Acquire(initial.Value.User.Id, cancellationToken);
+        // Waiting for another device must not let a stale trailer click save
+        // the next trailer or continue with a revoked account/session.
+        var current = await CurrentSession();
+        if (current is null || current.Value.User.Id != initial.Value.User.Id) return Unauthorized();
+        var (user, session) = current.Value;
+        if (!IsCurrentTrailer(session, user, expected, out var trailer)) return Conflict("This trailer has finished. Try again on the current trailer.");
+        var playlistItemId = session.PlaylistItemId;
+        var movie = AdvertisedMovie(trailer!, user);
+        if (movie is null) return NotFound("The film advertised by this trailer is not available in your library.");
+        var lists = Watchlists(user);
+        if (lists.Length > 1) return UnprocessableEntity("You have more than one private video playlist named Watchlist. Rename one before adding films.");
+        var list = lists.FirstOrDefault();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (list is null)
         {
-            // Waiting for another device must not let a stale trailer click save
-            // the next trailer or continue with a revoked account/session.
-            var current = await CurrentSession();
-            if (current is null || current.Value.User.Id != initial.Value.User.Id) return Unauthorized();
-            var (user, session) = current.Value;
-            if (!IsCurrentTrailer(session, user, expected, out var trailer)) return Conflict("This trailer has finished. Try again on the current trailer.");
-            var playlistItemId = session.PlaylistItemId;
-            var movie = AdvertisedMovie(trailer!, user);
-            if (movie is null) return NotFound("The film advertised by this trailer is not available in your library.");
-            var lists = Watchlists(user);
-            if (lists.Length > 1) return UnprocessableEntity("You have more than one private video playlist named Watchlist. Rename one before adding films.");
-            var list = lists.FirstOrDefault();
-            cancellationToken.ThrowIfCancellationRequested();
-            if (list is null)
+            var created = await playlistManager.CreatePlaylist(new PlaylistCreationRequest
             {
-                var created = await playlistManager.CreatePlaylist(new PlaylistCreationRequest
-                {
-                    Name = "Watchlist", UserId = user.Id, Public = false, Users = [],
-                    ItemIdList = [movie.Id], MediaType = MediaType.Video
-                });
-                list = playlistManager.GetPlaylistForUser(Guid.Parse(created.Id), user.Id);
-                if (list is null || list.OwnerUserId != user.Id || list.OpenAccess || list.Shares.Count != 0)
-                    return StatusCode(500, "Jellyfin could not create your private Watchlist. Please try again.");
-            }
-            else if (!Contains(list, movie.Id))
-            {
-#if JELLYFIN_12
-                await playlistManager.AddItemToPlaylistAsync(list.Id, [movie.Id], null, user.Id);
-#else
-                await playlistManager.AddItemToPlaylistAsync(list.Id, [movie.Id], user.Id);
-#endif
-                list = playlistManager.GetPlaylistForUser(list.Id, user.Id);
-            }
-            if (list is null || !Contains(list, movie.Id)) return StatusCode(500, "Jellyfin could not save the film to your Watchlist. Please try again.");
-            return Ok(Describe(playlistItemId, trailer!, movie, list));
+                Name = "Watchlist", UserId = user.Id, Public = false, Users = [],
+                ItemIdList = [movie.Id], MediaType = MediaType.Video
+            });
+            list = playlistManager.GetPlaylistForUser(Guid.Parse(created.Id), user.Id);
+            if (list is null || list.OwnerUserId != user.Id || list.OpenAccess || list.Shares.Count != 0)
+                return StatusCode(500, "Jellyfin could not create your private Watchlist. Please try again.");
         }
-        finally { userLock.Release(); }
+        else if (!Contains(list, movie.Id))
+        {
+#if JELLYFIN_12
+            await playlistManager.AddItemToPlaylistAsync(list.Id, [movie.Id], null, user.Id);
+#else
+            await playlistManager.AddItemToPlaylistAsync(list.Id, [movie.Id], user.Id);
+#endif
+            list = playlistManager.GetPlaylistForUser(list.Id, user.Id);
+        }
+        if (list is null || !Contains(list, movie.Id)) return StatusCode(500, "Jellyfin could not save the film to your Watchlist. Please try again.");
+        return Ok(Describe(playlistItemId, trailer!, movie, list));
     }
 }
 

@@ -6,7 +6,7 @@ const config = { version: 1, rows: [{ id: 'platform', kind: 'items', title: 'Tre
   { id: 'shows', label: 'Shows', collectionId: 'collection-wilderness', itemSort: 'collection', itemOrder: [] }
 ] }] };
 const homeRow = (page: Page) => page.locator('#homeTab [data-home-row="platform"]');
-const dialog = (page: Page) => page.getByRole('dialog', { name: 'Customize collection rows', exact: true });
+const dialog = (page: Page) => page.getByRole('dialog', { name: 'Customize Home rows', exact: true });
 const preview = (page: Page) => dialog(page).getByRole('complementary', { name: 'Home row preview' });
 const editSource = (page: Page) => dialog(page).locator('.tvl-home-editor-row');
 async function seed(page: Page) {
@@ -15,7 +15,7 @@ async function seed(page: Page) {
 async function openEditor(page: Page) {
   await useDesktopLayout(page);
   await page.evaluate(()=>{location.hash='/list?parentId=library-collections';});
-  await page.getByRole('button',{name:'Customize collection rows',exact:true}).click();
+  await page.getByRole('button',{name:'Customize Home rows',exact:true}).click();
   await expect(dialog(page).getByRole('button',{name:'Save rows',exact:true})).toBeEnabled();
 }
 async function remote(page: Page, command: string) {

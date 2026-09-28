@@ -1,4 +1,5 @@
-import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection, TrailerActionsContext, TrailerIdentity } from './types';
+import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection, TrailerActionsContext, TrailerIdentity, WatchlistState } from './types';
+import { notifyWatchlistChanged } from './watchlist';
 import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 import { createHomeCollectionTransport } from './home-collection-transport';
@@ -16,7 +17,7 @@ interface JellyfinClient extends PlaybackClient {
   getGenres(userId: string, query: Query): Promise<ItemResult>;
   getUrl(path: string, query?: Query): string;
   getJSON(url: string): Promise<unknown>;
-  ajax(options: { type: 'POST' | 'PUT'; url: string; dataType?: 'json'; data?: string; contentType?: 'application/json' }): Promise<unknown>;
+  ajax(options: { type: 'POST' | 'PUT' | 'DELETE'; url: string; dataType?: 'json'; data?: string; contentType?: 'application/json' }): Promise<unknown>;
   getSeasons(seriesId: string, query: Query): Promise<ItemResult>;
   getEpisodes(seriesId: string, query: Query): Promise<ItemResult>;
   getNextUpEpisodes(query: Query): Promise<ItemResult>;
@@ -79,6 +80,24 @@ function trailerResult(value: unknown, expected: TrailerIdentity, saved = false)
     throw new Error('Jellyfin returned invalid trailer or watchlist information.');
   }
   return result;
+}
+
+function watchlistState(value: unknown, id: string, saved?: boolean): WatchlistState {
+  const result = value as WatchlistState | null;
+  if (!result || typeof result.ItemId !== 'string' || identity(result.ItemId) !== identity(id)
+    || typeof result.InWatchlist !== 'boolean' || saved !== undefined && result.InWatchlist !== saved) {
+    throw new Error('Jellyfin returned invalid watchlist information. Try again.');
+  }
+  return { ItemId: result.ItemId, InWatchlist: result.InWatchlist };
+}
+
+function watchlistError(error: unknown): Error {
+  const status = (error as { status?: number; statusCode?: number } | null)?.status
+    ?? (error as { statusCode?: number } | null)?.statusCode;
+  if (status === 401 || status === 403) return new Error('Sign in to Jellyfin again and check access to this media.');
+  if (status === 422) return new Error('More than one private video playlist is named Watchlist. Rename one in Playlists, then try again.');
+  if (status === 404) return new Error('This title is no longer available. Reopen its details and try again.');
+  return error instanceof Error ? error : new Error('Unable to update your watchlist. Check your connection and try again.');
 }
 
 function movieItems(result: ItemResult, label: string): Item[] {
@@ -263,7 +282,8 @@ export function createJellyfinApi(): MediaApi | null {
     StartIndex: startIndex, Limit: PAGE_SIZE
   })), type === 'Movie' ? 'movie genre' : 'TV show genre')).filter(item => item.Type === 'Genre'));
   const providerCatalogue = (data: ProviderItemsPage, query: ProviderItemsQuery): ProviderItemsPage => {
-    if (!data || !Array.isArray(data.Items) || !data.Items.every(item => item && typeof item.Id === 'string' && typeof item.Name === 'string' && item.Type === query.type)
+    if (!data || !Array.isArray(data.Items) || !data.Items.every(item => item && typeof item.Id === 'string' && typeof item.Name === 'string'
+      && (query.type === 'Mixed' ? item.Type === 'Movie' || item.Type === 'Series' : item.Type === query.type))
       || ![data.TotalRecordCount, data.Pending, data.Total].every(value => Number.isInteger(value) && value >= 0)
       || !['ready', 'refreshing', 'unavailable'].includes(data.Status) || data.Region !== 'GB')
       throw new Error('Jellyfin returned an invalid provider catalogue. Try again.');
@@ -289,19 +309,22 @@ export function createJellyfinApi(): MediaApi | null {
       return data;
     }),
     getProviderItems: (provider, query) => read(async () => {
-      if (!validProviderId(provider) || !['Movie', 'Series'].includes(query.type)) throw new Error('Unknown streaming provider or media type.');
+      if (!validProviderId(provider) || !['Movie', 'Series', 'Mixed'].includes(query.type)
+        || query.type === 'Mixed' && !query.watchlist) throw new Error('Unknown streaming provider or media type.');
       const data = await client.getJSON(client.getUrl(`TvItemLayout/Providers/${encodeURIComponent(provider)}/Items`, {
         type: query.type, startIndex: Math.max(0, Math.floor(query.startIndex || 0)),
-        limit: Math.max(1, Math.min(100, Math.floor(query.limit || 60))), sort: query.sort || 'title'
+        limit: Math.max(1, Math.min(100, Math.floor(query.limit || 60))), sort: query.sort || 'title',
+        ...(query.watchlist ? { watchlist: true } : {})
       })) as ProviderItemsPage;
       return providerCatalogue(data, query);
     }),
     previewProviderItems: (provider, query) => read(async () => {
       const config = parseProviderHomes({ ...defaultProviderHomes(), providers: [provider] }).providers[0];
-      if (!['Movie', 'Series'].includes(query.type)) throw new Error('Unknown media type.');
+      if (!['Movie', 'Series', 'Mixed'].includes(query.type) || query.type === 'Mixed' && !query.watchlist) throw new Error('Unknown media type.');
       const data = await client.ajax({ type: 'POST', url: client.getUrl('TvItemLayout/Providers/Preview', {
         mediaType: query.type, startIndex: Math.max(0, Math.floor(query.startIndex || 0)),
-        limit: Math.max(1, Math.min(100, Math.floor(query.limit || 60))), sort: query.sort || 'title'
+        limit: Math.max(1, Math.min(100, Math.floor(query.limit || 60))), sort: query.sort || 'title',
+        ...(query.watchlist ? { watchlist: true } : {})
       }), data: JSON.stringify(config), contentType: 'application/json', dataType: 'json' }) as ProviderItemsPage;
       return providerCatalogue(data, query);
     }),
@@ -331,7 +354,10 @@ export function createJellyfinApi(): MediaApi | null {
       try {
         const result = await client.ajax({ type: 'POST', url: client.getUrl('TvItemLayout/TrailerActions/Watchlist'),
           data: JSON.stringify(request), contentType: 'application/json', dataType: 'json' });
-        return trailerResult(result, request, true)!;
+        const saved = trailerResult(result, request, true)!;
+        assertSession();
+        notifyWatchlistChanged({ serverId, userId }, { ItemId: saved.Movie!.Id, InWatchlist: true });
+        return saved;
       } catch (error) {
         assertSession();
         const status = (error as { status?: number; statusCode?: number } | null)?.status
@@ -343,6 +369,39 @@ export function createJellyfinApi(): MediaApi | null {
         }
         throw error;
       }
+    }),
+    getWatchlist: (options = {}) => read(async () => {
+      const startIndex = Number.isFinite(options.startIndex) ? Math.max(0, Math.trunc(options.startIndex!)) : 0;
+      const limit = Number.isFinite(options.limit) ? Math.max(1, Math.min(100, Math.trunc(options.limit!))) : 60;
+      const type = options.type || 'All';
+      const letter = options.letter?.trim().toUpperCase();
+      if (!['All', 'Movie', 'Series'].includes(type) || letter && !/^[A-Z#]$/.test(letter)) throw new Error('Invalid watchlist filter.');
+      const data = await client.getJSON(client.getUrl('TvItemLayout/Watchlist', {
+        type, startIndex, limit, sort: options.sort || 'title',
+        ...(options.parentId ? { parentId: options.parentId } : {}),
+        ...(options.search?.trim() ? { searchTerm: options.search.trim() } : {}),
+        ...(letter ? { letter } : {}), ...(options.genreId ? { genreId: options.genreId } : {})
+      })) as { Items: Item[]; TotalRecordCount: number; StartIndex: number };
+      if (!data || !Array.isArray(data.Items) || data.StartIndex !== startIndex
+        || !Number.isSafeInteger(data.TotalRecordCount) || data.TotalRecordCount < 0
+        || data.Items.length > limit || data.Items.length && startIndex + data.Items.length > data.TotalRecordCount
+        || !data.Items.length && startIndex < data.TotalRecordCount
+        || !data.Items.every(item => item && typeof item.Id === 'string' && !!item.Id && typeof item.Name === 'string'
+          && (type === 'All' ? item.Type === 'Movie' || item.Type === 'Series' : item.Type === type))) {
+        throw new Error('Jellyfin returned an invalid watchlist page. Try again.');
+      }
+      return { items: data.Items.filter(available), total: data.TotalRecordCount, nextStartIndex: startIndex + data.Items.length };
+    }),
+    getWatchlistState: id => read(async () => watchlistState(await client.getJSON(
+      client.getUrl(`TvItemLayout/Watchlist/${encodeURIComponent(id)}`)), id)),
+    setWatchlist: (id, saved) => read(async () => {
+      try {
+        const result = await client.ajax({ type: saved ? 'POST' : 'DELETE',
+          url: client.getUrl(`TvItemLayout/Watchlist/${encodeURIComponent(id)}`), dataType: 'json' });
+        const state = watchlistState(result, id, saved);
+        assertSession(); notifyWatchlistChanged({ serverId, userId }, state);
+        return state;
+      } catch (error) { assertSession(); throw watchlistError(error); }
     }),
     getMovies: options => libraryPage('Movie', options),
     getMovieGenres: parentId => libraryGenres('Movie', parentId),

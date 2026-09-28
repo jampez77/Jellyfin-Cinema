@@ -6,6 +6,9 @@ import { createHomeCollectionStore, HomeCollectionSyncError, type HomeCollection
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
+import { getAllWatchlistItems, subscribeWatchlist } from './watchlist';
+
+const watchlistSource = '@watchlist';
 
 type OrderEntry = { row: HomeCollectionRow } | { anchor: HomeAnchor };
 export function combinedHomeOrder(rows: HomeCollectionRow[], anchors: HomeAnchor[]): OrderEntry[] {
@@ -43,6 +46,8 @@ export class HomeCollectionEditor {
   private disposed = false;
   private ready = false;
   private removeRemote: () => void;
+  private removeWatchlist: () => void;
+  private watchlistRevision = 0;
 
   constructor(private api: MediaApi, private onClose: (restore: boolean) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.draft = this.store.cached;
@@ -51,11 +56,11 @@ export class HomeCollectionEditor {
     this.anchors = native.length ? native.map(({ key, label }) => ({ key, label })) : cachedHomeRows(this.key);
     this.selectedId = this.draft.rows[0]?.id || '';
     this.element.setAttribute('role', 'dialog'); this.element.setAttribute('aria-modal', 'true');
-    this.element.setAttribute('aria-label', 'Customize collection rows');
-    this.sidebar.setAttribute('aria-label', 'Your Home collection rows');
+    this.element.setAttribute('aria-label', 'Customize Home rows');
+    this.sidebar.setAttribute('aria-label', 'Your Home rows');
     const panel = el('div', 'tvl-home-editor-panel');
     const header = el('header', 'tvl-home-editor-header');
-    const title = el('div'); title.append(el('p', 'tvl-home-editor-eyebrow', 'PERSONALISE HOME'), el('h1', '', 'Your collection rows'));
+    const title = el('div'); title.append(el('p', 'tvl-home-editor-eyebrow', 'PERSONALISE HOME'), el('h1', '', 'Your Home rows'));
     const actions = el('div', 'tvl-home-editor-actions');
     const cancel = button('Cancel', 'close', '', () => this.close()); cancel.dataset.editorFocus = 'cancel';
     this.saveButton = button('Save rows', 'check', 'tvl-primary', () => { void this.save(); }); this.saveButton.disabled = true; this.saveButton.dataset.editorFocus = 'save';
@@ -65,6 +70,11 @@ export class HomeCollectionEditor {
     panel.append(header, el('p', 'tvl-home-editor-intro', this.store.synced ? 'Saved rows follow this Jellyfin account across your devices.' : 'This preview saves choices on this device.'), this.status, layout);
     this.element.append(panel); document.body.append(this.element);
     this.removeRemote = attachRemote(this.element, () => this.close()); cancel.focus();
+    this.removeWatchlist = subscribeWatchlist(api, () => {
+      this.watchlistRevision++; this.items.delete(watchlistSource); this.errors.delete(watchlistSource); this.loading.delete(watchlistSource);
+      const row = this.draft.rows.find(row => row.id === this.selectedId);
+      if (row?.kind === 'watchlist') { if (this.tab === 'order') this.redraw(); else this.renderPreview(row); }
+    });
     void this.loadCollections();
   }
   private async loadCollections(): Promise<void> {
@@ -86,7 +96,7 @@ export class HomeCollectionEditor {
     const control = button(label, '', className, action); control.dataset.editorFocus = focus; return control;
   }
   private name(row: HomeCollectionRow): string {
-    return row.title.trim() || (row.kind === 'collections' ? 'Collections' : this.collections.find(item => item.Id === homeCollectionTabs(row)[0].collectionId)?.Name || 'New collection row');
+    return row.title.trim() || (row.kind === 'watchlist' ? 'Watchlist' : row.kind === 'collections' ? 'Collections' : this.collections.find(item => item.Id === homeCollectionTabs(row)[0].collectionId)?.Name || 'New collection row');
   }
   private source(row: HomeCollectionRow): HomeCollectionTab | undefined {
     return row.tabs?.find(tab => tab.id === this.selectedTabs.get(row.id)) || row.tabs?.[0];
@@ -109,18 +119,18 @@ export class HomeCollectionEditor {
     for (const row of this.draft.rows) {
       const entry = this.control(this.name(row), `row:${row.id}`, () => { this.selectedId = row.id; this.search = ''; this.visibleItems = 60; this.redraw(`row:${row.id}`); }, 'tvl-home-row-choice');
       entry.setAttribute('aria-pressed', String(row.id === this.selectedId));
-      entry.append(el('small', '', row.kind === 'collections' ? `${row.collectionIds.length} selected collections` : `${row.ranked ? 'Ranked' : 'Poster'} item row${row.tabs ? ` · ${row.tabs.length} tabs` : ''}`)); this.sidebar.append(entry);
+      entry.append(el('small', '', row.kind === 'watchlist' ? 'Saved movies and TV shows' : row.kind === 'collections' ? `${row.collectionIds.length} selected collections` : `${row.ranked ? 'Ranked' : 'Poster'} item row${row.tabs ? ` · ${row.tabs.length} tabs` : ''}`)); this.sidebar.append(entry);
     }
     const add = el('div', 'tvl-home-editor-add');
-    for (const kind of ['collections', 'items'] as const) {
-      const control = this.control(kind === 'collections' ? 'Add Collections row' : 'Add collection items row', `add:${kind}`, () => {
-        const row: HomeCollectionRow = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, kind, title: kind === 'collections' ? 'Collections' : '', collectionIds: [], ranked: false, placement: 'end', itemSort: 'collection', itemOrder: [] };
+    for (const kind of ['collections', 'items', 'watchlist'] as const) {
+      const control = this.control(kind === 'watchlist' ? 'Add Watchlist row' : kind === 'collections' ? 'Add Collections row' : 'Add collection items row', `add:${kind}`, () => {
+        const row: HomeCollectionRow = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, kind, title: kind === 'watchlist' ? 'Watchlist' : kind === 'collections' ? 'Collections' : '', collectionIds: [], ranked: false, placement: 'end', itemSort: 'collection', itemOrder: [] };
         this.draft.rows.push(row); this.selectedId = row.id; this.tab = 'content'; this.search = ''; this.redraw('title');
       }); control.disabled = this.draft.rows.length >= 12; add.append(control);
     }
     this.sidebar.append(add);
     const row = this.draft.rows.find(row => row.id === this.selectedId);
-    if (!row) this.workspace.append(el('h2', '', 'Make Home your own'), el('p', '', 'Add a row of favourite collections, or show the titles in one collection as their own row.'));
+    if (!row) this.workspace.append(el('h2', '', 'Make Home your own'), el('p', '', 'Add your Watchlist, favourite collections, or the titles in a collection as their own row.'));
     else {
       const heading = el('div', 'tvl-home-editor-heading');
       heading.append(el('h2', '', this.name(row)), this.control('Remove row', 'remove', () => {
@@ -130,7 +140,7 @@ export class HomeCollectionEditor {
       for (const [tab, label] of [['content', 'Content'], ['order', 'Item order'], ['position', 'Home position']] as const) {
         const control = this.control(label, `tab:${tab}`, () => { this.tab = tab; this.redraw(`tab:${tab}`); }); control.setAttribute('aria-pressed', String(this.tab === tab)); tabs.append(control);
       }
-      const content = el('div', 'tvl-home-editor-row'); content.setAttribute('role', 'group'); content.setAttribute('aria-label', row.kind === 'collections' ? 'Collections row' : 'Collection items row');
+      const content = el('div', 'tvl-home-editor-row'); content.setAttribute('role', 'group'); content.setAttribute('aria-label', row.kind === 'watchlist' ? 'Watchlist row' : row.kind === 'collections' ? 'Collections row' : 'Collection items row');
       this.preview = el('aside', 'tvl-home-preview'); this.preview.setAttribute('aria-label', 'Home row preview'); this.preview.tabIndex = -1; this.preview.dataset.editorFocus = 'preview';
       const body = el('div', 'tvl-home-editor-body'); body.append(content, this.preview);
       this.workspace.append(heading, tabs, body);
@@ -153,13 +163,16 @@ export class HomeCollectionEditor {
   }
   private renderContent(row: HomeCollectionRow, content: HTMLElement): void {
     const label = el('label', '', 'Row title'); const title = el('input'); title.type = 'text'; title.maxLength = 80;
-    title.value = row.title; title.placeholder = row.kind === 'collections' ? 'Collections' : 'Collection name'; title.dataset.editorFocus = 'title';
+    title.value = row.title; title.placeholder = row.kind === 'watchlist' ? 'Watchlist' : row.kind === 'collections' ? 'Collections' : 'Collection name'; title.dataset.editorFocus = 'title';
     title.addEventListener('input', () => {
       row.title = title.value;
       this.workspace.querySelector('h2')!.textContent = this.name(row);
       this.sidebar.querySelector('.tvl-home-row-choice[aria-pressed="true"]>span')!.textContent = this.name(row);
       this.renderPreview(row);
     }); label.append(title); content.append(label);
+    if (row.kind === 'watchlist') {
+      content.append(el('p', 'tvl-home-editor-help', 'Movies and TV shows saved to your Watchlist appear together here. Add titles from their details or while watching a trailer.')); return;
+    }
     if (row.kind === 'items') {
       const rank = this.control('Ranked artwork', 'ranked', () => {
         row.ranked = !row.ranked; rank.setAttribute('aria-pressed', String(row.ranked)); this.renderPreview(row);
@@ -228,12 +241,15 @@ export class HomeCollectionEditor {
   private async loadItems(id: string): Promise<void> {
     if (this.loading.has(id)) return;
     this.loading.add(id); this.errors.delete(id);
-    try { const items = await this.api.getCollectionItems(id); if (!this.disposed) this.items.set(id, items); }
-    catch { if (!this.disposed) this.errors.add(id); }
+    const revision = this.watchlistRevision;
+    const current = () => !this.disposed && (id !== watchlistSource || revision === this.watchlistRevision);
+    try { const items = await (id === watchlistSource ? getAllWatchlistItems(this.api) : this.api.getCollectionItems(id)); if (current()) this.items.set(id, items); }
+    catch { if (current()) this.errors.add(id); }
     finally {
+      if (!current()) return;
       this.loading.delete(id);
       const row = this.draft.rows.find(row => row.id === this.selectedId);
-      if (!this.disposed && row?.kind === 'items' && this.sourceCollection(row) === id) {
+      if (row && (row.kind === 'items' && this.sourceCollection(row) === id || row.kind === 'watchlist' && id === watchlistSource)) {
         if (this.tab === 'order') this.redraw();
         else this.renderPreview(row);
       }
@@ -271,15 +287,15 @@ export class HomeCollectionEditor {
     };
     const selectedIds = row.kind === 'items' ? [this.sourceCollection(row)].filter(Boolean) : row.collectionIds;
     const chosen = selectedIds.map(id => this.collections.find(item => item.Id === id)).filter((item): item is Item => !!item);
-    if (!chosen.length) {
+    if (row.kind !== 'watchlist' && !chosen.length) {
       status(selectedIds.length ? 'The selected collection is unavailable. Choose another in Content.' : row.kind === 'items' ? 'Choose a collection to preview its items.' : 'Choose collections to see them here.');
       return;
     }
     let items = chosen;
-    if (row.kind === 'items') {
-      const id = chosen[0].Id;
+    if (row.kind === 'items' || row.kind === 'watchlist') {
+      const id = row.kind === 'watchlist' ? watchlistSource : chosen[0].Id;
       if (this.errors.has(id)) {
-        status('The preview could not load these collection items.');
+        status(row.kind === 'watchlist' ? 'Your Watchlist could not be loaded.' : 'The preview could not load these collection items.');
         cards.append(this.control('Retry preview', 'retry-preview', () => { void this.loadItems(id); this.renderPreview(row); })); return;
       }
       if (!this.items.has(id)) { status('Loading preview…'); void this.loadItems(id); return; }
@@ -289,10 +305,10 @@ export class HomeCollectionEditor {
       const entry = el('div', 'tvl-home-row-entry'); entry.setAttribute('role', 'listitem');
       entry.append(homeRowCard(this.api, item, row.ranked ? index + 1 : undefined)); cards.append(entry);
     });
-    if (!items.length) { status('This collection is empty. Items added to it will appear here.'); return; }
+    if (!items.length) { status(row.kind === 'watchlist' ? 'Your Watchlist is empty. Save a movie or TV show to see it here.' : 'This collection is empty. Items added to it will appear here.'); return; }
     const footer = el('div', 'tvl-home-preview-footer');
-    const noun = row.kind === 'items' ? 'item' : 'collection';
-    footer.append(el('p', 'tvl-home-preview-count', items.length > 60 ? `First 60 of ${items.length} items · Home also shows View full collection` : `${items.length} ${noun}${items.length === 1 ? '' : 's'}`));
+    const noun = row.kind === 'collections' ? 'collection' : 'item';
+    footer.append(el('p', 'tvl-home-preview-count', items.length > 60 ? `First 60 of ${items.length} items${row.kind === 'watchlist' ? '' : ' · Home also shows View full collection'}` : `${items.length} ${noun}${items.length === 1 ? '' : 's'}`));
     if (items.length > 1) {
       const actions = el('div', 'tvl-home-preview-scroll'); actions.setAttribute('role', 'group'); actions.setAttribute('aria-label', 'Scroll the preview');
       for (const [direction, glyph] of [[-1, '←'], [1, '→']] as const) {
@@ -304,21 +320,21 @@ export class HomeCollectionEditor {
     this.preview.append(footer, el('p', 'tvl-home-preview-note', 'Updates as you edit. Save rows to apply to Home.'));
   }
   private renderOrder(row: HomeCollectionRow, content: HTMLElement): void {
-    content.append(el('p', 'tvl-home-editor-help', 'This changes the order in this Home row only. Other collection views keep their existing order.'));
+    content.append(el('p', 'tvl-home-editor-help', 'This changes the order in this Home row only. Other views keep their existing order.'));
     let items: Item[];
     if (row.kind === 'collections') items = row.collectionIds.map(id => this.collections.find(item => item.Id === id)).filter((item): item is Item => !!item);
     else {
-      const id = this.sourceCollection(row);
-      if (!id || !this.collections.some(item => item.Id === id)) { content.append(el('p', '', 'Choose an accessible collection in Content first.')); return; }
-      const sorts: [HomeItemSort, string][] = [['collection', 'Collection order'], ['title', 'Title A–Z'], ['title-desc', 'Title Z–A'], ['newest', 'Newest year first'], ['oldest', 'Oldest year first'], ['custom', 'Custom order']];
+      const id = row.kind === 'watchlist' ? watchlistSource : this.sourceCollection(row);
+      if (row.kind !== 'watchlist' && (!id || !this.collections.some(item => item.Id === id))) { content.append(el('p', '', 'Choose an accessible collection in Content first.')); return; }
+      const sorts: [HomeItemSort, string][] = [['collection', row.kind === 'watchlist' ? 'Watchlist order' : 'Collection order'], ['title', 'Title A–Z'], ['title-desc', 'Title Z–A'], ['newest', 'Newest year first'], ['oldest', 'Oldest year first'], ['custom', 'Custom order']];
       const options = el('div', 'tvl-home-sort-options'); options.setAttribute('role', 'group'); options.setAttribute('aria-label', 'Sort items');
       for (const [sort, label] of sorts) {
         const source = this.source(row) || row;
         const control = this.control(label, `sort:${sort}`, () => { source.itemSort = sort; this.redraw(`sort:${sort}`); }); control.setAttribute('aria-pressed', String(source.itemSort === sort)); options.append(control);
       }
       content.append(options);
-      if (this.errors.has(id)) { content.append(this.control('Retry collection items', 'retry-items', () => { void this.loadItems(id); this.redraw('tab:order'); })); return; }
-      if (!this.items.has(id)) { content.append(el('p', '', 'Loading collection items…')); void this.loadItems(id); return; }
+      if (this.errors.has(id)) { content.append(this.control(row.kind === 'watchlist' ? 'Retry Watchlist' : 'Retry collection items', 'retry-items', () => { void this.loadItems(id); this.redraw('tab:order'); })); return; }
+      if (!this.items.has(id)) { content.append(el('p', '', row.kind === 'watchlist' ? 'Loading Watchlist…' : 'Loading collection items…')); void this.loadItems(id); return; }
       items = orderHomeItems(this.items.get(id)!, this.source(row) || row);
     }
     if (!items.length) { content.append(el('p', '', 'No items to arrange yet.')); return; }
@@ -374,16 +390,16 @@ export class HomeCollectionEditor {
   private async save(): Promise<void> {
     if (!this.ready || this.disposed || this.saving) return;
     const next = parseHomeCollections(this.draft);
-    const invalid = next.rows.find(row => row.tabs ? row.tabs.some(tab => !tab.collectionId) : !row.collectionIds.length);
+    const invalid = next.rows.find(row => row.kind !== 'watchlist' && (row.tabs ? row.tabs.some(tab => !tab.collectionId) : !row.collectionIds.length));
     if (invalid) { this.status.textContent = 'Choose at least one collection for each row and each tab, or remove the empty entry.'; this.selectedId = invalid.id; this.tab = 'content'; if (invalid.tabs) this.selectedTabs.set(invalid.id, invalid.tabs.find(tab => !tab.collectionId)!.id); this.redraw('title'); return; }
-    this.saving = true; this.status.textContent = this.store.synced ? 'Saving collection rows to Jellyfin…' : 'Saving collection rows…';
+    this.saving = true; this.status.textContent = this.store.synced ? 'Saving Home rows to Jellyfin…' : 'Saving Home rows…';
     const controls = Array.from(this.element.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input,button,select,textarea'))
       .map(control => ({ control, disabled: control.disabled }));
     controls.forEach(({ control }) => { control.disabled = true; });
     try { await this.store.save(next); this.saving = false; if (!this.disposed) this.close(); }
     catch (error) {
       if (this.disposed) return;
-      this.status.textContent = error instanceof Error ? error.message : 'Collection rows could not be saved. Try again.';
+      this.status.textContent = error instanceof Error ? error.message : 'Home rows could not be saved. Try again.';
       if (error instanceof HomeCollectionSyncError && error.kind === 'conflict') {
         this.ready = false;
         this.status.append(button('Reload saved rows', '', '', () => {
@@ -397,7 +413,7 @@ export class HomeCollectionEditor {
   }
   private close(restore = true): void {
     if (this.disposed || this.saving && restore) return;
-    this.disposed = true; this.store.destroy(); this.removeRemote(); this.element.remove(); this.onClose(restore);
+    this.disposed = true; this.store.destroy(); this.removeRemote(); this.removeWatchlist(); this.element.remove(); this.onClose(restore);
   }
   destroy(): void { this.close(false); }
 }

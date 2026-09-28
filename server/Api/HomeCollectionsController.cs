@@ -132,10 +132,11 @@ public sealed class HomeCollectionsController(
             if (!Properties(row, "id", "kind", "title", "collectionIds", "ranked", "placement", "itemSort", "itemOrder", "tabs")
                 || !Text(row, "id", 100, false) || !ids.Add(row.GetProperty("id").GetString()!) || !Text(row, "title", 80)
                 || !row.TryGetProperty("kind", out var kind) || kind.ValueKind != JsonValueKind.String
-                || kind.GetString() is not ("collections" or "items")
-                || !Strings(row, "collectionIds", kind.GetString() == "items" ? 1 : 40)
+                || kind.GetString() is not ("collections" or "items" or "watchlist")
+                || !Strings(row, "collectionIds", kind.GetString() == "watchlist" ? 0 : kind.GetString() == "items" ? 1 : 40)
                 || !row.TryGetProperty("ranked", out var ranked) || ranked.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
                 || !Text(row, "placement", 240, false) || !Sort(row) || !Strings(row, "itemOrder", 2000)) return false;
+            if (kind.GetString() == "watchlist" && (ranked.GetBoolean() || row.TryGetProperty("tabs", out _))) return false;
             var placement = row.GetProperty("placement").GetString()!;
             if (placement is not ("start" or "end") && !placement.StartsWith("native:", StringComparison.Ordinal)) return false;
             if (!row.TryGetProperty("tabs", out var tabs)) continue;

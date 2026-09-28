@@ -86,13 +86,13 @@ test('a failed collection list reload retries changed members automatically on t
     };
   });
   await state(page, { ids: ['movie-higher', 'movie-blue'] }); await tick(page);
-  await expect(page.getByText('Your collection rows could not be loaded.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Your Home rows could not be loaded.', { exact: true })).toBeVisible();
   await expect.poll(() => ids(page)).toEqual(['movie-tide', 'movie-blue']);
   await expect(blue).toBeFocused();
   await settled(page); await tick(page);
   await expect.poll(() => ids(page)).toEqual(['movie-higher', 'movie-blue']);
   await expect(blue).toBeFocused();
-  await expect(page.getByText('Your collection rows could not be loaded.', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Your Home rows could not be loaded.', { exact: true })).toHaveCount(0);
 });
 
 test('removing the final item from a single-source row moves focus to the next Home row', async ({ page }) => {

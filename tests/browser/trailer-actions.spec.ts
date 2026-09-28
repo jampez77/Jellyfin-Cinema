@@ -249,7 +249,8 @@ test('trailer controls stay usable over the pause screen and Skip starts the nex
   await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause());
   const pauseScreen = page.getByRole('region', {name:'Paused media details',exact:true});
   await expect(pauseScreen).toBeVisible();
-  await expect(pauseScreen).toContainText('Advertised A trailer');
+  await expect(pauseScreen).toContainText('Advertised A');
+  await expect(pauseScreen).not.toContainText('Advertised A trailer');
   await expect(actions(page)).toBeVisible();
   await add(page).click();
   await expect(actions(page).getByRole('button', {name:'In watchlist',exact:true})).toBeDisabled();
@@ -269,8 +270,8 @@ for (const viewport of [{width:1440,height:900},{width:1920,height:1080},{width:
     const elegantPath = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
     test.skip(elegant && !existsSync(elegantPath), 'Set TVL_ELEGANTFIN_CSS to the audited ElegantFin stylesheet.');
     await page.setViewportSize(viewport);
-    await fixture(page, `Object.assign(window.__trailerItems.get('trailer-a'), {
-      Name:'Advertised A trailer: The Journey to the Other Side',
+    await fixture(page, `Object.assign(window.__trailerItems.get('advertised-a'), {
+      Name:'Advertised A: The Journey to the Other Side',
       Overview:'A cartographer follows a vanished coastline, discovering unfamiliar towns and the stories of the people who live there. '.repeat(15),
       ProductionYear:2026, OfficialRating:'12', RunTimeTicks:900000000,
       Taglines:['Every tide leaves a trace.']
@@ -349,10 +350,11 @@ test('watchlist feedback stays within a short screen when playing controls are f
 });
 
 test('short pause descriptions stay clear while trailer spacing adapts to native controls and resizing', async ({ page }) => {
-  await fixture(page, `window.__deferRead=true; window.__trailerItems.get('trailer-a').Overview='A short, complete description.';`);
+  await fixture(page, `window.__deferRead=true; window.__trailerItems.get('advertised-a').Overview='A short, complete description.';`);
   await expect.poll(() => page.evaluate(() => !!(window as any).__resolveRead)).toBe(true);
   await page.evaluate(() => {
     document.querySelector('.videoOsdBottom')!.classList.add('hide');
+    (window as any).__deferRead = false;
     (window as any).__resolveRead();
   });
   await expect(skip(page)).toBeFocused();

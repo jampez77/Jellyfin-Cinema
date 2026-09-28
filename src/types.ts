@@ -43,6 +43,8 @@ export type LibraryQuery = {
 };
 export type MovieQuery = LibraryQuery;
 export type ItemPage = { items: Item[]; total: number; nextStartIndex: number };
+export type WatchlistQuery = LibraryQuery & { type?: 'Movie' | 'Series' | 'All'; sort?: 'collection' | 'title' | 'title-desc' | 'newest' | 'oldest' };
+export type WatchlistState = { ItemId: string; InWatchlist: boolean };
 export type SuggestionSection = { title: string; items: Item[] };
 
 export type PlaybackContext = {
@@ -72,6 +74,9 @@ export interface MediaApi extends BrowseApi {
   getPlaybackContext?(): Promise<PlaybackContext | null>;
   getTrailerActions?(expected: TrailerIdentity): Promise<TrailerActionsContext | null>;
   addTrailerToWatchlist?(expected: TrailerIdentity): Promise<TrailerActionsContext>;
+  getWatchlist?(query?: WatchlistQuery): Promise<ItemPage>;
+  getWatchlistState?(id: string): Promise<WatchlistState>;
+  setWatchlist?(id: string, saved: boolean): Promise<WatchlistState>;
   getMovies(query: MovieQuery): Promise<ItemPage>;
   getMovieGenres(parentId?: string): Promise<Item[]>;
   getMovieSuggestions(parentId?: string): Promise<SuggestionSection[]>;

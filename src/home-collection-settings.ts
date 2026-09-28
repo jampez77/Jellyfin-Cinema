@@ -4,7 +4,7 @@ export const itemSorts = ['collection', 'title', 'title-desc', 'newest', 'oldest
 export type HomeItemSort = typeof itemSorts[number];
 export type HomeCollectionTab = { id: string; label: string; collectionId: string; itemSort: HomeItemSort; itemOrder: string[] };
 export const maxHomeCollectionTabs = 6;
-export type HomeCollectionRow = { id: string; kind: 'collections' | 'items'; title: string; collectionIds: string[]; ranked: boolean;
+export type HomeCollectionRow = { id: string; kind: 'collections' | 'items' | 'watchlist'; title: string; collectionIds: string[]; ranked: boolean;
   placement: string; itemSort: HomeItemSort; itemOrder: string[]; tabs?: HomeCollectionTab[] };
 export type HomeCollectionSettings = { version: 1; rows: HomeCollectionRow[] };
 export const emptyHomeCollections = (): HomeCollectionSettings => ({ version: 1, rows: [] });
@@ -15,11 +15,11 @@ export function parseHomeCollections(value: unknown): HomeCollectionSettings {
   const seen = new Set<string>();
   const rows: HomeCollectionRow[] = [];
   for (const row of value.rows.slice(0, 12)) {
-    if (!row || !['collections', 'items'].includes(row.kind) || typeof row.id !== 'string' || !row.id || seen.has(row.id.slice(0, 100))) continue;
+    if (!row || !['collections', 'items', 'watchlist'].includes(row.kind) || typeof row.id !== 'string' || !row.id || seen.has(row.id.slice(0, 100))) continue;
     const ids = Array.isArray(row.collectionIds) ? Array.from(new Set<string>(row.collectionIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))) : [];
     seen.add(row.id.slice(0, 100));
     const itemOrder = Array.isArray(row.itemOrder) ? Array.from(new Set<string>(row.itemOrder.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))).slice(0, 2000) : [];
-    const next: HomeCollectionRow = { id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true,
+    const next: HomeCollectionRow = { id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: row.kind === 'watchlist' ? [] : ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true,
       placement: typeof row.placement === 'string' && (['start', 'end'].includes(row.placement) || row.placement.startsWith('native:')) ? row.placement.slice(0, 240) : 'end',
       itemSort: itemSorts.includes(row.itemSort) ? row.itemSort : 'collection', itemOrder };
     if (row.kind === 'items' && Array.isArray(row.tabs)) {

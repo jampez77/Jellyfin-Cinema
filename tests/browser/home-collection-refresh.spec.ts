@@ -96,7 +96,7 @@ test('failed background list refresh preserves the focused retained row at the e
   const selected = row(page).locator('.tvl-home-row-card').first();
   await expect(selected).toBeFocused();
   await page.evaluate(() => { const state = (window as any).__rowRefresh; state.failList = true; state.releaseList(); });
-  await expect(page.getByRole('button', { name: 'Retry collection rows', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry Home rows', exact: true })).toBeVisible();
   await expect(row(page)).toHaveAttribute('aria-label', 'Weekend picks');
   expect(await row(page).evaluate(node => node === (window as any).__rowRefresh.original)).toBe(true);
   await expect(selected).toBeFocused();

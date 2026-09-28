@@ -13,7 +13,9 @@ On desktop, open a service page and choose **Edit service**. Its settings open d
 3. Select a content row, then choose its **Collection** by name. The row list shows its current collection or **Choose a collection**. Review the item preview, title, visibility, item order and **Show rank artwork**. Automatic Films/TV rows can retain their catalogue or use a collection override. Add or remove rows as needed, up to 12 per provider.
 4. Review the tile or content-row preview, then choose **Save changes**. **Cancel changes** restores the last loaded or saved settings in place; Back leaves without saving the draft. **Add service** creates a collection-backed service; **Remove service** removes it from your configuration. Removed built-in services can be added again, and their display/source defaults can be restored. Up to 24 services are supported.
 
-Available content sources are **Films**, **TV shows**, **Trending films**, **Trending TV shows** and **Collection**. Trending and Collection rows use the collection you select. An unconfigured trending row stays empty until you choose one; an enabled new Collection row requires a choice before saving. It can contain films and TV series. Collection overrides on a Films/TV source retain that source's media-type filter.
+Available content sources are **Films**, **TV shows**, **Trending films**, **Trending TV shows**, **Collection** and **Watchlist**. Trending and Collection rows use the collection you select. An unconfigured trending row stays empty until you choose one; an enabled new Collection row requires a choice before saving. It can contain films and TV series. Collection overrides on a Films/TV source retain that source's media-type filter.
+
+Choose **Add Watchlist row** to mix saved films and whole TV shows available on this service. The row uses your Watchlist intersected with the service’s configured UK availability, so it needs no collection selection. It is optional; set its title, visibility, item order and position, preview it, then save. Membership updates after titles are added or removed. A custom service must have automatic catalogue matching configured for this source.
 
 ### Connect a custom service to your titles
 
@@ -25,13 +27,14 @@ For individual titles, use **Add to collection** on a film or show to create or 
 
 **Source order** preserves the order of a collection, including a chart collection. Automatic catalogue rows use title order for this option. Other choices are title A–Z, title Z–A, newest release year and oldest release year. Rank artwork is a numbered image beside each poster, starting at 1 in the displayed order. Reordering or ranking a row does not change the underlying Jellyfin collection or supply a new popularity score.
 
-Choices sync through Jellyfin for the signed-in account. Home and open provider pages check for settings changes every minute while visible and when the app regains focus. Provider pages update changed rows and featured artwork while preserving a still-valid selection. Native Home choices and **Collections → Customize collection rows** remain separate. A conflicting save keeps your draft visible and offers **Reload saved settings**; reloading replaces the draft with the server copy. Opening Settings or Home on a fresh device does not write default settings over an existing account configuration.
+Choices sync through Jellyfin for the signed-in account. Home and open provider pages check for settings changes every minute while visible and when the app regains focus. Provider pages update changed rows and featured artwork while preserving a still-valid selection. Native Home choices and **Collections → Customize Home rows** remain separate. A conflicting save keeps your draft visible and offers **Reload saved settings**; reloading replaces the draft with the server copy. Opening Settings or Home on a fresh device does not write default settings over an existing account configuration.
 
 ## Where the content comes from
 
 | Row source | Data | Scope and order |
 | --- | --- | --- |
 | Automatic Films / TV shows | JustWatch availability through TMDB, filtered by the service’s configured offer types | All matching, permitted library titles with usable TMDB IDs; sorted by your row preference |
+| Watchlist | Your saved films and whole TV shows, intersected with configured UK streaming availability | Permitted saved titles matched to this service; sorted by your row preference |
 | Trending films / Trending TV shows | Your selected collection, linked by its Jellyfin ID | Its permitted film or series members; chart order when **Source order** is selected |
 | Collection or collection override | Your selected Jellyfin collection | Its permitted film/series members, with your chosen display order |
 

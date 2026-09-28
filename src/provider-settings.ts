@@ -1,6 +1,6 @@
 import { providerBrands, type ProviderBrandId } from './provider-brands';
 
-export const providerRowSources = ['movies', 'shows', 'trending-movies', 'trending-shows', 'collection'] as const;
+export const providerRowSources = ['movies', 'shows', 'trending-movies', 'trending-shows', 'collection', 'watchlist'] as const;
 export const providerItemSorts = ['collection', 'title', 'title-desc', 'newest', 'oldest'] as const;
 export type ProviderRowSource = typeof providerRowSources[number];
 export type ProviderItemSort = typeof providerItemSorts[number];

@@ -8,6 +8,8 @@ const records = [
   { Id: 'pause-next', Name: 'The Other Shore', Type: 'Movie', Overview: 'The current movie has its own story.' },
   { Id: 'pause-channel', Name: 'Field Notes', Type: 'TvChannel', Number: '101', ImageTags: { Primary: 'channel' }, CurrentProgram: { Id: 'pause-program', Type: 'Program', Name: 'Hidden Forests', Overview: 'Discover life under the canopy.', StartDate: '2026-09-23T12:00:00Z', EndDate: '2026-09-23T13:00:00Z' } },
   { Id: 'pause-audio', Name: 'Only audio', Type: 'Audio' },
+  { Id: 'pause-trailer', Name: 'Trailer', Type: 'Trailer', ProductionYear: 2026, RunTimeTicks: 1_800_000_000 },
+  { Id: 'pause-other-advertised', Name: 'Another advertised film', Type: 'Movie', Overview: 'The new account has its own confirmed trailer mapping.' },
 ];
 
 async function fixture(page: Page, extra = '') {
@@ -216,4 +218,64 @@ test('late metadata cannot redraw an old item after a switch, resume or native p
   });
   await expect(screen(page)).toBeHidden();
   await expect(page.locator('#videoOsdPage')).not.toHaveClass(/tvl-pause-host/);
+});
+
+const trailerContext = `api.getPlaybackContext=async()=>({PlayingItemId:'pause-trailer',PlayingItemType:'Trailer',PlaylistItemId:'trailer-0',Queue:[{Id:'pause-trailer',PlaylistItemId:'trailer-0'},{Id:'pause-next',PlaylistItemId:'feature-1'}]});`;
+const trailerMapping = `{PlayingItemId:'pause-trailer',PlaylistItemId:'trailer-0',Movie:{Id:'pause-movie',Name:'Moon Glass'},InWatchlist:false}`;
+
+test('paused cinema trailers show the advertised movie metadata and artwork rather than the generic trailer or queued feature', async ({ page }) => {
+  await fixture(page, `${trailerContext} api.getTrailerActions=async()=>(${trailerMapping});`);
+  await page.goto('/#/video'); await player(page, 'pause-trailer'); await pause(page);
+  await expect(screen(page)).toContainText('A cartographer follows a vanished coastline.');
+  await expect(screen(page)).toContainText('Every tide leaves a trace.');
+  await expect(screen(page)).toContainText('2024');
+  await expect(screen(page)).toContainText('1h 30m');
+  await expect(screen(page).getByRole('img', { name: 'Moon Glass' })).toBeVisible();
+  await expect(screen(page).locator('.tvl-pause-disc')).toBeVisible();
+  await expect(screen(page)).not.toContainText('The Other Shore');
+  await expect(screen(page)).not.toContainText('3m');
+});
+
+test('a late first-trailer mapping replaces generic pause details while unmapped trailers never borrow the queued feature', async ({ page }) => {
+  await fixture(page, `${trailerContext} window.__pauseOwnerReady=false;api.getTrailerActions=async()=>window.__pauseOwnerReady?(${trailerMapping}):null;`);
+  await page.goto('/#/video'); await player(page, 'pause-trailer'); await pause(page);
+  await expect(screen(page).getByRole('heading', { name: 'Trailer', exact: true })).toBeVisible();
+  await expect(screen(page)).not.toContainText('The Other Shore');
+  await page.evaluate(() => { (window as any).__pauseOwnerReady = true; });
+  await expect(screen(page)).toContainText('A cartographer follows a vanished coastline.', { timeout: 8000 });
+});
+
+test('a mapping for another queue occurrence cannot replace the playing trailer pause details', async ({ page }) => {
+  await fixture(page, `${trailerContext} api.getTrailerActions=async()=>({...${trailerMapping},PlaylistItemId:'another-occurrence'});`);
+  await page.goto('/#/video'); await player(page, 'pause-trailer'); await pause(page);
+  await expect(screen(page).getByRole('heading', { name: 'Trailer', exact: true })).toBeVisible();
+  await expect(screen(page)).not.toContainText('Moon Glass');
+  await expect(screen(page)).not.toContainText('The Other Shore');
+});
+
+test('an advertised-movie lookup finishing after playback changes cannot replace the new pause details', async ({ page }) => {
+  await fixture(page, `${trailerContext} window.__pauseOwnerRequests=0;window.__pauseOwnerResolvers=[];
+    api.getTrailerActions=()=>{window.__pauseOwnerRequests++;return new Promise(resolve=>window.__pauseOwnerResolvers.push(()=>resolve(${trailerMapping})));};`);
+  await page.goto('/#/video'); await player(page, 'pause-trailer'); await pause(page);
+  await expect.poll(() => page.evaluate(() => (window as any).__pauseOwnerRequests)).toBeGreaterThan(0);
+  await page.locator('.btnUserRating').evaluate(node => node.setAttribute('data-id', 'pause-next'));
+  await expect(screen(page).getByRole('heading', { name: 'The Other Shore' })).toBeVisible();
+  await page.evaluate(() => (window as any).__pauseOwnerResolvers.splice(0).forEach((resolve: () => void) => resolve()));
+  await expect(screen(page).getByRole('heading', { name: 'The Other Shore' })).toBeVisible();
+  await expect(screen(page)).not.toContainText('A cartographer follows a vanished coastline.');
+});
+
+test('an old account trailer mapping cannot overwrite the same paused video after an account change', async ({ page }) => {
+  await fixture(page, `${trailerContext} window.__pauseOwnerWait=true;window.__pauseOwnerResolvers=[];
+    api.getTrailerActions=()=>window.__pauseOwnerWait?new Promise(resolve=>window.__pauseOwnerResolvers.push(()=>resolve(${trailerMapping}))):Promise.resolve({...${trailerMapping},Movie:{Id:'pause-other-advertised',Name:'Another advertised film'}});`);
+  await page.goto('/#/video'); await player(page, 'pause-trailer'); await pause(page);
+  await expect.poll(() => page.evaluate(() => (window as any).__pauseOwnerResolvers.length)).toBeGreaterThan(0);
+  await page.evaluate(() => {
+    window.TvItemLayoutDemo!.api.userId = 'another-account'; (window as any).__pauseOwnerWait = false;
+    document.querySelector('video')!.dispatchEvent(new Event('pause'));
+  });
+  await expect(screen(page)).toContainText('The new account has its own confirmed trailer mapping.');
+  await page.evaluate(() => (window as any).__pauseOwnerResolvers.splice(0).forEach((resolve: () => void) => resolve()));
+  await expect(screen(page)).toContainText('The new account has its own confirmed trailer mapping.');
+  await expect(screen(page)).not.toContainText('A cartographer follows a vanished coastline.');
 });
