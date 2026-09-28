@@ -37,6 +37,7 @@ public static class TrailerActionsHttpChecks
         var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
         using var client = new HttpClient { BaseAddress = new Uri(address) };
         var endpoint = $"/TvItemLayout/TrailerActions?playingItemId={trailerId}&playlistItemId=trailer-entry";
+        var detailsEndpoint = $"/TvItemLayout/TrailerDetails?playingItemId={trailerId}&playlistItemId=trailer-entry";
         Task<HttpResponseMessage> Post(string body) => client.PostAsync("/TvItemLayout/TrailerActions/Watchlist", new StringContent(body, Encoding.UTF8, "application/json"));
         try
         {
@@ -46,15 +47,28 @@ public static class TrailerActionsHttpChecks
                 && Guid.Parse(model.RootElement.GetProperty("PlayingItemId").GetString()!) == trailerId
                 && Guid.Parse(model.RootElement.GetProperty("Movie").GetProperty("Id").GetString()!) == movieId,
                 "Trailer HTTP response retains exact identity and advertised movie using Jellyfin's JSON formatter");
+            using var details = await client.GetAsync(detailsEndpoint);
+            using var detailsModel = JsonDocument.Parse(await details.Content.ReadAsStringAsync());
+            assert(details.StatusCode == HttpStatusCode.OK && details.Headers.CacheControl?.NoStore == true
+                && Guid.Parse(detailsModel.RootElement.GetProperty("Movie").GetProperty("Id").GetString()!) == movieId
+                && !detailsModel.RootElement.TryGetProperty("InWatchlist", out _),
+                "Authenticated trailer metadata has a separate no-cache read-only HTTP contract");
             setOwner(false);
             using var missing = await client.GetAsync(endpoint);
             using var unavailable = JsonDocument.Parse(await missing.Content.ReadAsStringAsync());
             assert(missing.StatusCode == HttpStatusCode.OK && unavailable.RootElement.GetProperty("Movie").ValueKind == JsonValueKind.Null,
                 "Ownerless trailer HTTP response retains explicit Movie:null with native null-omitting serialization");
+            using var missingDetails = await client.GetAsync(detailsEndpoint);
+            using var unavailableDetails = JsonDocument.Parse(await missingDetails.Content.ReadAsStringAsync());
+            assert(unavailableDetails.RootElement.GetProperty("Movie").ValueKind == JsonValueKind.Null,
+                "Ownerless trailer metadata retains explicit Movie:null with Jellyfin JSON settings");
             setOwner(true); setPlaying(false);
             using var stopped = await client.GetAsync(endpoint);
             assert(stopped.StatusCode == HttpStatusCode.OK && (await stopped.Content.ReadAsStringAsync()).Trim() == "null",
                 "No matching trailer is an explicit JSON null response, never an empty 204");
+            using var stoppedDetails = await client.GetAsync(detailsEndpoint);
+            assert(stoppedDetails.StatusCode == HttpStatusCode.OK && (await stoppedDetails.Content.ReadAsStringAsync()).Trim() == "null",
+                "Stopped trailer metadata returns explicit JSON null");
             setPlaying(true);
             using var forged = await Post(JsonSerializer.Serialize(new { PlayingItemId = trailerId, PlaylistItemId = "trailer-entry",
                 MovieId = featureId, UserId = Guid.NewGuid() }));

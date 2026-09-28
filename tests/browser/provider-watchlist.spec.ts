@@ -7,10 +7,11 @@ const rows = (page: Page) => home(page).locator('[data-provider-row="watchlist"]
 const movie = { Id: 'movie-tide', Type: 'Movie', Name: 'After the Tide', ProductionYear: 2025 };
 const show = { Id: 'series-north', Type: 'Series', Name: 'North of Nowhere', ProductionYear: 2024 };
 
-async function fixture(page: Page, options: { withRow?: boolean; hold?: boolean } = {}) {
+async function fixture(page: Page, options: { withRow?: boolean; hold?: boolean; empty?: boolean; withFilms?: boolean; pending?: number } = {}) {
   const settings = defaultProviderHomes();
   settings.providers = [settings.providers[0]]; settings.providers[0].hero = false;
   settings.providers[0].rows = options.withRow ? [{ id: 'watchlist', title: '', source: 'watchlist', collectionId: '', itemSort: 'title', enabled: true, ranked: false }] : [];
+  if (options.withFilms) settings.providers[0].rows.unshift({ id: 'films', title: 'Films', source: 'movies', collectionId: '', itemSort: 'title', enabled: true, ranked: false });
   await page.addInitScript(settings => {
     const key = `jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:demo`;
     if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(settings));
@@ -19,11 +20,11 @@ async function fixture(page: Page, options: { withRow?: boolean; hold?: boolean 
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}\n(() => {
       window.TvItemLayoutDemo.api.serverId=location.origin; window.TvItemLayoutDemo.api.userId='demo';
-      const state = window.__providerWatchlist = { items:${JSON.stringify([movie, show])}, calls:[], previews:[], hold:${!!options.hold}, pending:[], release(){this.hold=false;this.pending.splice(0).forEach(resolve=>resolve());} };
-      const result=items=>({Items:items,TotalRecordCount:items.length,Pending:0,Total:items.length,UpdatedAt:null,Status:'ready',Region:'GB'});
+      const state = window.__providerWatchlist = { items:${JSON.stringify(options.empty ? [] : [movie, show])}, calls:[], previews:[], hold:${!!options.hold}, pending:[], remaining:${options.pending || 0}, fail:false, release(){this.hold=false;this.pending.splice(0).forEach(resolve=>resolve());} };
+      const result=items=>({Items:items,TotalRecordCount:items.length,Pending:state.remaining,Total:items.length+state.remaining,MissingIds:155,UpdatedAt:null,Status:state.remaining?'refreshing':'ready',Region:'GB'});
       window.TvItemLayoutDemo.api.getProviderItems=async(provider,query)=>{
-        state.calls.push({provider,query}); const items=structuredClone(state.items);
-        if(state.hold) await new Promise(resolve=>state.pending.push(resolve)); return result(items);
+        state.calls.push({provider,query}); const items=structuredClone(query.watchlist?state.items:[${JSON.stringify(movie)}]);
+        if(state.hold) await new Promise(resolve=>state.pending.push(resolve)); if(state.fail) throw new Error('offline'); return result(items);
       };
       window.TvItemLayoutDemo.api.previewProviderItems=async(provider,query)=>{state.previews.push({provider,query});return result(structuredClone(state.items));};
     })();` });
@@ -98,6 +99,49 @@ test('service Watchlist changes refresh after an older read, keep focus, and ign
     (window as any).__providerWatchlist.items = [];
     window.dispatchEvent(new CustomEvent('tvl-watchlist-change', { detail: { serverId: location.origin, userId: 'demo' } }));
   });
-  await expect(rows(page)).toContainText('No films or TV shows in your Watchlist match this service yet.');
-  await expect(rows(page).getByRole('button', { name: 'View all Watchlist', exact: true })).toBeFocused();
+  await expect(rows(page)).toBeHidden();
+  await expect(home(page).locator('[data-focus-id="provider-section:watchlist"]')).toBeHidden();
+  await expect(home(page).getByRole('button', { name: 'Home', exact: true })).toBeFocused();
+});
+
+test('empty service Watchlists stay hidden through loading and errors, then appear when availability finishes', async ({ page }) => {
+  await page.clock.install();
+  await fixture(page, { withRow: true, empty: true, hold: true, pending: 1 });
+  await page.goto('/?featured=0&layout=tv#/home?cinemaProvider=netflix');
+  await expect.poll(() => page.evaluate(() => (window as any).__providerWatchlist.calls.length)).toBe(1);
+  const link = home(page).locator('[data-focus-id="provider-section:watchlist"]');
+  await expect(rows(page)).toBeHidden(); await expect(link).toBeHidden();
+  await page.evaluate(() => (window as any).__providerWatchlist.release());
+  await page.clock.fastForward(5_001);
+  await expect.poll(() => page.evaluate(() => (window as any).__providerWatchlist.calls.length)).toBe(2);
+  await expect(rows(page)).toBeHidden(); await expect(link).toBeHidden();
+  await page.evaluate(() => { (window as any).__providerWatchlist.fail = true; });
+  await page.clock.fastForward(5_001);
+  await expect.poll(() => page.evaluate(() => (window as any).__providerWatchlist.calls.length)).toBe(3);
+  await expect(rows(page)).toBeHidden(); await expect(link).toBeHidden();
+  await page.evaluate(show => { const state = (window as any).__providerWatchlist; state.fail = false; state.remaining = 0; state.items = [show]; }, show);
+  await page.clock.fastForward(5_001);
+  await expect(rows(page).getByRole('button', { name: 'North of Nowhere', exact: true })).toBeVisible();
+  await expect(link).toBeVisible();
+  await expect(home(page)).not.toContainText('library titles need matching metadata');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem(`jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:demo`)!));
+  expect(saved.providers[0].rows[0].enabled).toBe(true);
+});
+
+test('provider section navigation only includes a Watchlist with matching titles and omits metadata diagnostics', async ({ page }) => {
+  await fixture(page, { withRow: true, withFilms: true, empty: true });
+  await page.goto('/?featured=0&layout=tv#/home?cinemaProvider=netflix&cinemaRow=films');
+  await expect(home(page).locator('[data-provider-row="films"] .tvl-home-row-card')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (window as any).__providerWatchlist.calls.length)).toBe(2);
+  await expect(home(page)).not.toContainText('library titles need matching metadata');
+  const link = home(page).locator('[data-focus-id="provider-section:watchlist"]');
+  await expect(link).toBeHidden(); await expect(rows(page)).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__providerWatchlist.calls.find((call: any) => call.query.watchlist).query.limit)).toBe(1);
+  await page.evaluate(show => {
+    (window as any).__providerWatchlist.items = [show];
+    window.dispatchEvent(new CustomEvent('tvl-watchlist-change', { detail: { serverId: location.origin, userId: 'demo' } }));
+  }, show);
+  await expect(link).toBeVisible(); await expect(rows(page)).toHaveCount(0);
+  await link.click();
+  await expect(rows(page).getByRole('button', { name: 'North of Nowhere', exact: true })).toBeVisible();
 });

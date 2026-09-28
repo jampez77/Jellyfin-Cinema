@@ -45,6 +45,7 @@ async function fixture(page: Page, extra = '', pointerEvents = true) {
         if(window.__nullResult)return null;
         return result;
       };
+      api.getTrailerDetails=async()=>window.__trailerResult();
       api.addTrailerToWatchlist=async expected=>{
         const result=window.__trailerResult();
         window.__trailerAdds.push({...expected,MovieId:result.Movie.Id});

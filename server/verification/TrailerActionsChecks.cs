@@ -117,6 +117,8 @@ public static class TrailerActionsChecks
         var request = new TrailerActionRequest(trailer.Id, "trailer-entry");
         TrailerActionsResponse Value(IActionResult result) => (TrailerActionsResponse)((OkObjectResult)result).Value!;
         Task<IActionResult> Get() => controller.GetTrailerActions(trailer.Id, "trailer-entry");
+        TrailerDetailsResponse Details(IActionResult result) => (TrailerDetailsResponse)((OkObjectResult)result).Value!;
+        Task<IActionResult> GetDetails() => controller.GetTrailerDetails(trailer.Id, "trailer-entry");
         ResetPlayback();
         assert(typeof(TrailerActionsController).GetCustomAttribute<AuthorizeAttribute>() is not null
             && typeof(TrailerActionsController).GetCustomAttribute<ResponseCacheAttribute>()?.NoStore == true,
@@ -171,9 +173,11 @@ public static class TrailerActionsChecks
         advertised.Allowed = false;
         assert(Value(await Get()).Movie is null && await controller.AddTrailerToWatchlist(request) is NotFoundObjectResult,
             "Restricted advertised films expose no metadata and cannot enter the Watchlist");
+        assert(Details(await GetDetails()).Movie is null, "Trailer metadata cannot disclose a restricted advertised film");
         advertised.Allowed = true; trailer.OwnerId = Guid.Empty;
         assert(Value(await Get()).Movie is null && await controller.AddTrailerToWatchlist(request) is NotFoundObjectResult,
             "Ownerless trailers never add the upcoming feature as a fallback");
+        assert(Details(await GetDetails()).Movie is null, "Ownerless trailer metadata never borrows the queued feature");
         trailer.OwnerId = advertised.Id;
         advertised.IsVirtualItem = true;
         assert(Value(await Get()).Movie is null, "Virtual advertised movies cannot be saved as playable library films");
@@ -186,6 +190,9 @@ public static class TrailerActionsChecks
         session.NowPlayingQueue = [new QueueItem { Id = trailer.Id, PlaylistItemId = "trailer-entry" }];
         CaptureQueue();
         assert(await Get() is JsonResult { Value: null }, "A directly opened trailer has no pre-film actions");
+        assert(Details(await GetDetails()).Movie?.Id == advertised.Id
+            && await controller.AddTrailerToWatchlist(request) is ConflictObjectResult,
+            "A standalone trailer exposes its advertised film metadata without enabling cinema actions or writes");
         ResetPlayback();
         session.NowPlayingQueue = [new QueueItem { Id = trailer.Id, PlaylistItemId = "trailer-entry" },
             new QueueItem { Id = Guid.NewGuid() }, new QueueItem { Id = feature.Id }];
@@ -197,27 +204,36 @@ public static class TrailerActionsChecks
         assert(await Get() is JsonResult { Value: null }, "Repeated indistinguishable trailer queue entries fail closed");
         ResetPlayback(); session.NowPlayingItem = new BaseItemDto { Id = feature.Id };
         assert(await controller.AddTrailerToWatchlist(request) is ConflictObjectResult, "A click after the trailer ends cannot save another film");
+        assert(await GetDetails() is JsonResult { Value: null }, "Trailer metadata rejects an item that is no longer playing");
         ResetPlayback(); session.PlaylistItemId = "next-trailer-entry";
         assert(await controller.AddTrailerToWatchlist(request) is ConflictObjectResult, "The same trailer ID in a changed queue position is rejected");
+        assert(await GetDetails() is JsonResult { Value: null }, "Trailer metadata rejects a stale queue occurrence");
         ResetPlayback();
 
         auth.IsApiKey = true;
         assert(await Get() is UnauthorizedResult && await controller.AddTrailerToWatchlist(request) is UnauthorizedResult,
             "API keys cannot read or modify a user's Watchlist through trailer actions");
+        assert(await GetDetails() is UnauthorizedResult, "Trailer metadata refuses API-key impersonation");
         auth.IsApiKey = false; session.UserId = Guid.NewGuid();
         assert(await Get() is UnauthorizedResult, "Another account's playback session is rejected");
+        assert(await GetDetails() is UnauthorizedResult, "Trailer metadata cannot use another account's session");
         session.UserId = user.Id; session.DeviceId = "other-device";
         assert(await Get() is UnauthorizedResult, "Another device's playback session is rejected");
+        assert(await GetDetails() is UnauthorizedResult, "Trailer metadata cannot use another device's session");
         session.DeviceId = auth.DeviceId; allowedDevice = false;
         assert(await controller.AddTrailerToWatchlist(request) is UnauthorizedResult, "Revoked device access prevents Watchlist writes");
         allowedDevice = true; user.SetPermission(PermissionKind.IsDisabled, true);
         assert(await Get() is UnauthorizedResult, "Disabled accounts cannot inspect trailer actions");
+        assert(await GetDetails() is UnauthorizedResult, "Disabled accounts cannot inspect trailer metadata");
         user.SetPermission(PermissionKind.IsDisabled, false); local = false; user.SetPermission(PermissionKind.EnableRemoteAccess, false);
         assert(await controller.AddTrailerToWatchlist(request) is UnauthorizedResult, "Remote-disabled accounts cannot save Watchlists remotely");
         local = true;
         assert(await controller.GetTrailerActions(Guid.Empty) is BadRequestObjectResult
             && await controller.AddTrailerToWatchlist(new(trailer.Id, new string('a', 257))) is BadRequestObjectResult,
             "Malformed trailer identity is refused before playlist changes");
+        assert(await controller.GetTrailerDetails(Guid.Empty) is BadRequestObjectResult
+            && await controller.GetTrailerDetails(trailer.Id, new string('a', 257)) is BadRequestObjectResult,
+            "Malformed trailer metadata identity is rejected");
         assert(creates == 2 && adds == 1, "Rejected and repeated requests leave saved Watchlists unchanged");
         await TrailerActionsHttpChecks.Run(assert, services =>
         {

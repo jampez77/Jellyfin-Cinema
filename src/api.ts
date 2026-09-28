@@ -1,4 +1,4 @@
-import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection, TrailerActionsContext, TrailerIdentity, WatchlistState } from './types';
+import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection, TrailerActionsContext, TrailerDetailsContext, TrailerIdentity, WatchlistState } from './types';
 import { notifyWatchlistChanged } from './watchlist';
 import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
@@ -64,16 +64,24 @@ function trailerIdentity(expected: TrailerIdentity): TrailerIdentity {
   return { PlayingItemId: expected.PlayingItemId, ...(expected.PlaylistItemId ? { PlaylistItemId: expected.PlaylistItemId } : {}) };
 }
 
-function trailerResult(value: unknown, expected: TrailerIdentity, saved = false): TrailerActionsContext | null {
-  if (value === null && !saved) return null;
-  const result = value as TrailerActionsContext | null;
+function trailerDetailsResult(value: unknown, expected: TrailerIdentity): TrailerDetailsContext | null {
+  if (value === null) return null;
+  const result = value as TrailerDetailsContext | null;
   if (!result || typeof result !== 'object' || Array.isArray(result)
     || typeof result.PlayingItemId !== 'string' || identity(result.PlayingItemId) !== identity(expected.PlayingItemId)
     || (result.PlaylistItemId !== undefined && (typeof result.PlaylistItemId !== 'string' || !result.PlaylistItemId))
     || (expected.PlaylistItemId !== undefined && result.PlaylistItemId !== expected.PlaylistItemId)
-    || typeof result.InWatchlist !== 'boolean'
     || (result.Movie !== null && (!result.Movie || typeof result.Movie.Id !== 'string' || !result.Movie.Id
-      || typeof result.Movie.Name !== 'string' || !result.Movie.Name.trim()))
+      || typeof result.Movie.Name !== 'string' || !result.Movie.Name.trim()))) {
+    throw new Error('Jellyfin returned invalid trailer or watchlist information.');
+  }
+  return result;
+}
+
+function trailerResult(value: unknown, expected: TrailerIdentity, saved = false): TrailerActionsContext | null {
+  const result = trailerDetailsResult(value, expected) as TrailerActionsContext | null;
+  if (result === null && !saved) return null;
+  if (!result || typeof result.InWatchlist !== 'boolean'
     || (result.WatchlistId !== undefined && (typeof result.WatchlistId !== 'string' || !result.WatchlistId))
     || (result.InWatchlist && (!result.Movie || !result.WatchlistId))
     || (saved && !result.InWatchlist)) {
@@ -348,6 +356,14 @@ export function createJellyfinApi(): MediaApi | null {
         ...(request.PlaylistItemId ? { playlistItemId: request.PlaylistItemId } : {})
       }));
       return trailerResult(result, request);
+    }),
+    getTrailerDetails: expected => read(async () => {
+      const request = trailerIdentity(expected);
+      const result = await client.getJSON(client.getUrl('TvItemLayout/TrailerDetails', {
+        playingItemId: request.PlayingItemId,
+        ...(request.PlaylistItemId ? { playlistItemId: request.PlaylistItemId } : {})
+      }));
+      return trailerDetailsResult(result, request);
     }),
     addTrailerToWatchlist: expected => read(async () => {
       const request = trailerIdentity(expected);

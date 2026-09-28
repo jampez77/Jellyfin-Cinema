@@ -86,7 +86,33 @@ test('empty and failed Watchlists have recoverable previews and ignore changes b
   await editor(page).getByRole('button', { name: 'Save rows', exact: true }).click(); await goHome(page);
   await expect(homeRow(page).locator('.tvl-home-row-card')).toHaveCount(1);
   await page.evaluate(() => { (window as any).__watchlistFixture.items = []; });
-  await notify(page); await expect(homeRow(page)).toContainText('Your Watchlist is empty.');
+  await notify(page); await expect(homeRow(page)).toHaveCount(0);
+});
+
+test('Home hides empty and unavailable Watchlists but keeps the saved row and refreshes it in the background', async ({ page }) => {
+  await setup(page, true);
+  await page.clock.install();
+  await page.evaluate(() => { (window as any).__watchlistFixture.items = []; });
+  const before = await page.evaluate(() => (window as any).__watchlistFixture.requests);
+  await goHome(page);
+  await expect.poll(() => page.evaluate(() => (window as any).__watchlistFixture.requests)).toBeGreaterThan(before);
+  await expect(homeRow(page)).toHaveCount(0);
+  await expect(page.locator('#homeTab')).not.toContainText('Your Watchlist is empty');
+  await page.evaluate(() => { (window as any).__watchlistFixture.fail = true; });
+  await notify(page); await expect(homeRow(page)).toHaveCount(0);
+  await expect(page.locator('#homeTab')).not.toContainText('Your Watchlist could not be loaded');
+  const failed = await page.evaluate(() => (window as any).__watchlistFixture.requests);
+  await page.evaluate(() => { const state = (window as any).__watchlistFixture; state.fail = false; state.items = [{ Id: 'series-north', Name: 'The North Line', Type: 'Series' }]; });
+  await page.clock.fastForward(60_001);
+  await expect.poll(() => page.evaluate(() => (window as any).__watchlistFixture.requests)).toBeGreaterThan(failed);
+  await expect(homeRow(page).getByRole('button', { name: 'The North Line', exact: true })).toBeVisible();
+  await homeRow(page).getByRole('button', { name: 'The North Line', exact: true }).focus();
+  await page.evaluate(() => { (window as any).__watchlistFixture.items = []; });
+  await notify(page); await expect(homeRow(page)).toHaveCount(0);
+  expect(await page.evaluate(() => document.activeElement !== document.body && !!document.activeElement?.getClientRects().length
+    && !document.activeElement?.closest('[hidden], .hide'))).toBe(true);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`)!).rows);
+  expect(saved).toHaveLength(1); expect(saved[0].kind).toBe('watchlist');
 });
 
 test('Home retrieves all Watchlist pages and lets the remote reach cards past the initial sixty', async ({ page }) => {

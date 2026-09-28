@@ -638,7 +638,7 @@ export class HomeCollections {
       if (this.disposed || revision !== this.revision) return;
       const rendered = await Promise.all(this.settings.rows.map(row => this.section(row, available, revision)));
       if (this.disposed || revision !== this.revision) return;
-      this.staged = { revision, inputRevision, sections: [...providerRows, ...rendered] }; this.attach();
+      this.staged = { revision, inputRevision, sections: [...providerRows, ...rendered.filter((row): row is RenderedRow => row !== null)] }; this.attach();
     } catch {
       if (this.disposed || revision !== this.revision) return;
       this.renderRetry = true;
@@ -649,7 +649,7 @@ export class HomeCollections {
     }
   }
 
-  private async section(row: HomeCollectionRow, available: Map<string, Item>, revision: number): Promise<RenderedRow> {
+  private async section(row: HomeCollectionRow, available: Map<string, Item>, revision: number): Promise<RenderedRow | null> {
     const chosen = row.collectionIds.map(id => available.get(id)).filter((item): item is Item => !!item);
     const title = row.title || (row.kind === 'watchlist' ? 'Watchlist' : row.kind === 'collections' ? 'Collections' : chosen[0]?.Name || 'Collection');
     const section = el('section', 'verticalSection tvl-home-collection-row');section.dataset.homeRow = row.id;
@@ -716,7 +716,7 @@ export class HomeCollections {
         const restore = this.restoreFocus || this.positionToRestore?.focusId;
         const focusedIndex = row.kind === 'watchlist' ? items.findIndex(item => restore === `home:${row.id}:${item.Id}`) : -1;
         appendItems(Math.max(60, row.kind === 'watchlist' ? this.watchlistShown.get(row.id) || 0 : 0, Math.ceil((focusedIndex + 1) / 60) * 60));
-        if (!items.length) cards.append(el('p', 'tvl-home-row-status', row.kind === 'watchlist' ? 'Your Watchlist is empty. Save a movie or TV show to see it here.' : 'This collection is empty.'));
+        if (!items.length && row.kind !== 'watchlist') cards.append(el('p', 'tvl-home-row-status', 'This collection is empty.'));
         if (row.kind === 'items' && items.length > 60) {
           const full = button('View full collection', 'grid', '', () => this.navigate(collection!.Id));
           if (tabbed) full.dataset.focusId = `${focusPrefix(source.id)}full-collection`;
@@ -724,7 +724,10 @@ export class HomeCollections {
         }
       } catch {
         if (!this.current(revision) || currentSource !== sourceRevision) return;
-        replace(cards, el('p', 'tvl-home-row-status', row.kind === 'watchlist' ? 'Your Watchlist could not be loaded.' : 'This collection could not be loaded.'), button(row.kind === 'watchlist' ? 'Retry Watchlist' : 'Retry collection', '', '', () => {
+        // Home only shows Watchlist when it has cards. The editor retains its
+        // empty/error feedback; regular background refreshes retry this source.
+        if (row.kind === 'watchlist') { replace(cards); return; }
+        replace(cards, el('p', 'tvl-home-row-status', 'This collection could not be loaded.'), button('Retry collection', '', '', () => {
           const focused = cards.contains(document.activeElement);
           const inputRevision = this.inputRevision;
           const pending = renderItems(), retrySource = sourceRevision;
@@ -740,6 +743,7 @@ export class HomeCollections {
     // A newly added source must not block the already-loaded rows on return.
     const pending = renderItems();
     if (!this.warmReturn || this.initialPaint || row.kind !== 'items' || this.items.get(selected.collectionId)?.value) await pending;
+    if (row.kind === 'watchlist' && !cards.querySelector('.tvl-home-row-card')) return null;
     return { row, element: section, reconcileSource: async () => {
       const source = tabs.find(tab => tab.id === this.selectedSources.get(row.id)) || tabs[0];
       if (source.id === selected.id) return;

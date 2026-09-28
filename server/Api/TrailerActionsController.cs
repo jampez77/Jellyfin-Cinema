@@ -58,14 +58,20 @@ public sealed class TrailerActionsController(
 
     private static bool Trailer(BaseItem item) => item is MediaBrowser.Controller.Entities.Trailer || item.ExtraType == ExtraType.Trailer;
 
+    private BaseItem? CurrentTrailer(SessionInfo session, TrailerActionRequest expected)
+    {
+        if (session.NowPlayingItem?.Id != expected.PlayingItemId
+            || (!string.IsNullOrEmpty(expected.PlaylistItemId)
+                && !string.Equals(session.PlaylistItemId, expected.PlaylistItemId, StringComparison.Ordinal))) return null;
+        var current = libraryManager.GetItemById(expected.PlayingItemId);
+        return current is not null && Trailer(current) ? current : null;
+    }
+
     private bool IsCurrentTrailer(SessionInfo session, User user, TrailerActionRequest expected, out BaseItem? trailer)
     {
         trailer = null;
-        if (session.NowPlayingItem?.Id != expected.PlayingItemId
-            || (!string.IsNullOrEmpty(expected.PlaylistItemId)
-                && !string.Equals(session.PlaylistItemId, expected.PlaylistItemId, StringComparison.Ordinal))) return false;
-        var current = libraryManager.GetItemById(expected.PlayingItemId);
-        if (current is null || !Trailer(current)) return false;
+        var current = CurrentTrailer(session, expected);
+        if (current is null) return false;
         var queue = playbackQueues.GetQueue(session).ToArray();
         var positions = queue.Select((entry, index) => (entry, index)).Where(pair => pair.entry.Id == current.Id
             && (string.IsNullOrEmpty(session.PlaylistItemId) || pair.entry.PlaylistItemId == session.PlaylistItemId)).ToArray();
@@ -103,6 +109,23 @@ public sealed class TrailerActionsController(
 
     private static bool Valid(TrailerActionRequest request) => request.PlayingItemId != Guid.Empty
         && (request.PlaylistItemId is null || request.PlaylistItemId.Length <= 256);
+
+    [HttpGet("~/TvItemLayout/TrailerDetails")]
+    public async Task<IActionResult> GetTrailerDetails([FromQuery] Guid playingItemId, [FromQuery] string? playlistItemId = null)
+    {
+        var current = await CurrentSession();
+        if (current is null) return Unauthorized();
+        var expected = new TrailerActionRequest(playingItemId, playlistItemId);
+        if (!Valid(expected)) return BadRequest("Invalid trailer identity.");
+        var (user, session) = current.Value;
+        var trailer = CurrentTrailer(session, expected);
+        if (trailer is null) return new JsonResult(null);
+        // Standalone trailers still have an advertised film. Metadata needs no
+        // following feature and must not grant cinema-only Skip or Save actions.
+        var movie = AdvertisedMovie(trailer, user);
+        return Ok(new TrailerDetailsResponse(trailer.Id, session.PlaylistItemId,
+            movie is null ? null : new(movie.Id, movie.Name)));
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetTrailerActions([FromQuery] Guid playingItemId, [FromQuery] string? playlistItemId = null)
@@ -171,6 +194,10 @@ public sealed record TrailerActionRequest(
 public sealed record TrailerMovie(
     [property: JsonPropertyName("Id")] Guid Id,
     [property: JsonPropertyName("Name")] string Name);
+public sealed record TrailerDetailsResponse(
+    [property: JsonPropertyName("PlayingItemId")] Guid PlayingItemId,
+    [property: JsonPropertyName("PlaylistItemId")] string? PlaylistItemId,
+    [property: JsonPropertyName("Movie"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] TrailerMovie? Movie);
 public sealed record TrailerActionsResponse(
     [property: JsonPropertyName("PlayingItemId")] Guid PlayingItemId,
     [property: JsonPropertyName("PlaylistItemId")] string? PlaylistItemId,

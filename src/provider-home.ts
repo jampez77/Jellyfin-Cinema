@@ -39,7 +39,7 @@ type Options = {
   back(): void; navigate(id: string): void; openRow(id?: string): void; edit?(): void;
 };
 type RowState = { config: ProviderRow; element: HTMLElement; cards: HTMLElement; status: HTMLElement;
-  more: HTMLButtonElement; result?: ProviderRowResult; items: Item[]; busy: boolean; fingerprint: string; restoreCount: number; };
+  more: HTMLButtonElement; result?: ProviderRowResult; items: Item[]; busy: boolean; fingerprint: string; restoreCount: number; navigationOnly: boolean; };
 
 /** Provider pages retain native item routes/playback and only own this view's DOM. */
 export class ProviderHomeView {
@@ -130,12 +130,17 @@ export class ProviderHomeView {
     home.setAttribute('aria-current', this.options.rowId ? 'false' : 'page'); nav.append(home);
     for (const row of this.config.rows.filter(row => row.enabled)) {
       const link = button(row.title || this.rowTitle(row), '', '', () => this.options.openRow(row.id));
+      link.hidden = row.source === 'watchlist';
       link.dataset.focusId = `provider-section:${row.id}`; link.setAttribute('aria-current', this.options.rowId === row.id ? 'page' : 'false'); nav.append(link);
     }
     this.header.append(nav); replace(this.rowsHost);
     this.states = rows.map(config => {
       const row = this.buildRow(config); row.restoreCount = previousRows.get(config.id)?.count || 0; return row;
     });
+    // A full row view still needs to know whether its Watchlist navigation has
+    // any results. Keep this lightweight read in the normal refresh cycle.
+    for (const config of this.config.rows.filter(row => row.enabled && row.source === 'watchlist' && !rows.includes(row)))
+      this.states.push(this.buildRow(config, true));
     if (!rows.length) this.rowsHost.append(el('p', 'tvl-provider-message', this.options.rowId ? 'This row is unavailable.' : 'No rows are enabled for this provider.'));
     this.focusInitial();
     await Promise.allSettled(this.states.map(row => this.loadRow(row)));
@@ -154,9 +159,10 @@ export class ProviderHomeView {
   private rowTitle(row: ProviderRow): string {
     return ({ movies: 'Films', shows: 'TV shows', 'trending-movies': 'Trending films', 'trending-shows': 'Trending TV shows', collection: 'Collection', watchlist: 'Watchlist' })[row.source];
   }
-  private buildRow(config: ProviderRow): RowState {
+  private buildRow(config: ProviderRow, navigationOnly = false): RowState {
     const title = config.title.trim() || this.rowTitle(config);
     const element = el('section', 'tvl-provider-row'); element.dataset.providerRow = config.id; element.setAttribute('aria-label', title);
+    element.hidden = config.source === 'watchlist';
     const heading = el('div', 'tvl-provider-row-heading'); heading.append(el('h2', 'tvl-home-row-title', title));
     if (!this.options.rowId) {
       const all = button('View all', '', 'tvl-provider-view-all', () => this.options.openRow(config.id)); all.setAttribute('aria-label', `View all ${title}`);
@@ -166,8 +172,18 @@ export class ProviderHomeView {
     const status = el('p', 'tvl-provider-row-status'); status.setAttribute('role', 'status'); status.textContent = 'Loading…';
     const more = button('Load more', '', 'tvl-provider-more', () => { void this.loadRow(state, true); }); more.hidden = true;
     more.dataset.focusId = `provider-more:${config.id}`;
-    element.append(heading, cards, status, more); this.rowsHost.append(element);
-    const state: RowState = { config, element, cards, status, more, items: [], busy: false, fingerprint: '', restoreCount: 0 }; return state;
+    element.append(heading, cards, status, more); if (!navigationOnly) this.rowsHost.append(element);
+    const state: RowState = { config, element, cards, status, more, items: [], busy: false, fingerprint: '', restoreCount: 0, navigationOnly }; return state;
+  }
+  private updateWatchlistVisibility(row: RowState, ownedFocus = false): void {
+    if (row.config.source !== 'watchlist') return;
+    const empty = row.items.length === 0;
+    const link = Array.from(this.header.querySelectorAll<HTMLElement>('[data-focus-id]'))
+      .find(node => node.dataset.focusId === `provider-section:${row.config.id}`);
+    const losesFocus = empty && (ownedFocus || row.element.contains(document.activeElement) || link === document.activeElement);
+    row.element.hidden = empty;
+    if (link) link.hidden = empty;
+    if (losesFocus) this.findFocus('provider-home')?.focus({ preventScroll: true });
   }
   private async loadRow(row: RowState, append = false): Promise<void> {
     if (row.busy || this.disposed) return;
@@ -177,7 +193,7 @@ export class ProviderHomeView {
     try {
       const offset = append ? row.items.length : 0;
       // Preserve an expanded grid during background refreshes.
-      const limit = this.options.rowId ? Math.max(60, append ? 60 : Math.max(row.items.length, row.restoreCount, this.options.state?.loadedCount || 0)) : 40;
+      const limit = row.navigationOnly ? 1 : this.options.rowId ? Math.max(60, append ? 60 : Math.max(row.items.length, row.restoreCount, this.options.state?.loadedCount || 0)) : 40;
       let result = await this.data.load(this.config!, row.config, offset, Math.min(100, limit));
       if (!append && this.options.rowId && limit > 100) {
         const items = [...result.items];
@@ -189,6 +205,7 @@ export class ProviderHomeView {
       }
       if (!current()) return;
       const items = Array.from(new Map((append ? [...row.items, ...result.items] : result.items).map(item => [item.Id, item])).values());
+      const ownedFocus = row.element.contains(document.activeElement);
       const fingerprint = JSON.stringify(items);
       row.result = result;
       row.restoreCount = 0;
@@ -204,7 +221,7 @@ export class ProviderHomeView {
         });
         row.cards.scrollLeft = scroll;
         if (focusId) this.findFocus(focusId)?.focus({ preventScroll: true });
-        if (focusId && !this.findFocus(focusId)) row.element.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+        if (focusId && !this.findFocus(focusId) && (items.length || row.config.source !== 'watchlist')) row.element.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
       }
       row.more.hidden = !this.options.rowId || row.items.length >= result.total;
       const messages: string[] = [];
@@ -213,15 +230,18 @@ export class ProviderHomeView {
       if (result.status === 'unavailable' && !result.missingSource) messages.push(result.items.length ? 'Some availability could not be refreshed. Showing the last available results.' : 'UK availability is temporarily unavailable.');
       if (result.missingSource) messages.push(row.config.source === 'collection' || row.config.collectionId
         ? 'The selected collection is unavailable for this account.' : 'Choose a collection for this row in Streaming services settings.');
-      if (result.missingIds) messages.push(`${result.missingIds} library titles need matching metadata before their availability can be checked.`);
       if (!messages.length && !row.items.length) messages.push(row.config.source === 'watchlist'
         ? 'No films or TV shows in your Watchlist match this service yet.' : 'No matching titles in your library.');
       row.status.textContent = messages.join(' ');
+      row.status.hidden = !messages.length;
+      this.updateWatchlistVisibility(row, ownedFocus);
       if (row === this.states[0]) this.updateHero(items[0]); this.focusInitial();
     } catch {
       if (!current()) return;
       row.status.textContent = row.items.length ? 'This row could not refresh. Your existing results are still shown.' : 'This row could not be loaded.';
+      row.status.hidden = false;
       const retry = button('Retry', '', '', () => { void this.loadRow(row); }); retry.dataset.focusId = `provider-retry:${row.config.id}`; row.status.append(retry);
+      this.updateWatchlistVisibility(row);
     } finally { row.busy = false; row.more.disabled = false; this.refreshWatchlist(); }
   }
 
@@ -300,7 +320,7 @@ export class ProviderHomeView {
     }
   };
   destroy(): void {
-    this.options.onState?.({ loadedCount: this.options.rowId ? this.states[0]?.items.length || 60 : 40, scrollTop: this.content.scrollTop });
+    this.options.onState?.({ loadedCount: this.options.rowId ? this.states.find(row => !row.navigationOnly)?.items.length || 60 : 40, scrollTop: this.content.scrollTop });
     this.disposed = true; this.generation++; this.detach(); this.detachWatchlist(); this.store.destroy(); this.data.destroy(); this.element.remove();
     window.clearTimeout(this.refreshTimer); window.removeEventListener('focus', this.onVisible); document.removeEventListener('visibilitychange', this.onVisible);
     window.removeEventListener('keydown', this.onInput, true); window.removeEventListener('command', this.onInput, true);

@@ -23,7 +23,7 @@ function visible(node: Element): boolean {
 
 /** Independently implemented from the feature description in
  * https://github.com/jampez77/Jellyfin-PauseScreen (dbad66b).
- * Metadata stays with the playing item, except a cinema trailer with a
+ * Metadata stays with the playing item, except a trailer with a
  * server-confirmed advertised movie. Episode parents only supply artwork.
  */
 export function startPauseScreen(options: Options): () => void {
@@ -134,16 +134,17 @@ export function startPauseScreen(options: Options): () => void {
 
   async function readDetails(snapshot: ActivePlayback, api: MediaApi, current: () => boolean): Promise<PauseDetails | null> {
     // The queued feature is not the film being advertised. Resolve a trailer's
-    // actual owner through the same authenticated mapping as its Watchlist action.
+    // actual owner through an authenticated mapping independent of cinema actions.
     const playingId = snapshot.playingItemId || snapshot.itemId;
     let item: Item | null = snapshot.item?.Id === playingId ? snapshot.item : null;
     try { item = await api.getItem(playingId); } catch { /* The native snapshot can still provide the current title. */ }
     if (!current() || !item?.Id || !sameMediaId(item.Id, playingId) || !item.Name) return null;
     let retryTrailerOwner = false;
-    if (isIntro(item) && api.getTrailerActions) {
+    const getTrailerDetails = api.getTrailerDetails || api.getTrailerActions;
+    if (isIntro(item) && getTrailerDetails) {
       retryTrailerOwner = true;
       try {
-        const trailer = await api.getTrailerActions({ PlayingItemId: playingId, PlaylistItemId: snapshot.playlistItemId });
+        const trailer = await getTrailerDetails({ PlayingItemId: playingId, PlaylistItemId: snapshot.playlistItemId });
         if (!current()) return null;
         if (trailer?.Movie?.Id && sameMediaId(trailer.PlayingItemId, playingId)
           && (trailer.PlaylistItemId || '') === (snapshot.playlistItemId || '')) {
