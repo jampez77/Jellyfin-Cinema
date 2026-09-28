@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.30.3",
+        "changelog": "Moves trailer buttons just above Jellyfin's actual playback controls and retains their position when controls fade. Long pause descriptions fade out before reaching the buttons; short descriptions remain clear. Watchlist feedback appears above the row. Preserves initial Skip focus, first-playback availability and autoplay. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.30/TvItemLayout_0.2.30.3_jellyfin-12.0.0.zip",
+        "checksum": "6aeef3c21fb5bfcbf115bc8c36d4a8b3",
+        "timestamp": "2026-09-28T14:34:55Z"
+      },
+      {
+        "version": "0.2.30.2",
+        "changelog": "Moves trailer buttons just above Jellyfin's actual playback controls and retains their position when controls fade. Long pause descriptions fade out before reaching the buttons; short descriptions remain clear. Watchlist feedback appears above the row. Preserves initial Skip focus, first-playback availability and autoplay. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.30/TvItemLayout_0.2.30.2_jellyfin-10.11.0.zip",
+        "checksum": "f7eeb5753a9900240d4bbc3782843a36",
+        "timestamp": "2026-09-28T14:34:55Z"
+      },
+      {
+        "version": "0.2.30.1",
+        "changelog": "Moves trailer buttons just above Jellyfin's actual playback controls and retains their position when controls fade. Long pause descriptions fade out before reaching the buttons; short descriptions remain clear. Watchlist feedback appears above the row. Preserves initial Skip focus, first-playback availability and autoplay. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.30/TvItemLayout_0.2.30.1_jellyfin-10.10.7.zip",
+        "checksum": "36c7095ddb04ae0f39216b7d7290dbc5",
+        "timestamp": "2026-09-28T14:34:55Z"
+      },
+      {
         "version": "0.2.29.3",
         "changelog": "Fixes first-trailer actions by retaining the authenticated queue reported when playback starts; Jellyfin 12 otherwise exposes that queue only after a video stops. Skip and Add to watchlist can now resolve on initial playback and its pause screen without Next/Back. Moves trailer actions to the left between pause details and playback controls, with Skip trailer initially focused without repeatedly stealing focus. Immediately removes the Browse icon on TV layout changes, including while metadata is loading. Keeps the previous autoplay fix. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

@@ -264,21 +264,29 @@ test('trailer controls stay usable over the pause screen and Skip starts the nex
   expect(await page.evaluate(() => (window as any).__nativeToggles)).toBe(0);
 });
 
-for (const viewport of [{width:1440,height:900},{width:1920,height:1080},{width:1280,height:600}]) {
+for (const viewport of [{width:1440,height:900},{width:1920,height:1080},{width:1280,height:720},{width:1280,height:600}]) {
   for (const elegant of [false, true]) test(`paused trailer actions sit below long synopsis and above native controls at ${viewport.width}×${viewport.height}${elegant ? ' with ElegantFin' : ''}`, async ({ page }) => {
     const elegantPath = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
     test.skip(elegant && !existsSync(elegantPath), 'Set TVL_ELEGANTFIN_CSS to the audited ElegantFin stylesheet.');
     await page.setViewportSize(viewport);
     await fixture(page, `Object.assign(window.__trailerItems.get('trailer-a'), {
+      Name:'Advertised A trailer: The Journey to the Other Side',
       Overview:'A cartographer follows a vanished coastline, discovering unfamiliar towns and the stories of the people who live there. '.repeat(15),
       ProductionYear:2026, OfficialRating:'12', RunTimeTicks:900000000,
       Taglines:['Every tide leaves a trace.']
     });`);
     if (elegant) await page.addStyleTag({content:readFileSync(elegantPath,'utf8')});
+    await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>('.videoOsdBottom')!;
+      host.style.fontSize = '22px';
+      host.querySelector('.osdTitle')!.textContent = 'Advertised A trailer: The Journey to the Other Side';
+      host.querySelector('.osdSecondaryMediaInfo')!.textContent = '2026 · 12 · 2m · Drama / Adventure';
+    });
     await expect(actions(page)).toBeVisible();
     await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause());
     await expect(page.locator('#tvl-pause-screen')).toBeVisible();
     await expect(actions(page)).toHaveClass(/tvl-trailer-paused/);
+    await expect(page.locator('.tvl-pause-synopsis')).toHaveClass(/tvl-pause-synopsis-clipped/);
     const geometry = () => page.evaluate(() => {
       const rect = (selector: string) => {
         const r = document.querySelector(selector)!.getBoundingClientRect();
@@ -290,9 +298,13 @@ for (const viewport of [{width:1440,height:900},{width:1920,height:1080},{width:
       const bounds = await geometry();
       expect(bounds.buttons.left).toBeCloseTo(bounds.copy.left, 0);
       expect(bounds.buttons.top).toBeGreaterThanOrEqual(bounds.copy.bottom + 12);
-      expect(bounds.buttons.bottom).toBeLessThanOrEqual(bounds.native.top - 12);
+      expect(bounds.native.top - bounds.buttons.bottom).toBeGreaterThanOrEqual(15);
+      expect(bounds.native.top - bounds.buttons.bottom).toBeLessThanOrEqual(17);
       expect(bounds.buttons.right).toBeLessThan(viewport.width - 20);
-      if (withStatus) expect(bounds.status.bottom).toBeLessThanOrEqual(bounds.native.top - 8);
+      if (withStatus) {
+        expect(bounds.status.bottom).toBeLessThanOrEqual(bounds.buttons.top - 8);
+        expect(bounds.copy.bottom).toBeLessThanOrEqual(bounds.status.top - 12);
+      }
       return bounds;
     };
     const before = await assertGap();
@@ -301,6 +313,10 @@ for (const viewport of [{width:1440,height:900},{width:1920,height:1080},{width:
     await expect(actions(page)).toHaveClass(/tvl-trailer-paused/);
     const faded = await assertGap();
     expect(faded.buttons.top).toBeCloseTo(before.buttons.top, 0);
+    // Jellyfin may remove the OSD from layout entirely after its opacity fade.
+    await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.add('hide'));
+    await expect.poll(async () => (await actions(page).locator('.tvl-trailer-buttons').boundingBox())!.y).toBeCloseTo(before.buttons.top, 0);
+    await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.remove('hide'));
     await add(page).click();
     const saved = actions(page).getByRole('button',{name:'In watchlist',exact:true});
     await expect(saved).toBeDisabled(); await expect(saved).toBeFocused();
@@ -330,6 +346,33 @@ test('watchlist feedback stays within a short screen when playing controls are f
   await expect(actions(page).getByRole('button',{name:'In watchlist',exact:true})).toBeFocused();
   await page.waitForTimeout(400);
   await expect(page.locator('video')).toHaveJSProperty('paused',false);
+});
+
+test('short pause descriptions stay clear while trailer spacing adapts to native controls and resizing', async ({ page }) => {
+  await fixture(page, `window.__deferRead=true; window.__trailerItems.get('trailer-a').Overview='A short, complete description.';`);
+  await expect.poll(() => page.evaluate(() => !!(window as any).__resolveRead)).toBe(true);
+  await page.evaluate(() => {
+    document.querySelector('.videoOsdBottom')!.classList.add('hide');
+    (window as any).__resolveRead();
+  });
+  await expect(skip(page)).toBeFocused();
+  await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause());
+  const synopsis = page.locator('.tvl-pause-synopsis');
+  await expect(synopsis).toBeVisible();
+  await expect(synopsis).not.toHaveClass(/tvl-pause-synopsis-clipped/);
+  await expect(synopsis).toHaveCSS('mask-image', 'none');
+  await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.remove('hide'));
+  const gap = () => page.evaluate(() => document.querySelector('.osdControls')!.getBoundingClientRect().top
+    - document.querySelector('.tvl-trailer-buttons')!.getBoundingClientRect().bottom);
+  await expect.poll(gap).toBeCloseTo(16, 0);
+  await page.setViewportSize({width:1280,height:720});
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>('.videoOsdBottom')!.style.fontSize = '28px';
+    document.querySelector('.osdTitle')!.textContent = 'The current trailer';
+  });
+  await expect.poll(gap).toBeCloseTo(16, 0);
+  await expect(synopsis).not.toHaveClass(/tvl-pause-synopsis-clipped/);
+  await expect(skip(page)).toBeFocused();
 });
 
 test('unmapped trailer remains skippable without saving an unrelated movie', async ({ page }) => {

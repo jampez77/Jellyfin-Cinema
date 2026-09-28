@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Fixes first-trailer actions by retaining the authenticated queue reported when playback starts; Jellyfin 12 otherwise exposes that queue only after a video stops. Skip and Add to watchlist can now resolve on initial playback and its pause screen without Next/Back. Moves trailer actions to the left between pause details and playback controls, with Skip trailer initially focused without repeatedly stealing focus. Immediately removes the Browse icon on TV layout changes, including while metadata is loading. Keeps the previous autoplay fix. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Moves trailer buttons just above Jellyfin's actual playback controls and retains their position when controls fade. Long pause descriptions fade out before reaching the buttons; short descriptions remain clear. Watchlist feedback appears above the row. Preserves initial Skip focus, first-playback availability and autoplay. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
