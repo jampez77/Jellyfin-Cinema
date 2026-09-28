@@ -1,5 +1,5 @@
 import { button, el, replace } from './dom';
-import { isCinemaLayout } from './layout';
+import { isCinemaLayout, isDesktopLayout } from './layout';
 import { isWatched, plainText, progress, resumePosition } from './utils';
 import type { Item, MediaApi } from './types';
 import { isIntro, queuedFeature, sameMediaId, visible, type ActivePlayback, type PlayerContext } from './player-context';
@@ -102,8 +102,9 @@ export class PlayerBrowser {
     }
     // The native bottom OSD is a flex row around .osdControls. A text button
     // in that flow shrinks the entire seek/control area. Keep mouse access in
-    // its reserved gradient padding; unknown player layouts retain Down only.
-    const bar = current.osd.querySelector<HTMLElement>('.videoOsdBottom');
+    // its reserved gradient padding. TV remotes use Down without an extra icon;
+    // unknown player layouts also retain Down only.
+    const bar = isDesktopLayout() ? current.osd.querySelector<HTMLElement>('.videoOsdBottom') : null;
     if (bar && this.entry.parentElement !== bar) bar.append(this.entry);
     else if (!bar) this.entry.remove();
     const label = current.item?.Type === 'Episode' ? 'Episodes & seasons' : current.item?.Type === 'TvChannel' || current.item?.Type === 'Program' ? 'Channels' : current.item?.Type === 'Movie' ? 'More like this' : 'Browse';

@@ -33,7 +33,7 @@ export function visible(element: HTMLElement): boolean {
 }
 
 /** Never search past an unknown queue entry or guess between repeated intros. */
-export async function queuedFeature(context: PlaybackContext, api: MediaApi, current: () => boolean): Promise<Item | null> {
+export async function queuedFeature(context: PlaybackContext, api: Pick<MediaApi, 'getItem'>, current: () => boolean): Promise<Item | null> {
   const queue = context.Queue || [];
   const positions = queue.map((item, index) => ({ item, index })).filter(({ item }) =>
     sameMediaId(item.Id, context.PlayingItemId) && (!context.PlaylistItemId || item.PlaylistItemId === context.PlaylistItemId));
@@ -109,18 +109,32 @@ export function createPlayerContext(getApi: () => MediaApi | null): PlayerContex
       if (!playingItemId) return;
       // A delayed session response may still describe the outgoing item.
       if (context && !sameMediaId(context.PlayingItemId, playingItemId)) context = null;
+      const publish = (item: Item | null, upcoming?: Item | null) => {
+        const resolved = upcoming || item;
+        snapshot = { video: player.video, osd: player.osd, key: player.key, playingItemId,
+          itemId: resolved?.Id || playingItemId, item: resolved,
+          playlistItemId: context?.PlaylistItemId, upcomingItemId: upcoming?.Id, playbackContext: context || undefined };
+        notify();
+      };
+      const publishIntro = (item: Item | null) => {
+        // Keep a resolved feature while refreshing the same queue occurrence.
+        if (snapshot?.key === player.key && sameMediaId(snapshot.playingItemId, playingItemId)
+          && snapshot.playlistItemId === context?.PlaylistItemId && snapshot.upcomingItemId) return;
+        publish(item);
+      };
+      const sessionIntro = !!context && isIntro({ Type: context.PlayingItemType, ExtraType: context.PlayingItemExtraType });
+      // Trailer actions need the verified playing identity, not metadata for
+      // every later intro. Publish it even while the first item lookup is slow.
+      if (sessionIntro) publishIntro(items.get(playingItemId) || null);
       let item: Item | null = null;
       try { item = await getItem(api, playingItemId); } catch { /* Deleted trailers may exist only in queue metadata. */ }
       if (!current()) return;
       let upcoming: Item | null = null;
-      const intro = isIntro(item) || (!item && !!context && isIntro({ Type: context.PlayingItemType, ExtraType: context.PlayingItemExtraType }));
-      if (intro && context) upcoming = await queuedFeature(context, api, current);
+      const intro = isIntro(item) || (!item && sessionIntro);
+      if (intro) publishIntro(item);
+      if (intro && context) upcoming = await queuedFeature(context, { getItem: id => getItem(api, id) }, current);
       if (!current()) return;
-      const resolved = upcoming || item;
-      snapshot = { video: player.video, osd: player.osd, key: player.key, playingItemId,
-        itemId: resolved?.Id || playingItemId, item: resolved,
-        playlistItemId: context?.PlaylistItemId, upcomingItemId: upcoming?.Id, playbackContext: context || undefined };
-      notify();
+      publish(item, upcoming);
     } finally { if (generation === revision) pending = false; }
   }
   function sync(): void {

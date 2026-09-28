@@ -84,6 +84,7 @@ async function setup(page: Page, options: { desktop?: boolean; mobile?: boolean;
       ajax: async () => { state.quickRequests++; return { json: async () => ({ Secret: 'fixture-secret', Code: '123456' }) }; },
     };
     const style = document.createElement('style');
+    style.dataset.loginNativeFixture = '';
     style.textContent = nativeCss + (options.elegantFin ? elegantFinCss : '') + `
       .hide{display:none!important}.flex{display:flex}.align-items-center{align-items:center}.justify-content-center{justify-content:center}
       body{margin:0}body>:not(#loginPage):not(.dialogContainer):not(.toastContainer):not(script):not(style){display:none!important}
@@ -116,7 +117,7 @@ async function setup(page: Page, options: { desktop?: boolean; mobile?: boolean;
 test('signed-out TV uses Cinema chooser and native protected/passwordless authentication decisions', async ({ page }) => {
   await setup(page);
   await expect(page.locator('body')).toHaveClass(/tvl-login-native/);
-  await expect(page.locator('#loginPage')).toHaveCSS('background-color', 'rgb(16, 17, 18)');
+  await expect(page.locator('#loginPage')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(page.locator('#divUsers .card')).toHaveCount(3);
   await expect(page.locator('#divUsers [data-userid="protected"] .cardImageContainer')).not.toHaveCSS('background-image', 'none');
   await expect(page.locator('.btnSelectServer')).toBeHidden();
@@ -257,4 +258,33 @@ test('active ElegantFin theme cannot replace Cinema login layout, headings, prim
   const form = await page.locator('.manualLoginForm').boundingBox();
   expect(form!.x).toBeGreaterThanOrEqual(0); expect(form!.x + form!.width).toBeLessThanOrEqual(391);
   await page.screenshot({ path: test.info().outputPath('cinema-login-elegantfin.png'), fullPage: true });
+});
+
+for (const themeFirst of [true, false]) test(`login preserves the original ElegantFin backdrop with the theme loaded ${themeFirst ? 'before' : 'after'} ScreenHarbour`, async ({ page }) => {
+  test.skip(!elegantFinAvailable, 'Set TVL_ELEGANTFIN_CSS to the served ElegantFin v26.09.05 theme.css.');
+  await page.route('**/login-original-backdrop.svg', route => route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900"><defs><linearGradient id="sky"><stop stop-color="#1b334b"/><stop offset="1" stop-color="#906c53"/></linearGradient></defs><path fill="url(#sky)" d="M0 0h1440v900H0z"/></svg>'}));
+  await setup(page, {elegantFin:true});
+  const original = await page.evaluate(themeFirst => {
+    document.documentElement.style.setProperty('--loginPageBgUrl','url("/login-original-backdrop.svg")');
+    if (themeFirst) document.head.insertBefore(document.querySelector('style[data-login-native-fixture]')!, document.querySelector('style[data-tv-item-layout]'));
+    // Read the installed theme's own backdrop, then re-enable our form styling.
+    document.body.classList.remove('tvl-login-native');
+    const page = document.querySelector('#loginPage')!;
+    const result = {image:getComputedStyle(page).backgroundImage,size:getComputedStyle(page).backgroundSize,body:getComputedStyle(document.body).background};
+    document.body.classList.add('tvl-login-native');
+    return result;
+  }, themeFirst);
+  expect(original.image).toContain('login-original-backdrop.svg');
+  await expect(page.locator('#loginPage')).toHaveCSS('background-image', original.image);
+  await expect(page.locator('body')).toHaveCSS('background', original.body);
+  await expect(page.locator('#loginPage')).toHaveCSS('background-size', original.size);
+  await expect(page.getByRole('button', {name:'Alex',exact:true})).toBeVisible();
+  await page.getByRole('button', {name:'Alex',exact:true}).click();
+  await expect(page.getByLabel('Password', {exact:true})).toBeVisible();
+  await expect(page.locator('#loginPage')).toHaveCSS('background-image', original.image);
+  await expect(page.locator('.manualLoginForm')).toHaveCSS('background-color', 'rgba(25, 36, 29, 0.9)');
+  await page.screenshot({path:test.info().outputPath('login-original-backdrop.png'),fullPage:true});
+  await page.evaluate(() => window.TvItemLayout!.destroy());
+  await expect(page.locator('#loginPage')).toHaveCSS('background-image', original.image);
+  expect(await page.evaluate(() => (window as any).__loginState.attempts)).toEqual([]);
 });

@@ -40,7 +40,8 @@ async function fixture(page: Page, extra = '') {
       api.getEpisodes = async () => [...items.values()].filter(item => item.Type === 'Episode');
       api.getSimilar = async () => ['browse-movie', 'browse-next', 'browse-missing', 'browse-series'].map(id => items.get(id));
       api.getChannels = async () => ['browse-channel', 'browse-channel-2'].map(id => items.get(id));
-      api.getPlaybackContext = async () => window.__browserContext || null;
+      window.__browserContextReads = 0;
+      api.getPlaybackContext = async () => { window.__browserContextReads++; return window.__browserContext || null; };
       api.play = async (item, ticks, current) => { if (current()) window.__browserPlays.push({id:item.Id,ticks}); };
       api.image = (item, kind) => item.Id.startsWith('browse-')
         ? (item.ImageTags?.[kind === 'logo' ? 'Logo' : 'Primary'] ? '/browse-assets/' + item.Id + '-' + kind + '.svg' : null)
@@ -75,7 +76,10 @@ async function player(page: Page, id = 'browse-episode-2', rating = true) {
     controls.append(button); nativeControls.append(controls); bottom.append(nativeControls); osd.append(bottom); document.body.append(osd);
     await video.play(); button.focus(); osd.dispatchEvent(new CustomEvent('viewshow', { bubbles: true }));
   }, { id, rating });
-  await expect(page.locator('#tvl-player-browse')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__browserContextReads)).toBeGreaterThan(0);
+  const desktop = await page.locator('body').evaluate(body => body.classList.contains('layout-desktop'));
+  if (desktop) await expect(page.locator('#tvl-player-browse')).toBeVisible();
+  else await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
 }
 async function remote(page: Page, command: string) {
   return page.evaluate(command => document.activeElement!.dispatchEvent(new CustomEvent('command', { bubbles: true, cancelable: true, detail: { command } })), command);
@@ -301,9 +305,26 @@ test('desktop mouse browsing preserves native player controls, sliders and layou
   await expect(page.locator('#tvl-player-browse')).toBeVisible();
 });
 
+test('TV layout has no browse icon and retains remote Down entry after switching display modes', async ({ page }) => {
+  await fixture(page); await player(page);
+  await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
+  await remote(page, 'down');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await expect(page.getByRole('button', { name: 'Native control', exact: true })).toBeFocused();
+  await page.evaluate(() => document.body.classList.replace('layout-tv', 'layout-desktop'));
+  await expect(page.locator('#tvl-player-browse')).toHaveAttribute('title', 'Episodes & seasons');
+  await page.evaluate(() => document.body.classList.replace('layout-desktop', 'layout-tv'));
+  await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
+  await remote(page, 'down');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+});
+
 test('Down browses the complete show continuously across seasons and wraps without interrupting playback', async ({ page }) => {
   await fixture(page); await player(page);
-  await expect(page.locator('#tvl-player-browse')).toHaveAttribute('title', 'Episodes & seasons');
+  await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
   await page.keyboard.press('ArrowDown');
   await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
   await expect(browser(page).getByRole('button', { name: 'Return to playback', exact: true })).toBeFocused();
@@ -329,7 +350,7 @@ test('Down browses the complete show continuously across seasons and wraps witho
 });
 
 test('the mouse preview trigger stays outside native OSD layout and hides with its controls', async ({ page }) => {
-  await fixture(page); await player(page);
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page);
   const unchangedGeometry = () => page.evaluate(() => {
     const entry = document.querySelector<HTMLElement>('#tvl-player-browse')!;
     const parent = entry.parentElement!;
@@ -357,7 +378,7 @@ test('the mouse preview trigger stays outside native OSD layout and hides with i
 });
 
 test('an unfamiliar native OSD keeps Down browsing without injecting a layout-dependent trigger', async ({ page }) => {
-  await fixture(page); await player(page);
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page);
   await page.locator('.videoOsdBottom').evaluate(element => element.classList.remove('videoOsdBottom'));
   await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
   await page.keyboard.press('ArrowDown');
@@ -367,7 +388,7 @@ test('an unfamiliar native OSD keeps Down browsing without injecting a layout-de
 });
 
 test('visible browse action returns to currently playing item and held Back never exits the native player', async ({ page }) => {
-  await fixture(page); await player(page, 'browse-movie');
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page, 'browse-movie');
   await page.locator('#tvl-player-browse').click();
   await expect(browser(page).getByRole('button', { name: 'Return to playback' })).toBeFocused();
   await page.keyboard.press('Enter');
@@ -447,13 +468,13 @@ test('newly queued cinema intro is only confirmed once its local source starts',
 });
 
 test('local playback context supports an OSD whose rating ID is not populated yet', async ({ page }) => {
-  await fixture(page, `window.__browserContext={PlayingItemId:'browse-movie',PlayingItemType:'Movie',Queue:[]};`);
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');window.__browserContext={PlayingItemId:'browse-movie',PlayingItemType:'Movie',Queue:[]};`);
   await player(page, 'browse-movie', false); await page.locator('#tvl-player-browse').click();
   await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-movie');
 });
 
 test('slow loading and pending playback are canceled when navigation leaves the native player', async ({ page }) => {
-  await fixture(page, `api.getSimilar=async()=>{ await new Promise(resolve=>window.__releaseBrowser=resolve); return [items.get('browse-next')]; };`);
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');api.getSimilar=async()=>{ await new Promise(resolve=>window.__releaseBrowser=resolve); return [items.get('browse-next')]; };`);
   await player(page, 'browse-movie'); await remote(page, 'down');
   await expect(browser(page).getByRole('status')).toHaveText('Loading…');
   await page.evaluate(() => { location.hash = '/home'; (window as any).__releaseBrowser(); });
@@ -475,7 +496,7 @@ test('slow loading and pending playback are canceled when navigation leaves the 
 });
 
 test('native dialogs and available standalone preview controls retain input', async ({ page }) => {
-  await fixture(page); await player(page, 'browse-movie');
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page, 'browse-movie');
   await page.evaluate(() => {
     const dialog = document.createElement('section'); dialog.id = 'native-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true');
     dialog.style.cssText = 'position:fixed;inset:10%;z-index:2000;background:black';
@@ -496,7 +517,7 @@ test('native dialogs and available standalone preview controls retain input', as
 });
 
 test('a stale standalone script and hidden preview markup do not disable Down', async ({ page }) => {
-  await fixture(page); await player(page);
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page);
   await page.route('**/InPlayerPreview/ClientScript', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
   await page.addScriptTag({ url: '/InPlayerPreview/ClientScript' });
   await page.evaluate(() => {
@@ -569,11 +590,11 @@ test('a partly rewatched film resumes at its saved position and shows current pr
   await remote(page, 'back');
 });
 
-test('TV gate, hidden OSD, theme videos, audio-only media and sign-out suppress in-player browsing', async ({ page }) => {
-  await fixture(page); await player(page, 'browse-movie');
-  await page.evaluate(() => { document.documentElement.classList.remove('layout-tv'); document.body.classList.remove('layout-tv'); });
+test('Cinema layout gate, hidden OSD, theme videos, audio-only media and sign-out suppress in-player browsing', async ({ page }) => {
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');`); await player(page, 'browse-movie');
+  await page.evaluate(() => { document.documentElement.classList.remove('layout-desktop'); document.body.classList.remove('layout-desktop'); });
   await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
-  await page.evaluate(() => { document.documentElement.classList.add('layout-tv'); document.body.classList.add('layout-tv'); });
+  await page.evaluate(() => { document.documentElement.classList.add('layout-desktop'); document.body.classList.add('layout-desktop'); });
   await expect(page.locator('#tvl-player-browse')).toBeVisible();
   await page.locator('#videoOsdPage').evaluate(element => element.setAttribute('hidden', ''));
   await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
@@ -609,7 +630,7 @@ test('a deleted cinema intro resolves through confirmed queue metadata and uncha
 });
 
 test('account changes discard cached metadata and late responses from the previous account', async ({ page }) => {
-  await fixture(page, `api.serverId='server-a';api.userId='user-a';const originalBrowserGet=api.getItem;api.getItem=async id=>{if(id==='browse-movie'&&api.userId==='user-a'){const old={...items.get(id),Name:'Previous account movie'};await new Promise(resolve=>{(window.__oldUserResolves||=[]).push(resolve);});return old;}return originalBrowserGet(id);};`);
+  await fixture(page, `document.body.classList.replace('layout-tv', 'layout-desktop');api.serverId='server-a';api.userId='user-a';const originalBrowserGet=api.getItem;api.getItem=async id=>{if(id==='browse-movie'&&api.userId==='user-a'){const old={...items.get(id),Name:'Previous account movie'};await new Promise(resolve=>{(window.__oldUserResolves||=[]).push(resolve);});return old;}return originalBrowserGet(id);};`);
   await player(page, 'browse-movie'); await remote(page, 'down');
   await expect(browser(page).getByRole('status')).toHaveText('Loading…');
   await page.evaluate(() => {

@@ -37,6 +37,11 @@ export class TrailerActions {
     this.element.setAttribute('aria-label', 'Trailer actions');
     this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
     this.controls.append(this.add, this.skip); this.element.append(this.controls, this.status);
+    // Jellyfin treats pointer presses outside its native bottom bar as a
+    // play/pause gesture. Keep our controls out of that delayed toggle while
+    // preserving the browser's normal button focus and click handling.
+    this.element.addEventListener('pointerdown', this.controlPointer);
+    this.element.addEventListener('click', this.controlPointer);
     this.unsubscribe = context.subscribe(this.schedule);
     this.observer = new MutationObserver(records => {
       if (records.some(record => record.target !== this.element && !this.element.contains(record.target))) this.schedule();
@@ -84,11 +89,11 @@ export class TrailerActions {
   }
 
   private blocked(playback: ActivePlayback): boolean {
-    if (playback.video.paused || document.body.hasAttribute('data-tvl-player-browser-open')) return true;
+    if (document.body.hasAttribute('data-tvl-player-browser-open')) return true;
     const fullscreen = document.fullscreenElement;
     if (fullscreen && !fullscreen.contains(playback.osd)) return true;
     return Array.from(document.querySelectorAll<HTMLElement>(
-      '.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"], #tvEpisodePreview, #previewPopup, #tvl-pause-screen, #video-overlay, #videoOsdPage .upNextContainer'
+      '.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"], #tvEpisodePreview, #previewPopup, #videoOsdPage .upNextContainer'
     )).some(visible);
   }
 
@@ -195,6 +200,7 @@ export class TrailerActions {
   }
 
   private consume(event: Event): void { event.preventDefault(); event.stopImmediatePropagation(); }
+  private controlPointer = (event: Event): void => { event.stopPropagation(); };
   private handle(name: string, repeat = false): boolean {
     const focused = document.activeElement;
     if (this.element.hidden || !this.element.contains(focused) || !this.binding || !this.current(this.binding)) return false;
@@ -229,6 +235,8 @@ export class TrailerActions {
 
   destroy(): void {
     this.destroyed = true; this.reset(); this.unsubscribe(); this.observer.disconnect(); window.clearInterval(this.interval);
+    this.element.removeEventListener('pointerdown', this.controlPointer);
+    this.element.removeEventListener('click', this.controlPointer);
     if (this.frame !== undefined) cancelAnimationFrame(this.frame);
     for (const name of ['playing', 'pause', 'ended', 'emptied', 'error']) document.removeEventListener(name, this.schedule, true);
     window.removeEventListener('hashchange', this.schedule); window.removeEventListener('popstate', this.schedule);

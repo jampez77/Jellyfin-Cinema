@@ -23,7 +23,7 @@ async function fixture(page: Page, extra = '') {
       const items = new Map(${JSON.stringify(records)}.map(item => [item.Id, item]));
       const state = window.__zap = { requests: 0, calls: [], plays: [], nativeKeys: [], nativeCommands: [], autoTransition: true, channels: ${JSON.stringify(channels)} };
       api.serverId = 'zap-server'; api.userId = 'zap-user';
-      api.getItem = async id => items.get(id) || getItem(id);
+      api.getItem = async id => { const item = items.get(id) || await getItem(id); state.lastResolvedItemId = item.Id; return item; };
       api.getPlaybackContext = async () => null;
       api.getChannels = async () => {
         state.requests++;
@@ -68,8 +68,7 @@ async function player(page: Page, itemId = 'channel-9') {
     await (window as any).__zapTransition(itemId);
     osd.querySelector<HTMLButtonElement>('button')!.focus();
   }, itemId);
-  const label = itemId.startsWith('channel') || itemId === 'programme-9' ? 'Channels' : itemId === 'recorded-movie' ? 'More like this' : itemId === 'episode' ? 'Episodes & seasons' : 'Browse';
-  await expect(page.locator('#tvl-player-browse')).toHaveAttribute('aria-label', label);
+  await expect.poll(() => page.evaluate(() => (window as any).__zap.lastResolvedItemId)).toBe(itemId);
   await expect(page.locator('video')).toHaveJSProperty('paused', false);
 }
 async function key(page: Page, keyName: string, options: { keyCode?: number; repeat?: boolean; release?: boolean; ctrlKey?: boolean } = {}) {
@@ -156,7 +155,7 @@ for(const change of ['account','server','route','media','destroy'])test(`a delay
     if(change==='media')await (window as any).__zapTransition('recorded-movie');
     if(change==='destroy')(window as any).TvItemLayout.destroy();
   },change);
-  if(change==='media')await expect(page.locator('#tvl-player-browse')).toHaveAttribute('aria-label','More like this');
+  if(change==='media')await expect.poll(()=>page.evaluate(()=>(window as any).__zap.lastResolvedItemId)).toBe('recorded-movie');
   await page.evaluate(()=>{(window as any).__zap.holdChannels=false;(window as any).__zap.releaseChannels();});
   // A following native command runs after the released promise's microtasks.
   await command(page,'volumeup');
