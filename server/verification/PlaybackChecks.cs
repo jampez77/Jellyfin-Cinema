@@ -1,5 +1,6 @@
 using System.Reflection;
 using Jellyfin.Plugin.TvItemLayout.Api;
+using Jellyfin.Plugin.TvItemLayout.Integration;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Dto;
@@ -29,7 +30,7 @@ public static class PlaybackChecks
                 "Playback context resolves only the authenticated token and device");
             return Task.FromResult(session!);
         });
-        var controller = new PlaybackContextController(authorization, sessions)
+        var controller = new PlaybackContextController(authorization, sessions, new PlaybackQueueStore())
         { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         assert(typeof(PlaybackContextController).GetCustomAttribute<AuthorizeAttribute>() is not null,
             "Playback context endpoint requires authentication");

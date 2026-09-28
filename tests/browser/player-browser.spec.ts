@@ -77,7 +77,10 @@ async function player(page: Page, id = 'browse-episode-2', rating = true) {
     await video.play(); button.focus(); osd.dispatchEvent(new CustomEvent('viewshow', { bubbles: true }));
   }, { id, rating });
   await expect.poll(() => page.evaluate(() => (window as any).__browserContextReads)).toBeGreaterThan(0);
-  const desktop = await page.locator('body').evaluate(body => body.classList.contains('layout-desktop'));
+  const desktop = await page.evaluate(() => {
+    const roots = [document.documentElement, document.body];
+    return roots.some(root => root.classList.contains('layout-desktop')) && !roots.some(root => root.classList.contains('layout-tv'));
+  });
   if (desktop) await expect(page.locator('#tvl-player-browse')).toBeVisible();
   else await expect(page.locator('#tvl-player-browse')).toHaveCount(0);
 }
@@ -319,6 +322,33 @@ test('TV layout has no browse icon and retains remote Down entry after switching
   await remote(page, 'down');
   await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
   await remote(page, 'back');
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+});
+
+test('native html layout changes remove the icon immediately while playback metadata is still pending', async ({ page }) => {
+  await fixture(page, `
+    document.body.classList.remove('layout-tv');
+    document.documentElement.classList.add('layout-desktop');
+    api.getPlaybackContext = async () => { window.__browserContextReads++; return new Promise(() => {}); };
+  `);
+  await player(page);
+  const entry = page.locator('#tvl-player-browse');
+  await expect(entry).toBeVisible();
+  // Jellyfin's real layoutManager changes html, and the initial session request
+  // can still be pending. The CSS guard must apply before observers get a turn.
+  const immediateDisplay = await page.evaluate(() => {
+    const current = document.getElementById('tvl-player-browse')!;
+    document.documentElement.classList.replace('layout-desktop', 'layout-tv');
+    return getComputedStyle(current).display;
+  });
+  await expect(entry).toHaveCount(0);
+  expect(immediateDisplay).toBe('none');
+  await remote(page, 'down');
+  await expect(browser(page)).toHaveAttribute('data-item-id', 'browse-episode-2');
+  await remote(page, 'back');
+  await expect(page.getByRole('button', { name: 'Native control', exact: true })).toBeFocused();
+  await page.evaluate(() => document.documentElement.classList.replace('layout-tv', 'layout-desktop'));
+  await expect(entry).toBeVisible();
   await expect(page.locator('video')).toHaveJSProperty('paused', false);
 });
 

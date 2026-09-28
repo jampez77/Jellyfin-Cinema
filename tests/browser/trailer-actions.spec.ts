@@ -179,6 +179,44 @@ test('skip advances Jellyfin’s existing queue by one trailer and preserves fea
   expect(result.queue.map((entry: any) => entry.Id)).toEqual(['trailer-a', 'trailer-b', 'feature']);
 });
 
+test('Skip receives initial focus for each trailer and held Select advances only one entry', async ({ page }) => {
+  await fixture(page); await expect(skip(page)).toBeFocused();
+  await page.keyboard.down('Enter');
+  await expect(actions(page)).toHaveAttribute('data-movie-id','advertised-b');
+  await expect(skip(page)).toBeFocused();
+  await page.keyboard.down('Enter');
+  await page.keyboard.up('Enter');
+  expect(await page.evaluate(() => (window as any).__nativePlays.map((item: any) => item.Id))).toEqual(['trailer-b']);
+  await page.keyboard.press('ArrowLeft'); await expect(add(page)).toBeFocused();
+});
+
+test('initial focus waits for an unobstructed trailer and never returns after polling or another panel', async ({ page }) => {
+  await fixture(page,'window.__deferRead=true;');
+  await expect.poll(() => page.evaluate(() => !!(window as any).__resolveRead)).toBe(true);
+  await page.evaluate(() => {
+    const dialog=document.createElement('dialog'); dialog.id='focus-native-dialog';
+    dialog.innerHTML='<button id="native-option">Audio settings</button>'; document.body.append(dialog); dialog.showModal();
+    dialog.querySelector<HTMLButtonElement>('button')!.focus();
+    (window as any).__deferRead=false; (window as any).__resolveRead();
+  });
+  await expect(actions(page)).toBeHidden(); await expect(page.locator('#native-option')).toBeFocused();
+  await page.evaluate(() => document.querySelector('#focus-native-dialog')!.remove());
+  await expect(skip(page)).toBeFocused();
+  await page.keyboard.press('ArrowLeft'); await expect(add(page)).toBeFocused();
+  const reads = await page.evaluate(() => (window as any).__trailerReads.length);
+  await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause());
+  await expect(actions(page)).toHaveClass(/tvl-trailer-paused/); await expect(add(page)).toBeFocused();
+  await expect.poll(() => page.evaluate(() => (window as any).__trailerReads.length), {timeout:8000}).toBeGreaterThan(reads);
+  await expect(add(page)).toBeFocused();
+  await page.evaluate(() => {
+    document.body.setAttribute('data-tvl-player-browser-open','');
+    document.querySelector<HTMLButtonElement>('.btnPause')!.focus();
+  });
+  await expect(actions(page)).toBeHidden(); await expect(page.locator('.btnPause')).toBeFocused();
+  await page.evaluate(() => document.body.removeAttribute('data-tvl-player-browser-open'));
+  await expect(actions(page)).toBeVisible(); await expect(page.locator('.btnPause')).toBeFocused();
+});
+
 test('watchlist saves the advertised movie once, without changing the playing trailer', async ({ page }) => {
   await fixture(page); await expect(add(page)).toBeEnabled();
   await add(page).click();
@@ -224,6 +262,74 @@ test('trailer controls stay usable over the pause screen and Skip starts the nex
   await expect(page.locator('video')).toHaveJSProperty('paused', false);
   await expect(pauseScreen).toBeHidden();
   expect(await page.evaluate(() => (window as any).__nativeToggles)).toBe(0);
+});
+
+for (const viewport of [{width:1440,height:900},{width:1920,height:1080},{width:1280,height:600}]) {
+  for (const elegant of [false, true]) test(`paused trailer actions sit below long synopsis and above native controls at ${viewport.width}×${viewport.height}${elegant ? ' with ElegantFin' : ''}`, async ({ page }) => {
+    const elegantPath = process.env.TVL_ELEGANTFIN_CSS || '/tmp/cinema-elegantfin-theme.css';
+    test.skip(elegant && !existsSync(elegantPath), 'Set TVL_ELEGANTFIN_CSS to the audited ElegantFin stylesheet.');
+    await page.setViewportSize(viewport);
+    await fixture(page, `Object.assign(window.__trailerItems.get('trailer-a'), {
+      Overview:'A cartographer follows a vanished coastline, discovering unfamiliar towns and the stories of the people who live there. '.repeat(15),
+      ProductionYear:2026, OfficialRating:'12', RunTimeTicks:900000000,
+      Taglines:['Every tide leaves a trace.']
+    });`);
+    if (elegant) await page.addStyleTag({content:readFileSync(elegantPath,'utf8')});
+    await expect(actions(page)).toBeVisible();
+    await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause());
+    await expect(page.locator('#tvl-pause-screen')).toBeVisible();
+    await expect(actions(page)).toHaveClass(/tvl-trailer-paused/);
+    const geometry = () => page.evaluate(() => {
+      const rect = (selector: string) => {
+        const r = document.querySelector(selector)!.getBoundingClientRect();
+        return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};
+      };
+      return {copy:rect('.tvl-pause-copy'),buttons:rect('.tvl-trailer-buttons'),native:rect('.osdControls'),status:rect('.tvl-trailer-status')};
+    });
+    const assertGap = async (withStatus = false) => {
+      const bounds = await geometry();
+      expect(bounds.buttons.left).toBeCloseTo(bounds.copy.left, 0);
+      expect(bounds.buttons.top).toBeGreaterThanOrEqual(bounds.copy.bottom + 12);
+      expect(bounds.buttons.bottom).toBeLessThanOrEqual(bounds.native.top - 12);
+      expect(bounds.buttons.right).toBeLessThan(viewport.width - 20);
+      if (withStatus) expect(bounds.status.bottom).toBeLessThanOrEqual(bounds.native.top - 8);
+      return bounds;
+    };
+    const before = await assertGap();
+    await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.add('videoOsdBottom-hidden'));
+    await expect(actions(page)).not.toHaveClass(/tvl-trailer-native-visible/);
+    await expect(actions(page)).toHaveClass(/tvl-trailer-paused/);
+    const faded = await assertGap();
+    expect(faded.buttons.top).toBeCloseTo(before.buttons.top, 0);
+    await add(page).click();
+    const saved = actions(page).getByRole('button',{name:'In watchlist',exact:true});
+    await expect(saved).toBeDisabled(); await expect(saved).toBeFocused();
+    await expect(saved).toHaveCSS('background-color','rgb(245, 245, 242)');
+    await expect(saved.locator('span')).toHaveCSS('color','rgb(16, 17, 18)');
+    await expect(skip(page).locator('span')).toHaveCSS('color','rgb(245, 245, 242)');
+    await assertGap(true);
+    await page.screenshot({path:test.info().outputPath('paused-trailer-actions-left.png')});
+    await skip(page).click();
+    await expect(actions(page)).toHaveAttribute('data-movie-id','advertised-b');
+    await page.waitForTimeout(400);
+    await expect(page.locator('video')).toHaveJSProperty('paused',false);
+    expect(await page.evaluate(() => (window as any).__nativeToggles)).toBe(0);
+  });
+}
+
+test('watchlist feedback stays within a short screen when playing controls are faded', async ({ page }) => {
+  await page.setViewportSize({width:1280,height:600});
+  await fixture(page); await expect(skip(page)).toBeFocused();
+  await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.add('videoOsdBottom-hidden'));
+  await expect(actions(page)).not.toHaveClass(/tvl-trailer-native-visible/);
+  await add(page).click();
+  const status = actions(page).getByRole('status');
+  await expect(status).toContainText('Advertised A added');
+  const box = await status.boundingBox();
+  expect(box!.y).toBeGreaterThanOrEqual(0); expect(box!.y + box!.height).toBeLessThanOrEqual(600);
+  await expect(actions(page).getByRole('button',{name:'In watchlist',exact:true})).toBeFocused();
+  await page.waitForTimeout(400);
+  await expect(page.locator('video')).toHaveJSProperty('paused',false);
 });
 
 test('unmapped trailer remains skippable without saving an unrelated movie', async ({ page }) => {
@@ -298,10 +404,10 @@ test('persistent actions remain while paused and yield to native dialogs, player
   await expect(actions(page)).toHaveCount(0);
 });
 
-test('keyboard and remote selection are scoped to focused controls and never steal focus', async ({ page }) => {
+test('keyboard and remote selection start at Skip and preserve subsequent navigation', async ({ page }) => {
   await fixture(page); await expect(actions(page)).toBeVisible();
-  await expect(page.locator('.btnUserRating')).toBeFocused();
-  await add(page).focus(); await page.keyboard.press('ArrowRight'); await expect(skip(page)).toBeFocused();
+  await expect(skip(page)).toBeFocused();
+  await page.keyboard.press('ArrowLeft'); await expect(add(page)).toBeFocused(); await page.keyboard.press('ArrowRight'); await expect(skip(page)).toBeFocused();
   await page.keyboard.press('ArrowLeft'); await expect(add(page)).toBeFocused();
   await page.evaluate(() => document.activeElement!.dispatchEvent(new CustomEvent('command',{bubbles:true,cancelable:true,detail:{command:'select'}})));
   await expect(actions(page).getByRole('button',{name:'In watchlist',exact:true})).toBeDisabled();

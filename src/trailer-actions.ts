@@ -25,6 +25,7 @@ export class TrailerActions {
   private readRevision = 0;
   private saving = false;
   private skipping = false;
+  private initialFocus = false;
   private destroyed = false;
   private held = new Set<string>();
   private frame: number | undefined;
@@ -103,7 +104,7 @@ export class TrailerActions {
 
   private reset(): void {
     this.revision++; this.readRevision++; this.binding = null; this.model = null; this.pendingRead = false;
-    this.lastRead = 0; this.saving = false; this.skipping = false; this.status.textContent = '';
+    this.lastRead = 0; this.saving = false; this.skipping = false; this.initialFocus = false; this.status.textContent = '';
     this.held.clear(); this.element.hidden = true; this.element.remove();
   }
 
@@ -121,9 +122,15 @@ export class TrailerActions {
     const binding = this.binding;
     if (this.element.parentElement !== playback.osd) playback.osd.append(this.element);
     const nativeBottom = playback.osd.querySelector<HTMLElement>('.videoOsdBottom');
+    this.element.classList.toggle('tvl-trailer-paused', playback.video.paused);
     this.element.classList.toggle('tvl-trailer-native-visible', !!nativeBottom && !nativeBottom.classList.contains('videoOsdBottom-hidden') && visible(nativeBottom));
     this.element.hidden = !this.model || this.blocked(playback);
     this.render();
+    // Make Select immediately useful when each trailer's controls first appear.
+    // Polls, pause changes and returning from another panel must keep user focus.
+    if (!this.element.hidden && !this.initialFocus) {
+      this.skip.focus({ preventScroll: true }); this.initialFocus = true;
+    }
     if (!this.pendingRead && !this.saving && !this.skipping && !this.blocked(playback) && Date.now() - this.lastRead > 5000) {
       this.pendingRead = true; this.lastRead = Date.now();
       const readRevision = ++this.readRevision;

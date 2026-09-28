@@ -22,6 +22,7 @@ using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Playlists;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Jellyfin.Plugin.TvItemLayout.Integration;
 
 namespace Jellyfin.Plugin.TvItemLayout.Api;
 
@@ -37,7 +38,7 @@ public sealed class TrailerActionsController(
     IDeviceManager deviceManager,
     INetworkManager networkManager,
     ILibraryManager libraryManager,
-    IPlaylistManager playlistManager) : ControllerBase
+    IPlaylistManager playlistManager, PlaybackQueueStore playbackQueues) : ControllerBase
 {
     // Serialize this user's first creation and later adds across devices/requests.
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> UserLocks = new();
@@ -68,7 +69,7 @@ public sealed class TrailerActionsController(
                 && !string.Equals(session.PlaylistItemId, expected.PlaylistItemId, StringComparison.Ordinal))) return false;
         var current = libraryManager.GetItemById(expected.PlayingItemId);
         if (current is null || !Trailer(current)) return false;
-        var queue = session.NowPlayingQueue.ToArray();
+        var queue = playbackQueues.GetQueue(session).ToArray();
         var positions = queue.Select((entry, index) => (entry, index)).Where(pair => pair.entry.Id == current.Id
             && (string.IsNullOrEmpty(session.PlaylistItemId) || pair.entry.PlaylistItemId == session.PlaylistItemId)).ToArray();
         if (positions.Length != 1) return false;
