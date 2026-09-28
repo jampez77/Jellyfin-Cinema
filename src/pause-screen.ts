@@ -70,6 +70,15 @@ export function startPauseScreen(options: Options): () => void {
     }
     if (!host.classList.contains('tvl-pause-host')) host.classList.add('tvl-pause-host');
     overlay.hidden = false;
+    const synopsis = overlay.querySelector<HTMLElement>('.tvl-pause-synopsis');
+    if (synopsis) {
+      // Trailer controls reserve the lower portion of the screen. Only fade
+      // text that was actually clipped; short descriptions remain fully clear.
+      const clipped = host.classList.contains('tvl-trailer-overlay') && synopsis.scrollHeight > synopsis.clientHeight + 1;
+      if (synopsis.classList.contains('tvl-pause-synopsis-clipped') !== clipped) {
+        synopsis.classList.toggle('tvl-pause-synopsis-clipped', clipped);
+      }
+    }
   }
 
   function artwork(urls: string[], className: string, label: string, onReady?: () => void, onMissing?: () => void): HTMLImageElement | null {
@@ -201,6 +210,7 @@ export function startPauseScreen(options: Options): () => void {
   const unsubscribe = options.subscribe?.(schedule);
   window.addEventListener('hashchange', schedule);
   window.addEventListener('popstate', schedule);
+  window.addEventListener('resize', schedule);
   document.addEventListener('viewbeforehide', schedule, true);
   const interval = window.setInterval(schedule, 1000);
   schedule();
@@ -210,6 +220,7 @@ export function startPauseScreen(options: Options): () => void {
     clearInterval(interval); observer.disconnect(); unsubscribe?.();
     for (const event of mediaEvents) document.removeEventListener(event, onMedia, true);
     window.removeEventListener('hashchange', schedule); window.removeEventListener('popstate', schedule);
+    window.removeEventListener('resize', schedule);
     document.removeEventListener('viewbeforehide', schedule, true);
     hide(); overlay.remove();
   };

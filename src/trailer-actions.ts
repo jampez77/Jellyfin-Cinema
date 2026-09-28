@@ -26,6 +26,8 @@ export class TrailerActions {
   private saving = false;
   private skipping = false;
   private initialFocus = false;
+  private controlsHost: HTMLElement | null = null;
+  private controlsBottom = 0;
   private destroyed = false;
   private held = new Set<string>();
   private frame: number | undefined;
@@ -52,6 +54,7 @@ export class TrailerActions {
       attributeFilter: ['class', 'hidden', 'style', 'aria-hidden', 'open', 'disabled', 'data-tvl-player-browser-open'] });
     for (const name of ['playing', 'pause', 'ended', 'emptied', 'error']) document.addEventListener(name, this.schedule, true);
     window.addEventListener('hashchange', this.schedule); window.addEventListener('popstate', this.schedule);
+    window.addEventListener('resize', this.schedule);
     document.addEventListener('fullscreenchange', this.schedule);
     window.addEventListener('keydown', this.keyDown, true); window.addEventListener('keyup', this.keyUp, true);
     window.addEventListener('command', this.command, true); window.addEventListener('blur', this.blur);
@@ -103,9 +106,41 @@ export class TrailerActions {
   };
 
   private reset(): void {
+    if (this.binding) this.clearLayout(this.binding.playback.osd);
     this.revision++; this.readRevision++; this.binding = null; this.model = null; this.pendingRead = false;
     this.lastRead = 0; this.saving = false; this.skipping = false; this.initialFocus = false; this.status.textContent = '';
     this.held.clear(); this.element.hidden = true; this.element.remove();
+  }
+
+  private clearLayout(host: HTMLElement): void {
+    if (host.classList.contains('tvl-trailer-overlay')) host.classList.remove('tvl-trailer-overlay');
+    if (host.style.getPropertyValue('--tvl-trailer-reserved')) host.style.removeProperty('--tvl-trailer-reserved');
+  }
+
+  private position(playback: ActivePlayback): void {
+    const host = playback.osd;
+    if (this.controlsHost !== host) {
+      this.controlsHost = host; this.controlsBottom = 0;
+      this.element.style.removeProperty('--tvl-trailer-bottom');
+    }
+    // The bottom bar includes a large decorative gradient. Anchor to its
+    // controls instead, retaining the last position when Jellyfin hides them.
+    const native = host.querySelector<HTMLElement>('.videoOsdBottom .osdControls')?.getBoundingClientRect();
+    if (native && native.height > 0 && native.width > 0 && native.top > 0 && native.bottom <= innerHeight + 1) {
+      this.controlsBottom = Math.round(innerHeight - native.top + 16);
+    }
+    const bottom = `${this.controlsBottom}px`;
+    if (this.controlsBottom && this.element.style.getPropertyValue('--tvl-trailer-bottom') !== bottom) {
+      this.element.style.setProperty('--tvl-trailer-bottom', bottom);
+    }
+    if (this.element.hidden) { this.clearLayout(host); return; }
+    const top = Math.min(this.controls.getBoundingClientRect().top,
+      this.status.textContent ? this.status.getBoundingClientRect().top : innerHeight);
+    const reserved = `${Math.ceil(innerHeight - top + 16)}px`;
+    if (host.style.getPropertyValue('--tvl-trailer-reserved') !== reserved) {
+      host.style.setProperty('--tvl-trailer-reserved', reserved);
+    }
+    if (!host.classList.contains('tvl-trailer-overlay')) host.classList.add('tvl-trailer-overlay');
   }
 
   private sync = (): void => {
@@ -126,6 +161,7 @@ export class TrailerActions {
     this.element.classList.toggle('tvl-trailer-native-visible', !!nativeBottom && !nativeBottom.classList.contains('videoOsdBottom-hidden') && visible(nativeBottom));
     this.element.hidden = !this.model || this.blocked(playback);
     this.render();
+    this.position(playback);
     // Make Select immediately useful when each trailer's controls first appear.
     // Polls, pause changes and returning from another panel must keep user focus.
     if (!this.element.hidden && !this.initialFocus) {
@@ -174,7 +210,7 @@ export class TrailerActions {
     } catch (error) {
       if (this.current(binding)) this.status.textContent = error instanceof Error ? error.message : 'Unable to add this movie. Try again.';
     } finally {
-      if (this.current(binding)) { this.saving = false; this.render(); }
+      if (this.current(binding)) { this.saving = false; this.render(); this.schedule(); }
     }
   }
 
@@ -202,7 +238,7 @@ export class TrailerActions {
     } catch (error) {
       if (this.current(binding)) this.status.textContent = error instanceof Error ? error.message : 'Unable to skip this trailer. Try again.';
     } finally {
-      if (this.current(binding)) { this.skipping = false; this.render(); }
+      if (this.current(binding)) { this.skipping = false; this.render(); this.schedule(); }
     }
   }
 
@@ -247,6 +283,7 @@ export class TrailerActions {
     if (this.frame !== undefined) cancelAnimationFrame(this.frame);
     for (const name of ['playing', 'pause', 'ended', 'emptied', 'error']) document.removeEventListener(name, this.schedule, true);
     window.removeEventListener('hashchange', this.schedule); window.removeEventListener('popstate', this.schedule);
+    window.removeEventListener('resize', this.schedule);
     document.removeEventListener('fullscreenchange', this.schedule);
     window.removeEventListener('keydown', this.keyDown, true); window.removeEventListener('keyup', this.keyUp, true);
     window.removeEventListener('command', this.command, true); window.removeEventListener('blur', this.blur);
