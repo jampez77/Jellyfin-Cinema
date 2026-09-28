@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.33.3",
+        "changelog": "Includes titles from recognised Disney studios on Disney+ pages and their Watchlist rows regardless of current UK streaming availability, using existing Jellyfin studio metadata. Covers new releases and remakes such as live-action Moana while preserving existing streaming matches, saved settings, access restrictions and empty-row hiding. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.33/TvItemLayout_0.2.33.3_jellyfin-12.0.0.zip",
+        "checksum": "89f0aaf208c73f0eef3e216f1214de45",
+        "timestamp": "2026-09-28T15:47:25Z"
+      },
+      {
+        "version": "0.2.33.2",
+        "changelog": "Includes titles from recognised Disney studios on Disney+ pages and their Watchlist rows regardless of current UK streaming availability, using existing Jellyfin studio metadata. Covers new releases and remakes such as live-action Moana while preserving existing streaming matches, saved settings, access restrictions and empty-row hiding. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.33/TvItemLayout_0.2.33.2_jellyfin-10.11.0.zip",
+        "checksum": "a00e81d58de7914d240d720dda1a54a2",
+        "timestamp": "2026-09-28T15:47:25Z"
+      },
+      {
+        "version": "0.2.33.1",
+        "changelog": "Includes titles from recognised Disney studios on Disney+ pages and their Watchlist rows regardless of current UK streaming availability, using existing Jellyfin studio metadata. Covers new releases and remakes such as live-action Moana while preserving existing streaming matches, saved settings, access restrictions and empty-row hiding. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.33/TvItemLayout_0.2.33.1_jellyfin-10.10.7.zip",
+        "checksum": "ab03136d0ec9e3c5a36480ea5e186a1d",
+        "timestamp": "2026-09-28T15:47:25Z"
+      },
+      {
         "version": "0.2.32.3",
         "changelog": "Hides empty Watchlist rows on Home and streaming-service pages and removes the service-page missing-metadata notice. Paused trailers now resolve their verified advertised film even when Jellyfin reports only the trailer in its queue, without changing cinema Skip or Save eligibility. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

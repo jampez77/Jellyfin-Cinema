@@ -260,7 +260,7 @@ export class ProviderSettingsEditor {
     const tilePreview = el('aside', 'tvl-provider-appearance-preview'); tilePreview.setAttribute('aria-label', 'Service tile preview');
     appearance.append(fields, tilePreview); this.workspace.append(appearance); this.updateAppearance(provider);
     const advanced = el('details', 'tvl-provider-advanced'), summary = el('summary', '', 'Automatic catalogue matching'); summary.tabIndex = 0;
-    advanced.append(summary, el('p', 'tvl-provider-help', 'Choose the UK streaming services whose films and TV shows belong on this page. Collection rows work independently of these choices.'));
+    advanced.append(summary, el('p', 'tvl-provider-help', 'Choose the services whose films and TV shows belong on this page. Disney+ also includes Disney studio titles before or between streaming releases. Collection rows work independently of these choices.'));
     const sourceChoices = el('div', 'tvl-provider-service-sources'); advanced.append(sourceChoices);
     this.renderServiceSources(provider, sourceChoices);
     const offers = el('fieldset', 'tvl-provider-offers'); offers.append(el('legend', '', 'UK catalogue availability'));
@@ -538,8 +538,8 @@ export class ProviderSettingsEditor {
         this.changed(); this.render('add-row');
       }, '', 'tvl-provider-remove'));
     fields.append(el('p', 'tvl-provider-help', row.source.startsWith('trending') ? 'Choose the chart collection for this row. It stays linked if the collection is renamed, and Source order preserves its chart ranking.'
-      : row.source === 'watchlist' ? 'Films and TV shows saved to your Watchlist appear together when they are available with this service in the UK.'
-      : row.source === 'collection' ? 'Only titles visible to this Jellyfin account can appear.' : 'Automatic shows titles in your Jellyfin library available with this service in the UK. A collection override uses your chosen collection instead.'));
+      : row.source === 'watchlist' ? 'Films and TV shows saved to your Watchlist appear together when they match this service’s catalogue.'
+      : row.source === 'collection' ? 'Only titles visible to this Jellyfin account can appear.' : 'Automatic shows matching titles in your Jellyfin library. Disney+ includes Disney studio titles alongside UK streaming matches. A collection override uses your chosen collection instead.'));
     editor.append(fields, preview); this.workspace.append(editor); refresh();
   }
   private async renderRowPreview(provider: ProviderHomeConfig, row: ProviderRow, preview: HTMLElement): Promise<void> {

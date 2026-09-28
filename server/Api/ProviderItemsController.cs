@@ -127,10 +127,12 @@ public sealed class ProviderItemsController(
             catch (WatchlistException error) { return UnprocessableEntity(error.Message); }
             permitted = permitted.Where(item => saved.Contains(item.Id));
         }
-        var identified = permitted.Select(item => (Item: item, Key: LookupKey(item,
+        var identified = permitted.Select(item => (Item: item, Affiliated: ProviderStudioAffiliation.Includes(item, configured), Key: LookupKey(item,
             type == "Mixed" ? item is MediaBrowser.Controller.Entities.TV.Series ? "Series" : "Movie" : type))).ToArray();
-        var snapshot = await availability.ReadAsync(identified.Where(item => item.Key is not null).Select(item => item.Key!), cancellationToken);
-        var matching = identified.Where(item => item.Key is not null && snapshot.Memberships.TryGetValue(item.Key, out var providers)
+        // A known studio affiliation needs no availability lookup or matching metadata.
+        // Other titles still use regional offers, including licensed Disney+ content.
+        var snapshot = await availability.ReadAsync(identified.Where(item => !item.Affiliated && item.Key is not null).Select(item => item.Key!), cancellationToken);
+        var matching = identified.Where(item => item.Affiliated || item.Key is not null && snapshot.Memberships.TryGetValue(item.Key, out var providers)
             && providers.Includes(item.Item is MediaBrowser.Controller.Entities.TV.Series ? configured.ShowProviderIds : configured.MovieProviderIds, configured.OfferTypes)).Select(item => item.Item);
         IOrderedEnumerable<BaseItem> ordered = sort switch
         {
@@ -146,8 +148,8 @@ public sealed class ProviderItemsController(
             Fields = [ItemFields.Overview, ItemFields.Genres, ItemFields.DateCreated, ItemFields.PrimaryImageAspectRatio, ItemFields.ProviderIds]
         };
         var items = sorted.Skip(startIndex).Take(limit).Select(item => dtoService.GetBaseItemDto(item, options, user)).ToArray();
-        var missingIds = identified.Count(item => item.Key is null);
-        var status = snapshot.Total == 0 && missingIds > 0 ? "unavailable" : snapshot.Status;
+        var missingIds = identified.Count(item => !item.Affiliated && item.Key is null);
+        var status = sorted.Length == 0 && snapshot.Total == 0 && missingIds > 0 ? "unavailable" : snapshot.Status;
         return Ok(new ProviderItemsResponse(items, sorted.Length, snapshot.Pending, snapshot.Total, snapshot.UpdatedAt,
             status, TmdbProviderSource.Region, missingIds, snapshot.FailedIds));
     }

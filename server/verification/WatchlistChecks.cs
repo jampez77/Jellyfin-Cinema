@@ -239,6 +239,17 @@ public static class WatchlistChecks
             assert(await settings.PutProviderHomes(new(null, savedSettings)) is OkObjectResult
                 && ((ProviderItemsResponse)((OkObjectResult)await provider.GetProviderItems("custom-mixed", type: "Mixed", watchlist: true)).Value!).TotalRecordCount == 2,
                 "Saved provider Watchlist rows use the same mixed intersection as unsaved previews");
+            alpha.Studios = ["Walt Disney Pictures"]; show.Studios = ["Marvel Television"];
+            beta.Studios = ["Pixar Animation Studios"]; hidden.Studios = ["Walt Disney Animation Studios"];
+            var disneyDraft = JsonSerializer.SerializeToElement(new { id = "custom-disney", name = "Disney collection", logoUrl = "", accent = "#123456",
+                movieProviderIds = new[] { 337 }, showProviderIds = new[] { 337 }, offerTypes = new[] { "flatrate" }, enabled = true, hero = true, rows = Array.Empty<object>() });
+            var disneyWatchlist = (ProviderItemsResponse)((OkObjectResult)await provider.PreviewProviderItems(disneyDraft, mediaType: "Mixed", watchlist: true)).Value!;
+            assert(disneyWatchlist.Items.Select(item => item.Id).ToHashSet().SetEquals([alpha.Id, show.Id]) && lookedUp.Length == 0,
+                "Disney Watchlist studio matches include saved movies and shows without current offers, excluding unsaved and forbidden Disney items before matching");
+            var beforeVisibility = permitted; permitted = permitted.Where(item => item.Id != alpha.Id).ToArray();
+            assert(((ProviderItemsResponse)((OkObjectResult)await provider.PreviewProviderItems(disneyDraft, mediaType: "Mixed", watchlist: true)).Value!).Items.Single().Id == show.Id,
+                "Removing library access excludes a saved Disney movie from the service Watchlist immediately");
+            permitted = beforeVisibility;
             var homeSettings = JsonSerializer.SerializeToElement(new { version = 1, rows = new[] { new { id = "watch", kind = "watchlist", title = "My Watchlist",
                 collectionIds = Array.Empty<string>(), ranked = false, placement = "start", itemSort = "collection", itemOrder = Array.Empty<string>() } } });
             var homes = new HomeCollectionsController(authorization, sessions, users, devices, network, paths) { ControllerContext = controller.ControllerContext };
