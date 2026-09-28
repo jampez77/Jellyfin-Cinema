@@ -48,7 +48,7 @@ test('catalogue queries isolate provider, media type, sort and page, while retai
       assert.deepEqual(ids(result), [`${provider.id}-${source === 'movies' ? 'Movie' : 'Series'}`]);
       assert.equal(result.total, 82); assert.equal(result.totalToCheck, 430); assert.equal(result.pending, 40);
       assert.equal(result.missingIds, 3); assert.equal(result.failedIds, 2); assert.equal(result.status, 'refreshing');
-      assert.equal(result.updatedAt, '2026-09-27T18:00:00Z'); assert.equal(result.sourceLabel, 'UK streaming availability · JustWatch');
+      assert.equal(result.updatedAt, '2026-09-27T18:00:00Z'); assert.equal(result.sourceLabel, provider.id === 'disney' ? 'Disney studios · UK streaming availability' : 'UK streaming availability · JustWatch');
     }
   }
   assert.deepEqual(calls[0], { provider: 'netflix', query: { type: 'Movie', sort: 'newest', startIndex: 60, limit: 20 } });

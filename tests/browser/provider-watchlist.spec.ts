@@ -66,7 +66,7 @@ test('changing a collection row to Watchlist clears its collection and offers se
   await expect(editor(page).getByRole('combobox', { name: 'Content', exact: true })).toHaveValue('collection');
   await editor(page).getByRole('combobox', { name: 'Content', exact: true }).selectOption('watchlist');
   await expect(editor(page).getByRole('combobox', { name: 'Collection', exact: true })).toHaveCount(0);
-  await expect(editor(page)).toContainText('Films and TV shows saved to your Watchlist appear together when they are available with this service in the UK.');
+  await expect(editor(page)).toContainText('Films and TV shows saved to your Watchlist appear together when they match this service’s catalogue.');
   await editor(page).getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(editor(page).getByRole('status')).toContainText('Saved');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem(`jellyfin-cinema.provider-homes.v1:${encodeURIComponent(location.origin)}:demo`)!));

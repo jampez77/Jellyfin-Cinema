@@ -40,8 +40,8 @@ function playableItems(items: Item[], type?: 'Movie' | 'Series'): Item[] {
   });
 }
 
-/** A provider's catalogue is server-matched streaming availability. Chart
- * collections are separate ranked subsets, never a fallback for that catalogue. */
+/** Catalogue membership combines server-matched availability with supported
+ * studio affiliations. Chart collections remain separate, explicitly chosen subsets. */
 export class ProviderData {
   private disposed = false;
   private generation = 0;
@@ -87,7 +87,9 @@ export class ProviderData {
     const collectionId = row.collectionId.trim();
     const watchlist = row.source === 'watchlist';
     if (watchlist || !collectionId && (row.source === 'movies' || row.source === 'shows')) {
-      const sourceLabel = 'UK streaming availability · JustWatch';
+      const includesDisney = (watchlist ? [...config.movieProviderIds, ...config.showProviderIds]
+        : type === 'Movie' ? config.movieProviderIds : config.showProviderIds).includes(337);
+      const sourceLabel = includesDisney ? 'Disney studios · UK streaming availability' : 'UK streaming availability · JustWatch';
       const sourceUrl = 'https://www.justwatch.com/uk';
       if (preview ? !this.api.previewProviderItems : !this.api.getProviderItems) return { items: [], total: 0, pending: 0, totalToCheck: 0, status: 'unavailable', sourceLabel, sourceUrl };
       const query: ProviderItemsQuery = { type: watchlist ? 'Mixed' : type!, ...(watchlist ? { watchlist: true } : {}), startIndex: start, limit: size, sort: row.itemSort === 'collection' ? 'title' : row.itemSort };

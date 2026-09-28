@@ -60,6 +60,7 @@ public static class ProviderChecks
         await CacheChecks(assert);
         await LegacyCacheChecks(assert);
         await ControllerChecks(assert);
+        await ProviderStudioAffiliationChecks.Run(assert);
     }
 
     private static async Task SourceChecks(Action<bool, string> assert)
