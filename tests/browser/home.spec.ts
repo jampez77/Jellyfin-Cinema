@@ -31,7 +31,7 @@ test('Home respects native section order, hidden libraries and exclusions from L
   await expect(home(page).getByRole('region',{name:'Latest in Music',exact:true})).toBeVisible();
 });
 
-test('Home titles and subtitles share the native page in both footer layouts, including focus',async({page})=>{
+test('Home titles and subtitles share the charcoal page in both native footer layouts, including focus',async({page})=>{
   await page.goto('/?featured=0#/home');
   // Model Jellyfin's visual-card surface and both native footer variants; the
   // demo's ordinary cards put text directly inside cardBox.
@@ -49,11 +49,11 @@ test('Home titles and subtitles share the native page in both footer layouts, in
     while(current){const background=getComputedStyle(current).backgroundColor;if(background!=='rgba(0, 0, 0, 0)')return background;current=current.parentElement;}
     return '';
   }));
-  await expect.poll(titleSurfaces).toEqual(['rgb(8, 9, 11)','rgb(8, 9, 11)','rgb(8, 9, 11)','rgb(8, 9, 11)']);
+  await expect.poll(titleSurfaces).toEqual(['rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)']);
   await row.locator('.card').nth(1).focus();
   await expect(row.locator('.cardBox').nth(1)).toHaveCSS('outline-style','none');
   await expect(row.locator('.cardScalable').nth(1)).toHaveCSS('outline-style','solid');
-  await expect.poll(titleSurfaces).toEqual(['rgb(8, 9, 11)','rgb(8, 9, 11)','rgb(8, 9, 11)','rgb(8, 9, 11)']);
+  await expect.poll(titleSurfaces).toEqual(['rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)','rgb(16, 17, 18)']);
   await expect(row.locator('.innerCardFooter')).toHaveCSS('background-color','rgba(0, 0, 0, 0.7)');
   await expect(row.locator('.cardText-secondary').first()).toHaveCSS('color','rgb(185, 196, 189)');
   await page.evaluate(()=>{const outside=document.createElement('div');outside.id='outside-home-footer';outside.className='cardFooter';document.body.append(outside);});

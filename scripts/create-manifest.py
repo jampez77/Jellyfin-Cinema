@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds Skip trailer and Add to watchlist controls during Cinema Mode trailers. Skip advances one existing queue entry; Add saves the advertised library film to the signed-in user's private Watchlist video playlist, available under Playlists, without duplicates. Supports keyboard and TV focus navigation. Restores the original Home backdrop. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation; trailer controls use Cinema Mode's local movie trailers.",
+        'changelog': "Fixes Cinema Mode trailer controls on first playback and keeps them available over the pause screen. Skip no longer pauses the next video; Add to watchlist no longer toggles playback. Removes the Browse icon in TV layout while retaining remote Down navigation. Restores Home's previous background and leaves the native or installed theme login backdrop visible. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

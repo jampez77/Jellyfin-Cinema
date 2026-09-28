@@ -11,7 +11,7 @@ const add = (page: Page) => actions(page).getByRole('button', { name: 'Add to wa
 
 test.beforeEach(() => test.skip(!existsSync(templatePath), 'Set TVL_JELLYFIN_WEB_SOURCE to audited Jellyfin 12 source.'));
 
-async function fixture(page: Page, extra = '') {
+async function fixture(page: Page, extra = '', pointerEvents = true) {
   await page.route('**/dist/demo.js', async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}\n(() => {
@@ -24,7 +24,7 @@ async function fixture(page: Page, extra = '') {
         {Id:'feature',Type:'Movie',Name:'The selected feature'}
       ];
       window.__trailerItems=new Map(items.map(item=>[item.Id,item]));
-      window.__trailerAdds=[]; window.__trailerReads=[]; window.__savedMovies=[]; window.__nativePlays=[];
+      window.__trailerAdds=[]; window.__trailerReads=[]; window.__savedMovies=[]; window.__nativePlays=[]; window.__nativeToggles=0;
       api.serverId='trailer-server'; api.userId='trailer-user';
       api.getItem=async id=>window.__trailerItems.get(id)||original(id);
       api.getPlaybackContext=async()=>window.__playbackContext||null;
@@ -93,6 +93,11 @@ async function fixture(page: Page, extra = '') {
   const nextMethod = manager.slice(manager.indexOf('self.nextTrack = function (player)'), manager.indexOf('self.previousTrack = function (player)'));
   const controller = readFileSync(resolve(upstream, 'src/apps/legacy/controllers/playback/video/index.js'), 'utf8');
   const nextListener = controller.slice(controller.indexOf("view.querySelector('.btnNextTrack').addEventListener('click'"), controller.indexOf("    btnRewind.addEventListener('click'"));
+  // Native background clicks toggle playback after 300ms. Trailer controls live
+  // outside .videoOsdBottom, so exercising the actual handler catches bubbling
+  // that a next-track-only fixture cannot detect.
+  const pointerListener = controller.slice(controller.indexOf('    let lastPointerDown = 0;'), controller.indexOf("    dom.addEventListener(view, 'dblclick'"))
+    .replace('window.PointerEvent', String(pointerEvents));
   const queuePath = resolve(upstream, 'src/components/playback/playqueuemanager.js');
   const native = await build({ stdin: { resolveDir: upstream, contents: `
     import PlayQueueManager from ${JSON.stringify(queuePath)};
@@ -107,6 +112,18 @@ async function fixture(page: Page, extra = '') {
     ${nextMethod}
     const playbackManager=self,currentPlayer=self._currentPlayer,view=document.querySelector('#videoOsdPage');
     ${nextListener}
+    const layoutManager={mobile:false};
+    const dom={parentWithClass:(node,names)=>node.closest(names.map(name=>'.'+name).join(',')),
+      addEventListener:(node,name,listener,options)=>node.addEventListener(name,listener,options)};
+    let playPauseClickTimeout;
+    const showOsd=()=>view.querySelector('.videoOsdBottom').classList.remove('videoOsdBottom-hidden');
+    const toggleOsd=()=>view.querySelector('.videoOsdBottom').classList.toggle('videoOsdBottom-hidden');
+    playbackManager.playPause=()=>{
+      window.__nativeToggles++;
+      const video=document.querySelector('video');
+      if(video.paused)void video.play();else video.pause();
+    };
+    ${pointerListener}
     const items=['trailer-a','trailer-b','feature'].map((id,index)=>({...window.__trailerItems.get(id),PlaylistItemId:'queue-'+index,
       ...(id==='feature'?{playOptions:{mediaSourceId:'chosen-feature-version',audioStreamIndex:2,subtitleStreamIndex:5}}:{})}));
     self._playQueueManager.setPlaylist(items); self._playQueueManager.setPlaylistState(items[0].PlaylistItemId);
@@ -171,6 +188,44 @@ test('watchlist saves the advertised movie once, without changing the playing tr
   expect(await page.evaluate(() => (window as any).__nativePlays)).toEqual([]);
 });
 
+for (const pointerEvents of [true, false]) test(`trailer ${pointerEvents ? 'pointer' : 'legacy click'} actions do not trigger Jellyfin's delayed play/pause handler`, async ({ page }) => {
+  await fixture(page, '', pointerEvents);
+  await expect(actions(page)).toBeVisible();
+  await add(page).click();
+  await expect(actions(page).getByRole('button', {name:'In watchlist',exact:true})).toBeDisabled();
+  // Wait past Jellyfin's double-click interval: a leaked input would pause the
+  // original trailer here, or the next queue entry following Skip below.
+  await page.waitForTimeout(400);
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+  expect(await page.evaluate(() => (window as any).__nativeToggles)).toBe(0);
+  await skip(page).click();
+  await expect(actions(page)).toHaveAttribute('data-movie-id', 'advertised-b');
+  await page.waitForTimeout(400);
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+  expect(await page.evaluate(() => (window as any).__nativeToggles)).toBe(0);
+  expect(await page.evaluate(() => (window as any).__nativePlays.map((entry: any) => entry.Id))).toEqual(['trailer-b']);
+});
+
+test('trailer controls stay usable over the pause screen and Skip starts the next trailer playing', async ({ page }) => {
+  await fixture(page); await expect(actions(page)).toBeVisible();
+  await page.locator('video').evaluate(video => (video as HTMLVideoElement).pause());
+  const pauseScreen = page.getByRole('region', {name:'Paused media details',exact:true});
+  await expect(pauseScreen).toBeVisible();
+  await expect(pauseScreen).toContainText('Advertised A trailer');
+  await expect(actions(page)).toBeVisible();
+  await add(page).click();
+  await expect(actions(page).getByRole('button', {name:'In watchlist',exact:true})).toBeDisabled();
+  await page.waitForTimeout(400);
+  await expect(page.locator('video')).toHaveJSProperty('paused', true);
+  await expect(pauseScreen).toBeVisible();
+  await skip(page).click();
+  await expect(actions(page)).toHaveAttribute('data-movie-id', 'advertised-b');
+  await page.waitForTimeout(400);
+  await expect(page.locator('video')).toHaveJSProperty('paused', false);
+  await expect(pauseScreen).toBeHidden();
+  expect(await page.evaluate(() => (window as any).__nativeToggles)).toBe(0);
+});
+
 test('unmapped trailer remains skippable without saving an unrelated movie', async ({ page }) => {
   await fixture(page, 'window.__unmapped=true;');
   await expect(actions(page)).toBeVisible(); await expect(add(page)).toBeDisabled(); await expect(skip(page)).toBeEnabled();
@@ -225,12 +280,12 @@ test('native skip unavailability and watchlist errors are recoverable', async ({
   await add(page).click(); await expect(actions(page).getByRole('button',{name:'In watchlist',exact:true})).toBeDisabled();
 });
 
-test('persistent actions yield to pause, native dialogs, player browsing and route teardown', async ({ page }) => {
+test('persistent actions remain while paused and yield to native dialogs, player browsing and route teardown', async ({ page }) => {
   await fixture(page); await expect(actions(page)).toBeVisible();
   await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.add('videoOsdBottom-hidden'));
   await expect(actions(page)).toBeVisible();
   await page.evaluate(() => (document.querySelector('video') as HTMLVideoElement).pause());
-  await expect(actions(page)).toBeHidden();
+  await expect(actions(page)).toBeVisible();
   await page.evaluate(() => (document.querySelector('video') as HTMLVideoElement).play());
   await expect(actions(page)).toBeVisible();
   await page.evaluate(() => { const dialog=document.createElement('dialog'); dialog.id='test-native-dialog'; dialog.textContent='Native settings'; document.body.append(dialog); dialog.showModal(); });

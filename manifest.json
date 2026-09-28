@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.28.3",
+        "changelog": "Fixes Cinema Mode trailer controls on first playback and keeps them available over the pause screen. Skip no longer pauses the next video; Add to watchlist no longer toggles playback. Removes the Browse icon in TV layout while retaining remote Down navigation. Restores Home's previous background and leaves the native or installed theme login backdrop visible. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.28/TvItemLayout_0.2.28.3_jellyfin-12.0.0.zip",
+        "checksum": "405554686ea7ca70659f2f10fbce5e67",
+        "timestamp": "2026-09-28T12:27:58Z"
+      },
+      {
+        "version": "0.2.28.2",
+        "changelog": "Fixes Cinema Mode trailer controls on first playback and keeps them available over the pause screen. Skip no longer pauses the next video; Add to watchlist no longer toggles playback. Removes the Browse icon in TV layout while retaining remote Down navigation. Restores Home's previous background and leaves the native or installed theme login backdrop visible. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.28/TvItemLayout_0.2.28.2_jellyfin-10.11.0.zip",
+        "checksum": "40d680030eef054e8286fadd8765f209",
+        "timestamp": "2026-09-28T12:27:58Z"
+      },
+      {
+        "version": "0.2.28.1",
+        "changelog": "Fixes Cinema Mode trailer controls on first playback and keeps them available over the pause screen. Skip no longer pauses the next video; Add to watchlist no longer toggles playback. Removes the Browse icon in TV layout while retaining remote Down navigation. Restores Home's previous background and leaves the native or installed theme login backdrop visible. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.28/TvItemLayout_0.2.28.1_jellyfin-10.10.7.zip",
+        "checksum": "9f6cf7d69940a902f12d448408934b74",
+        "timestamp": "2026-09-28T12:27:58Z"
+      },
+      {
         "version": "0.2.27.3",
         "changelog": "Adds Skip trailer and Add to watchlist controls during Cinema Mode trailers. Skip advances one existing queue entry; Add saves the advertised library film to the signed-in user's private Watchlist video playlist, available under Playlists, without duplicates. Supports keyboard and TV focus navigation. Restores the original Home backdrop. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation; trailer controls use Cinema Mode's local movie trailers.",
         "targetAbi": "12.0.0",
