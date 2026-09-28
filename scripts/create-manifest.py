@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Renamed to ScreenHarbour, an independent cinematic interface for Jellyfin. Updates plugin and interface names, catalogue artwork, documentation and demo to follow Jellyfin's branding guidance. Existing plugin identity, saved collection rows, streaming-service choices and playback data are preserved. Update your catalogue URL to https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/manifest.json, then update without uninstalling. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Adds Skip trailer and Add to watchlist controls during Cinema Mode trailers. Skip advances one existing queue entry; Add saves the advertised library film to the signed-in user's private Watchlist video playlist, available under Playlists, without duplicates. Supports keyboard and TV focus navigation. Restores the original Home backdrop. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation; trailer controls use Cinema Mode's local movie trailers.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

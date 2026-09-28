@@ -70,6 +70,14 @@ Native theme-video integration is covered by browser tests using a local canvas 
 
 In-player browsing and the pause screen are tested with real local canvas video streams in the browser suite. The regular demo playback screen remains a labelled simulation; it does not reproduce Jellyfin’s actual player. Test the integrated player UI on the installed server using Down/Browse or Pause.
 
+## Cinema trailer controls
+
+Open the [local trailer preview](http://127.0.0.1:4173/?scenario=cinema-trailers#/video) to try the production **Add to watchlist** and **Skip trailer** controls. Two fictional trailer entries advertise The Shape of Silence and Higher Ground before the feature, After the Tide. The player displays bundled artwork through a silent local canvas stream; these are labelled artwork simulations, not trailer clips.
+
+**Skip trailer** advances exactly one entry. Each trailer also advances after one minute of playing; Pause stops its timer. The actions disappear when the feature begins. Tab or the arrow keys reach the controls, and Enter selects them. Up from a native control reaches the trailer actions. Back or Escape exits to After the Tide’s details.
+
+**Add to watchlist** saves the advertised film, not After the Tide. **View watchlist** opens the fictional account’s video playlist, also available through [Playlists](http://127.0.0.1:4173/?scenario=cinema-trailers#/playlists). It persists across reloads in this browser under the demo-only `screenharbour-demo:demo:trailer-watchlist` storage key. It does not contact or alter a Jellyfin account. Leaving the player stops its canvas stream and timer. Other preview scenarios retain their existing simulated player.
+
 ## Publishing the demo
 
 Run `npm run build:demo` to create a standalone static site in `dist/demo-site`. The build includes the production layout bundle, fictional fixture, bundled artwork and credits. Relative asset paths support hosting beneath a project path such as `/Jellyfin-ScreenHarbour/`.

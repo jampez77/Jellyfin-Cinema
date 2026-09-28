@@ -26,6 +26,74 @@ function client(overrides: Record<string, unknown> = {}) {
   global('ApiClient', value);
   return createJellyfinApi()!;
 }
+
+test('trailer actions send current playback identity and save the advertised film server-side', async () => {
+  const urls: { path: string; query?: unknown }[] = [];
+  const writes: Record<string, unknown>[] = [];
+  const expected = { PlayingItemId: 'trailer', PlaylistItemId: 'intro-2' };
+  const advertised = { ...expected, Movie: { Id: 'advertised-film', Name: 'The Other Shore' }, InWatchlist: false };
+  const api = client({
+    getUrl: (path: string, query?: unknown) => { urls.push({ path, query }); return path; },
+    getJSON: async () => advertised,
+    ajax: async (request: Record<string, unknown>) => { writes.push(request); return { ...advertised, InWatchlist: true, WatchlistId: 'private-watchlist' }; }
+  });
+  assert.deepEqual(await api.getTrailerActions!(expected), advertised);
+  const saved = await api.addTrailerToWatchlist!({ ...expected, MovieId: 'queued-feature', UserId: 'another-user' } as typeof expected);
+  assert.equal(saved.Movie?.Id, 'advertised-film');
+  assert.equal(saved.InWatchlist, true);
+  assert.deepEqual(urls, [
+    { path: 'TvItemLayout/TrailerActions', query: { playingItemId: 'trailer', playlistItemId: 'intro-2' } },
+    { path: 'TvItemLayout/TrailerActions/Watchlist', query: undefined }
+  ]);
+  assert.deepEqual(writes, [{ type: 'POST', url: 'TvItemLayout/TrailerActions/Watchlist', data: JSON.stringify(expected), contentType: 'application/json', dataType: 'json' }]);
+});
+
+test('trailer results cannot acknowledge another trailer, queue occurrence, or an unconfirmed save', async () => {
+  const expected = { PlayingItemId: 'trailer', PlaylistItemId: 'intro-2' };
+  const valid = { ...expected, Movie: { Id: 'advertised', Name: 'Advertised film' }, InWatchlist: true, WatchlistId: 'private-watchlist' };
+  for (const response of [undefined, {}, { ...valid, PlayingItemId: 'feature' }, { ...valid, PlaylistItemId: 'intro-1' },
+    { ...valid, PlaylistItemId: undefined }, { ...valid, Movie: {} }, { ...valid, Movie: null }, { ...valid, WatchlistId: undefined },
+    { ...valid, InWatchlist: 'true' }]) {
+    const api = client({ getUrl: (path: string) => path, getJSON: async () => response, ajax: async () => response });
+    await assert.rejects(api.getTrailerActions!(expected), /invalid trailer or watchlist/i);
+    await assert.rejects(api.addTrailerToWatchlist!(expected), /invalid trailer or watchlist/i);
+  }
+  const api = client({ getUrl: (path: string) => path, getJSON: async () => null, ajax: async () => ({ ...valid, InWatchlist: false }) });
+  assert.equal(await api.getTrailerActions!(expected), null);
+  await assert.rejects(api.addTrailerToWatchlist!(expected), /invalid trailer or watchlist/i);
+});
+
+test('unmapped trailers remain skippable without inventing a watchlist target', async () => {
+  const response = { PlayingItemId: 'trailer', Movie: null, InWatchlist: false };
+  const api = client({ getUrl: (path: string) => path, getJSON: async () => response });
+  assert.deepEqual(await api.getTrailerActions!({ PlayingItemId: 'trailer' }), response);
+});
+
+test('trailer watchlist reads and writes reject changed accounts and servers', async () => {
+  for (const method of ['getTrailerActions', 'addTrailerToWatchlist'] as const) {
+    for (const change of ['user', 'server']) {
+      let user = 'user-a', server = 'server-a', requests = 0;
+      let finish!: (value: unknown) => void;
+      const pending = () => { requests++; return new Promise(resolve => { finish = resolve; }); };
+      const api = client({ getCurrentUserId: () => user, serverId: () => server, getUrl: (path: string) => path, getJSON: pending, ajax: pending });
+      const result = api[method]!({ PlayingItemId: 'trailer' });
+      if (change === 'user') user = 'user-b'; else server = 'server-b';
+      finish({ PlayingItemId: 'trailer', Movie: { Id: 'advertised', Name: 'Film' }, InWatchlist: true, WatchlistId: 'list' });
+      await assert.rejects(result, /account changed/i);
+      await assert.rejects(api[method]!({ PlayingItemId: 'trailer' }), /account changed/i);
+      assert.equal(requests, 1);
+    }
+  }
+});
+
+test('watchlist failures report stale playback and denied access without retrying writes', async () => {
+  for (const [status, error] of [[409, /trailer has changed/i], [403, /sign in/i], [422, /rename one in playlists/i], [500, /unable to save your watchlist/i]] as const) {
+    let writes = 0;
+    const api = client({ getUrl: (path: string) => path, ajax: async () => { writes++; throw { status }; } });
+    await assert.rejects(api.addTrailerToWatchlist!({ PlayingItemId: 'trailer' }), error);
+    assert.equal(writes, 1);
+  }
+});
 const episode = (id: string, index: number, extra: Partial<Item> = {}): Item => ({
   Id: id, Name: id, Type: 'Episode', SeriesId: 'show', SeasonId: 'season',
   ParentIndexNumber: 1, IndexNumber: index, ...extra

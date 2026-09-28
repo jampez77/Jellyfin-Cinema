@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.27.3",
+        "changelog": "Adds Skip trailer and Add to watchlist controls during Cinema Mode trailers. Skip advances one existing queue entry; Add saves the advertised library film to the signed-in user's private Watchlist video playlist, available under Playlists, without duplicates. Supports keyboard and TV focus navigation. Restores the original Home backdrop. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation; trailer controls use Cinema Mode's local movie trailers.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.27/TvItemLayout_0.2.27.3_jellyfin-12.0.0.zip",
+        "checksum": "4b3ba2e5e158b622844e1ebba37732db",
+        "timestamp": "2026-09-28T12:03:18Z"
+      },
+      {
+        "version": "0.2.27.2",
+        "changelog": "Adds Skip trailer and Add to watchlist controls during Cinema Mode trailers. Skip advances one existing queue entry; Add saves the advertised library film to the signed-in user's private Watchlist video playlist, available under Playlists, without duplicates. Supports keyboard and TV focus navigation. Restores the original Home backdrop. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation; trailer controls use Cinema Mode's local movie trailers.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.27/TvItemLayout_0.2.27.2_jellyfin-10.11.0.zip",
+        "checksum": "3b9d9193b52df4838c6a61d7ede27b5d",
+        "timestamp": "2026-09-28T12:03:18Z"
+      },
+      {
+        "version": "0.2.27.1",
+        "changelog": "Adds Skip trailer and Add to watchlist controls during Cinema Mode trailers. Skip advances one existing queue entry; Add saves the advertised library film to the signed-in user's private Watchlist video playlist, available under Playlists, without duplicates. Supports keyboard and TV focus navigation. Restores the original Home backdrop. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation; trailer controls use Cinema Mode's local movie trailers.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.27/TvItemLayout_0.2.27.1_jellyfin-10.10.7.zip",
+        "checksum": "6419cc70c6db4c78b6d3b662bde5dcbd",
+        "timestamp": "2026-09-28T12:03:18Z"
+      },
+      {
         "version": "0.2.26.3",
         "changelog": "Renamed to ScreenHarbour, an independent cinematic interface for Jellyfin. Updates plugin and interface names, catalogue artwork, documentation and demo to follow Jellyfin's branding guidance. Existing plugin identity, saved collection rows, streaming-service choices and playback data are preserved. Update your catalogue URL to https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/manifest.json, then update without uninstalling. Restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

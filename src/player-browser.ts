@@ -346,6 +346,9 @@ export class PlayerBrowser {
     // must reach the seek/play controls before browsing can take over.
     if (focused.closest('.osdHeader, .skinHeader')) return !visible(focused) || !!focused.closest('.osdHeader-hidden');
     if (!current.osd.contains(focused)) return false;
+    // Persistent trailer actions remain visible after native controls fade.
+    // Down first reveals those controls through Jellyfin's own navigation.
+    if (focused.closest('#tvl-trailer-actions') && current.osd.querySelector('.videoOsdBottom-hidden')) return false;
     if (focused === this.entry || !visible(focused) || focused.closest('.videoOsdBottom-hidden')) return true;
     const rect = focused.getBoundingClientRect();
     // Compare actual rows so wrapped controls and unfamiliar OSD layouts keep

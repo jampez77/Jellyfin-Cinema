@@ -50,9 +50,9 @@ async function nativeHomeMarkup(page:Page) {
 
 async function assertCinema(page:Page) {
   const card = page.locator('#homeTab [aria-label="Continue watching"] .card').first();
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 17, 18)');
-  await expect(page.locator('#theme-test-background')).toHaveCSS('background-color', 'rgb(16, 17, 18)');
-  await expect(page.locator('#theme-test-background')).toHaveCSS('background-image', 'none');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('#indexPage')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('#theme-test-background')).toHaveCSS('background-image', 'linear-gradient(0deg, rgb(17, 24, 39) 35%, rgb(29, 38, 53))');
   expect(await page.locator('.skinHeader').evaluate(node => getComputedStyle(node).backgroundImage)).toContain('rgba(16, 17, 18, 0.93)');
   expect(await page.locator('#homeTab .sectionTitle').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize) / parseFloat(getComputedStyle(node.parentElement!).fontSize))).toBeCloseTo(1.25, 2);
   await expect(card.locator('.cardBox')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');

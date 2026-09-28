@@ -1,4 +1,4 @@
-import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection } from './types';
+import type { Item, ItemPage, ItemUserData, LibraryQuery, MediaApi, PlaybackContext, ProviderDirectory, ProviderDirectoryEntry, SuggestionSection, TrailerActionsContext, TrailerIdentity } from './types';
 import { createBrowseApi } from './browse-api';
 import { dispatchPlayback, dispatchTrailerPlayback, type PlaybackClient } from './local-playback';
 import { createHomeCollectionTransport } from './home-collection-transport';
@@ -51,6 +51,34 @@ function itemsFrom(result: ItemResult, label: string): Item[] {
 function identity(id: string): string {
   return /^[\da-f]{32}$|^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id)
     ? id.replace(/-/g, '').toLowerCase() : id;
+}
+
+function trailerIdentity(expected: TrailerIdentity): TrailerIdentity {
+  if (typeof expected?.PlayingItemId !== 'string' || !expected.PlayingItemId.trim()
+    || (expected.PlaylistItemId !== undefined && (typeof expected.PlaylistItemId !== 'string' || !expected.PlaylistItemId.trim()))) {
+    throw new Error('The current trailer could not be identified.');
+  }
+  // Only playback identity goes to the server. It resolves the advertised film
+  // from the trailer owner, independently of the feature queued after it.
+  return { PlayingItemId: expected.PlayingItemId, ...(expected.PlaylistItemId ? { PlaylistItemId: expected.PlaylistItemId } : {}) };
+}
+
+function trailerResult(value: unknown, expected: TrailerIdentity, saved = false): TrailerActionsContext | null {
+  if (value === null && !saved) return null;
+  const result = value as TrailerActionsContext | null;
+  if (!result || typeof result !== 'object' || Array.isArray(result)
+    || typeof result.PlayingItemId !== 'string' || identity(result.PlayingItemId) !== identity(expected.PlayingItemId)
+    || (result.PlaylistItemId !== undefined && (typeof result.PlaylistItemId !== 'string' || !result.PlaylistItemId))
+    || (expected.PlaylistItemId !== undefined && result.PlaylistItemId !== expected.PlaylistItemId)
+    || typeof result.InWatchlist !== 'boolean'
+    || (result.Movie !== null && (!result.Movie || typeof result.Movie.Id !== 'string' || !result.Movie.Id
+      || typeof result.Movie.Name !== 'string' || !result.Movie.Name.trim()))
+    || (result.WatchlistId !== undefined && (typeof result.WatchlistId !== 'string' || !result.WatchlistId))
+    || (result.InWatchlist && (!result.Movie || !result.WatchlistId))
+    || (saved && !result.InWatchlist)) {
+    throw new Error('Jellyfin returned invalid trailer or watchlist information.');
+  }
+  return result;
 }
 
 function movieItems(result: ItemResult, label: string): Item[] {
@@ -289,6 +317,32 @@ export function createJellyfinApi(): MediaApi | null {
         throw new Error('Jellyfin returned invalid playback information.');
       }
       return { ...result, Queue: result.Queue.filter(entry => entry && typeof entry.Id === 'string' && !!entry.Id) };
+    }),
+    getTrailerActions: expected => read(async () => {
+      const request = trailerIdentity(expected);
+      const result = await client.getJSON(client.getUrl('TvItemLayout/TrailerActions', {
+        playingItemId: request.PlayingItemId,
+        ...(request.PlaylistItemId ? { playlistItemId: request.PlaylistItemId } : {})
+      }));
+      return trailerResult(result, request);
+    }),
+    addTrailerToWatchlist: expected => read(async () => {
+      const request = trailerIdentity(expected);
+      try {
+        const result = await client.ajax({ type: 'POST', url: client.getUrl('TvItemLayout/TrailerActions/Watchlist'),
+          data: JSON.stringify(request), contentType: 'application/json', dataType: 'json' });
+        return trailerResult(result, request, true)!;
+      } catch (error) {
+        assertSession();
+        const status = (error as { status?: number; statusCode?: number } | null)?.status
+          ?? (error as { statusCode?: number } | null)?.statusCode;
+        if (status === 409) throw new Error('The trailer has changed. Try again on the current trailer.');
+        if (status === 422) throw new Error('More than one private video playlist is named Watchlist. Rename one in Playlists, then try again.');
+        if (status !== 401 && status !== 403 && status !== 404 && !(error instanceof Error)) {
+          throw new Error('Unable to save your watchlist. Check your connection and try again.');
+        }
+        throw error;
+      }
     }),
     getMovies: options => libraryPage('Movie', options),
     getMovieGenres: parentId => libraryGenres('Movie', parentId),

@@ -1,0 +1,323 @@
+import { expect, test, type Page } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { build } from 'esbuild';
+
+const upstream = process.env.TVL_JELLYFIN_WEB_SOURCE || '/tmp/tvl-jellyfin-web-12-audit';
+const templatePath = resolve(upstream, 'src/apps/legacy/controllers/playback/video/index.html');
+const actions = (page: Page) => page.locator('#tvl-trailer-actions');
+const skip = (page: Page) => actions(page).getByRole('button', { name: 'Skip trailer', exact: true });
+const add = (page: Page) => actions(page).getByRole('button', { name: 'Add to watchlist', exact: true });
+
+test.beforeEach(() => test.skip(!existsSync(templatePath), 'Set TVL_JELLYFIN_WEB_SOURCE to audited Jellyfin 12 source.'));
+
+async function fixture(page: Page, extra = '') {
+  await page.route('**/dist/demo.js', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}\n(() => {
+      const api=window.TvItemLayoutDemo.api, original=api.getItem;
+      const items=[
+        {Id:'trailer-a',Type:'Trailer',Name:'Advertised A trailer'},
+        {Id:'trailer-b',Type:'Trailer',Name:'Advertised B trailer'},
+        {Id:'advertised-a',Type:'Movie',Name:'Advertised A'},
+        {Id:'advertised-b',Type:'Movie',Name:'Advertised B'},
+        {Id:'feature',Type:'Movie',Name:'The selected feature'}
+      ];
+      window.__trailerItems=new Map(items.map(item=>[item.Id,item]));
+      window.__trailerAdds=[]; window.__trailerReads=[]; window.__savedMovies=[]; window.__nativePlays=[];
+      api.serverId='trailer-server'; api.userId='trailer-user';
+      api.getItem=async id=>window.__trailerItems.get(id)||original(id);
+      api.getPlaybackContext=async()=>window.__playbackContext||null;
+      window.__trailerResult=()=>{
+        const context=window.__playbackContext;
+        if(!context || !context.PlayingItemId.startsWith('trailer-'))return null;
+        const id=context.PlayingItemId.replace('trailer-','advertised-');
+        const item=window.__trailerItems.get(id);
+        return {PlayingItemId:context.PlayingItemId,PlaylistItemId:context.PlaylistItemId,
+          Movie:window.__unmapped?null:{Id:id,Name:item.Name},InWatchlist:window.__savedMovies.includes(id),
+          WatchlistId:window.__savedMovies.includes(id)?'private-watchlist':undefined};
+      };
+      api.getTrailerActions=async expected=>{
+        window.__trailerReads.push({...expected});
+        const result=window.__trailerResult();
+        if(window.__deferRead)await new Promise(resolve=>window.__resolveRead=resolve);
+        if(window.__readError)throw new Error('Cannot check the current trailer.');
+        if(window.__nullResult)return null;
+        return result;
+      };
+      api.addTrailerToWatchlist=async expected=>{
+        const result=window.__trailerResult();
+        window.__trailerAdds.push({...expected,MovieId:result.Movie.Id});
+        if(window.__deferAdd)await new Promise(resolve=>window.__resolveAdd=resolve);
+        if(window.__addError)throw new Error('Unable to save your watchlist. Try again.');
+        window.__savedMovies.push(result.Movie.Id);
+        return {...result,InWatchlist:true,WatchlistId:'private-watchlist'};
+      };
+      ${extra}
+    })();` });
+  });
+  await page.goto('/#/video');
+  const template = readFileSync(templatePath, 'utf8').replace(/\$\{([^}]+)\}/g, '$1');
+  const css = readFileSync(resolve(upstream, 'src/styles/videoosd.scss'), 'utf8')
+    .replace(/@include conditional-max\(padding-bottom[^;]+;/g, 'padding-bottom:1.75em;')
+    .replace(/^\s*@(?:use|include)\s+[^;]+;/gm, '');
+  await page.evaluate(async ({ template, css }) => {
+    const testWindow = window as any;
+    const container = document.createElement('div'); container.className = 'videoPlayerContainer';
+    container.style.cssText = 'position:fixed;inset:0;background:#0a0e0c';
+    const video = document.createElement('video'); video.className = 'htmlvideoplayer'; video.muted = true;
+    video.style.cssText = 'width:100%;height:100%'; container.append(video); document.body.append(container);
+    document.body.insertAdjacentHTML('beforeend', template);
+    const osd = document.querySelector<HTMLElement>('#videoOsdPage')!;
+    osd.style.cssText = 'position:fixed;inset:0;z-index:1000;pointer-events:none';
+    const style = document.createElement('style');
+    style.textContent = css + '.hide,.demo-switcher,.demo-native-page{display:none!important}.flex{display:flex}.flex-grow{flex-grow:1}.align-items-center{align-items:center}.material-icons{line-height:1;width:1em;height:1em;display:inline-block}.videoOsdBottom{pointer-events:auto}.videoOsdBottom button{font-size:20px;min-width:40px;min-height:40px}.videoOsdBottom-hidden{visibility:hidden;pointer-events:none}.videoOsdBottom-hidden *{pointer-events:none}';
+    document.head.append(style);
+    testWindow.__setPlaying = async (id: string, playlistItemId: string, queue: any[]) => {
+      const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 180;
+      canvas.getContext('2d')!.fillRect(0, 0, 320, 180);
+      video.srcObject = canvas.captureStream(5);
+      const item = testWindow.__trailerItems.get(id);
+      testWindow.__playbackContext = {PlayingItemId:id,PlayingItemType:item.Type,PlaylistItemId:playlistItemId,Queue:queue};
+      osd.querySelector<HTMLElement>('.btnUserRating')!.dataset.id = id;
+      await video.play(); osd.dispatchEvent(new CustomEvent('viewshow', {bubbles:true}));
+    };
+    osd.querySelector('.btnNextTrack')!.classList.remove('hide');
+    (osd.querySelector('.btnNextTrack') as HTMLButtonElement).disabled = false;
+    const rating = osd.querySelector<HTMLElement>('.btnUserRating')!;
+    rating.classList.remove('hide'); rating.focus();
+  }, { template, css });
+  // Execute Jellyfin's actual next-track queue implementation and native OSD
+  // button listener. Only media transport is replaced with a canvas stream.
+  const manager = readFileSync(resolve(upstream, 'src/components/playback/playbackmanager.js'), 'utf8');
+  const nextMethod = manager.slice(manager.indexOf('self.nextTrack = function (player)'), manager.indexOf('self.previousTrack = function (player)'));
+  const controller = readFileSync(resolve(upstream, 'src/apps/legacy/controllers/playback/video/index.js'), 'utf8');
+  const nextListener = controller.slice(controller.indexOf("view.querySelector('.btnNextTrack').addEventListener('click'"), controller.indexOf("    btnRewind.addEventListener('click'"));
+  const queuePath = resolve(upstream, 'src/components/playback/playqueuemanager.js');
+  const native = await build({ stdin: { resolveDir: upstream, contents: `
+    import PlayQueueManager from ${JSON.stringify(queuePath)};
+    const self={_playQueueManager:new PlayQueueManager(),_currentPlayer:{}};
+    const enableLocalPlaylistManagement=()=>true, getPreviousSource=()=>({Id:'selected-source'});
+    const getMatchingMediaSource=()=>null, getDefaultPlayOptions=()=>({});
+    function setPlaylistState(id,index){self._playQueueManager.setPlaylistState(id,index);}
+    function playInternal(item,options,started,source){
+      window.__nativePlays.push({Id:item.Id,options:{...options},source}); started();
+      window.__setPlaying(item.Id,item.PlaylistItemId,self._playQueueManager.getPlaylist());
+    }
+    ${nextMethod}
+    const playbackManager=self,currentPlayer=self._currentPlayer,view=document.querySelector('#videoOsdPage');
+    ${nextListener}
+    const items=['trailer-a','trailer-b','feature'].map((id,index)=>({...window.__trailerItems.get(id),PlaylistItemId:'queue-'+index,
+      ...(id==='feature'?{playOptions:{mediaSourceId:'chosen-feature-version',audioStreamIndex:2,subtitleStreamIndex:5}}:{})}));
+    self._playQueueManager.setPlaylist(items); self._playQueueManager.setPlaylistState(items[0].PlaylistItemId);
+    window.__nativeQueue=self._playQueueManager;
+    window.__setPlaying(items[0].Id,items[0].PlaylistItemId,self._playQueueManager.getPlaylist());
+  ` }, bundle: true, write: false, format: 'iife', target: 'chrome79' });
+  await page.addScriptTag({ content: native.outputFiles[0].text });
+}
+
+async function nativeNavigation(page: Page) {
+  const input = resolve(upstream, 'src/scripts/inputManager.js');
+  const keyboard = resolve(upstream, 'src/scripts/keyboardNavigation.js');
+  const native = await build({ stdin: { resolveDir: upstream, contents: `
+    import keyboard from ${JSON.stringify(keyboard)};
+    import * as input from ${JSON.stringify(input)};
+    input.on(window,event=>{
+      if(['up','down','select'].includes(event.detail?.command))document.querySelector('.videoOsdBottom').classList.remove('videoOsdBottom-hidden');
+    });
+    keyboard.enable(); window.__nativeInput=input;
+  ` }, bundle:true,write:false,format:'iife',target:'chrome79',plugins:[{name:'native-navigation-adapters',setup(build){
+    const adapters: Record<string,string> = {
+      './browser':'export default {tv:true};',
+      '../components/layoutManager':'export default {tv:true};',
+      './settings/appSettings':'export default {enableGamepad:()=>false};',
+      './gamepadtokey':'export {};',
+      'components/apphost':'export const appHost={supports:()=>false};',
+      'components/playback/playbackmanager':'export const playbackManager={};',
+      'components/router/appRouter':'export const appRouter={};',
+      'constants/appFeature':'export const AppFeature={};',
+      './scrollManager':'export default {isEnabled:()=>false};',
+      'utils/dom':'export default {parentWithClass:(node,name)=>node?.closest("."+name),addEventListener:(node,name,fn,options)=>node.addEventListener(name,fn,options),removeEventListener:(node,name,fn,options)=>node.removeEventListener(name,fn,options)};',
+      '../utils/dom':'export default {parentWithClass:(node,name)=>node?.closest("."+name)};'
+    };
+    build.onResolve({filter:/.*/},args=>args.path==='components/focusManager'?{path:resolve(upstream,'src/components/focusManager.js')}
+      :args.path in adapters?{path:args.path,namespace:'native-adapter'}:undefined);
+    build.onLoad({filter:/.*/,namespace:'native-adapter'},args=>({loader:'js',contents:adapters[args.path]}));
+  }}] });
+  await page.addScriptTag({content:native.outputFiles[0].text});
+}
+
+test('skip advances Jellyfin’s existing queue by one trailer and preserves feature selections', async ({ page }) => {
+  await fixture(page);
+  await expect(actions(page)).toBeVisible();
+  await expect(actions(page)).toHaveAttribute('data-movie-id', 'advertised-a');
+  await skip(page).click();
+  await expect(actions(page)).toHaveAttribute('data-movie-id', 'advertised-b');
+  expect(await page.evaluate(() => (window as any).__nativePlays)).toHaveLength(1);
+  await skip(page).click();
+  await expect(actions(page)).toBeHidden();
+  const result = await page.evaluate(() => ({ plays:(window as any).__nativePlays, queue:(window as any).__nativeQueue.getPlaylist() }));
+  expect(result.plays.map((entry: any) => entry.Id)).toEqual(['trailer-b', 'feature']);
+  expect(result.plays[1].options).toEqual({ mediaSourceId:'chosen-feature-version',audioStreamIndex:2,subtitleStreamIndex:5 });
+  expect(result.queue.map((entry: any) => entry.Id)).toEqual(['trailer-a', 'trailer-b', 'feature']);
+});
+
+test('watchlist saves the advertised movie once, without changing the playing trailer', async ({ page }) => {
+  await fixture(page); await expect(add(page)).toBeEnabled();
+  await add(page).click();
+  await expect(actions(page).getByRole('button', {name:'In watchlist',exact:true})).toBeDisabled();
+  await expect(actions(page).getByRole('status')).toHaveText('Advertised A added to your watchlist.');
+  expect(await page.evaluate(() => (window as any).__trailerAdds)).toEqual([{PlayingItemId:'trailer-a',PlaylistItemId:'queue-0',MovieId:'advertised-a'}]);
+  expect(await page.evaluate(() => (window as any).__nativePlays)).toEqual([]);
+});
+
+test('unmapped trailer remains skippable without saving an unrelated movie', async ({ page }) => {
+  await fixture(page, 'window.__unmapped=true;');
+  await expect(actions(page)).toBeVisible(); await expect(add(page)).toBeDisabled(); await expect(skip(page)).toBeEnabled();
+  await skip(page).click(); await expect.poll(() => page.evaluate(() => (window as any).__nativePlays.length)).toBe(1);
+  expect(await page.evaluate(() => (window as any).__trailerAdds)).toEqual([]);
+});
+
+test('server-ineligible trailers and ordinary feature playback do not gain actions', async ({ page }) => {
+  await fixture(page, 'window.__nullResult=true;');
+  await expect.poll(() => page.evaluate(() => (window as any).__trailerReads.length)).toBeGreaterThan(0);
+  await expect(actions(page)).toBeHidden();
+  await page.evaluate(() => (window as any).__setPlaying('feature', 'queue-2', (window as any).__nativeQueue.getPlaylist()));
+  await expect(actions(page)).toHaveCount(0);
+});
+
+test('late owner responses cannot attach actions to another source or account', async ({ page }) => {
+  await fixture(page, 'window.__deferRead=true;');
+  await expect.poll(() => page.evaluate(() => !!(window as any).__resolveRead)).toBe(true);
+  await page.evaluate(async () => {
+    (window as any).__deferRead=false;
+    window.TvItemLayoutDemo!.api.userId='another-profile';
+    await (window as any).__setPlaying('feature', 'queue-2', (window as any).__nativeQueue.getPlaylist());
+    (window as any).__resolveRead();
+  });
+  await expect(actions(page)).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__trailerAdds)).toEqual([]);
+});
+
+test('skip revalidates identity and rejects a changed trailer without advancing the queue', async ({ page }) => {
+  await fixture(page); await expect(skip(page)).toBeEnabled();
+  await page.evaluate(() => { (window as any).__deferRead=true; });
+  await skip(page).click(); await expect(actions(page).getByRole('button', { name:'Skipping…' })).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => !!(window as any).__resolveRead)).toBe(true);
+  await page.evaluate(async () => {
+    (window as any).__deferRead=false;
+    await (window as any).__setPlaying('trailer-b','queue-1',(window as any).__nativeQueue.getPlaylist());
+    (window as any).__resolveRead();
+  });
+  await expect(actions(page)).toHaveAttribute('data-movie-id','advertised-b');
+  expect(await page.evaluate(() => (window as any).__nativePlays)).toEqual([]);
+});
+
+test('native skip unavailability and watchlist errors are recoverable', async ({ page }) => {
+  await fixture(page); await expect(skip(page)).toBeEnabled();
+  await page.evaluate(() => { (document.querySelector('.btnNextTrack') as HTMLButtonElement).disabled=true; });
+  await skip(page).click(); await expect(actions(page).getByRole('status')).toHaveText('Skipping is unavailable in this player.');
+  await expect(skip(page)).toBeEnabled();
+  await page.evaluate(() => { (window as any).__addError=true; });
+  await add(page).click(); await expect(actions(page).getByRole('status')).toHaveText('Unable to save your watchlist. Try again.');
+  await expect(add(page)).toBeEnabled();
+  await page.evaluate(() => { (window as any).__addError=false; });
+  await add(page).click(); await expect(actions(page).getByRole('button',{name:'In watchlist',exact:true})).toBeDisabled();
+});
+
+test('persistent actions yield to pause, native dialogs, player browsing and route teardown', async ({ page }) => {
+  await fixture(page); await expect(actions(page)).toBeVisible();
+  await page.evaluate(() => document.querySelector('.videoOsdBottom')!.classList.add('videoOsdBottom-hidden'));
+  await expect(actions(page)).toBeVisible();
+  await page.evaluate(() => (document.querySelector('video') as HTMLVideoElement).pause());
+  await expect(actions(page)).toBeHidden();
+  await page.evaluate(() => (document.querySelector('video') as HTMLVideoElement).play());
+  await expect(actions(page)).toBeVisible();
+  await page.evaluate(() => { const dialog=document.createElement('dialog'); dialog.id='test-native-dialog'; dialog.textContent='Native settings'; document.body.append(dialog); dialog.showModal(); });
+  await expect(actions(page)).toBeHidden();
+  await page.evaluate(() => document.querySelector('#test-native-dialog')!.remove());
+  await expect(actions(page)).toBeVisible();
+  await page.evaluate(() => document.body.setAttribute('data-tvl-player-browser-open',''));
+  await expect(actions(page)).toBeHidden();
+  await page.evaluate(() => { document.body.removeAttribute('data-tvl-player-browser-open'); location.hash='/home'; });
+  await expect(actions(page)).toHaveCount(0);
+});
+
+test('keyboard and remote selection are scoped to focused controls and never steal focus', async ({ page }) => {
+  await fixture(page); await expect(actions(page)).toBeVisible();
+  await expect(page.locator('.btnUserRating')).toBeFocused();
+  await add(page).focus(); await page.keyboard.press('ArrowRight'); await expect(skip(page)).toBeFocused();
+  await page.keyboard.press('ArrowLeft'); await expect(add(page)).toBeFocused();
+  await page.evaluate(() => document.activeElement!.dispatchEvent(new CustomEvent('command',{bubbles:true,cancelable:true,detail:{command:'select'}})));
+  await expect(actions(page).getByRole('button',{name:'In watchlist',exact:true})).toBeDisabled();
+  await skip(page).focus(); await page.keyboard.press('Enter');
+  await expect(actions(page)).toHaveAttribute('data-movie-id','advertised-b');
+  expect(await page.evaluate(() => (window as any).__nativePlays)).toHaveLength(1);
+  expect(await page.evaluate(() => (window as any).__trailerAdds)).toHaveLength(1);
+});
+
+test('late watchlist success is not displayed against the next trailer', async ({ page }) => {
+  await fixture(page, 'window.__deferAdd=true;'); await expect(add(page)).toBeEnabled(); await add(page).click();
+  await expect(actions(page).getByRole('button',{name:'Adding…',exact:true})).toBeDisabled();
+  await page.evaluate(async () => {
+    await (window as any).__setPlaying('trailer-b','queue-1',(window as any).__nativeQueue.getPlaylist());
+    (window as any).__resolveAdd();
+  });
+  await expect(actions(page)).toHaveAttribute('data-movie-id','advertised-b');
+  await expect(add(page)).toBeEnabled(); await expect(actions(page).locator('.tvl-trailer-status')).toBeEmpty();
+});
+
+test('Jellyfin’s TV spatial navigation reaches trailer buttons from native controls and returns on Down', async ({ page }) => {
+  await fixture(page); await expect(actions(page)).toBeVisible(); await nativeNavigation(page);
+  await page.locator('.btnPause').focus();
+  for(let attempt=0;attempt<6;attempt++) {
+    await page.keyboard.press('ArrowUp');
+    if(await actions(page).locator('button:focus').count())break;
+  }
+  await expect(actions(page).locator('button:focus')).toHaveCount(1);
+  await expect(page.locator('#tvl-player-browser')).toHaveCount(0);
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.videoOsdBottom button:focus')).toHaveCount(1);
+  await expect(page.locator('#tvl-player-browser')).toHaveCount(0);
+  await page.keyboard.press('ArrowUp');
+  await expect(actions(page).locator('button:focus')).toHaveCount(1);
+  await page.evaluate(()=>document.querySelector('.videoOsdBottom')!.classList.add('videoOsdBottom-hidden'));
+  await page.evaluate(()=>(window as any).__nativeInput.handleCommand('down'));
+  await expect(page.locator('.videoOsdBottom')).not.toHaveClass(/videoOsdBottom-hidden/);
+  await expect(page.locator('#tvl-player-browser')).toHaveCount(0);
+});
+
+test('destroy removes trailer controls and listeners even during a pending request', async ({ page }) => {
+  await fixture(page, 'window.__deferAdd=true;'); await expect(add(page)).toBeEnabled(); await add(page).click();
+  await page.evaluate(()=>{window.TvItemLayout!.destroy();(window as any).__resolveAdd();});
+  await expect(actions(page)).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(()=>(window as any).__nativePlays)).toEqual([]);
+});
+
+test('saving and saved watchlist control retains TV focus without held Select skipping the trailer', async ({ page }) => {
+  await fixture(page, 'window.__deferAdd=true;'); await expect(add(page)).toBeEnabled(); await nativeNavigation(page);
+  await page.locator('.btnPause').focus();
+  for(let attempt=0;attempt<6;attempt++) {
+    await page.keyboard.press('ArrowUp');
+    if(await actions(page).locator('button:focus').count())break;
+  }
+  await expect(actions(page).locator('button:focus')).toHaveCount(1);
+  if(await skip(page).evaluate(button=>button===document.activeElement))await page.keyboard.press('ArrowLeft');
+  await expect(add(page)).toBeFocused();
+  await page.keyboard.down('Enter');
+  const pending=actions(page).getByRole('button',{name:'Adding…',exact:true});
+  await expect(pending).toBeDisabled(); await expect(pending).toBeFocused();
+  await page.keyboard.down('Enter');
+  await page.evaluate(()=>(window as any).__resolveAdd());
+  const saved=actions(page).getByRole('button',{name:'In watchlist',exact:true});
+  await expect(saved).toBeDisabled(); await expect(saved).toBeFocused();
+  await page.keyboard.down('Enter'); await page.keyboard.up('Enter');
+  await page.evaluate(()=>(window as any).__nativeInput.handleCommand('select'));
+  expect(await page.evaluate(()=>(window as any).__trailerAdds)).toHaveLength(1);
+  expect(await page.evaluate(()=>(window as any).__nativePlays)).toEqual([]);
+  await page.keyboard.press('ArrowRight'); await expect(skip(page)).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.videoOsdBottom button:focus')).toHaveCount(1);
+  await expect(page.locator('#tvl-player-browser')).toHaveCount(0);
+});

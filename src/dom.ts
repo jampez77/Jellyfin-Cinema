@@ -17,7 +17,7 @@ const paths: Record<string, string> = {
   check: 'm5 12 4 4L19 6', chevron: 'm9 5 7 7-7 7', live: 'M8 8a6 6 0 0 0 0 8m8-8a6 6 0 0 1 0 8 M4 4a11 11 0 0 0 0 16m16-16a11 11 0 0 1 0 16 M12 11v2',
   clock: 'M12 7v5l3 2 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
   trailer: 'M3 8h18v12H3z M3 8V4h18v4 M7 4l3 4 M14 4l3 4 M10 11l5 3-5 3z',
-  close: 'm6 6 12 12M6 18 18 6'
+  close: 'm6 6 12 12M6 18 18 6', plus: 'M12 5v14M5 12h14'
 };
 export function icon(name: string): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
