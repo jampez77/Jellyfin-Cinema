@@ -1,4 +1,5 @@
 import { desktopPlayerBar } from './desktop-player';
+import { nearestRemoteControl, remoteCenter, remoteControls, remoteRows } from './remote-layout';
 
 // Remote key coverage follows InPlayerEpisodePreview-TV (MIT).
 const keyCommands: Record<string, string> = {
@@ -10,8 +11,7 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
   let lastFocus: HTMLElement | null = null;
   const held = new Set<string>();
   const controls = () => [root, desktopPlayerBar(root)].filter((node): node is HTMLElement => !!node)
-    .flatMap(node => Array.from(node.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"], a[href]')))
-    .filter(node => !node.closest('.hide,[hidden]') && node.getClientRects().length > 0);
+    .flatMap(remoteControls);
   const ownsFocus = (node: Node | null) => !!node && (root.contains(node) || !!desktopPlayerBar(root)?.contains(node));
   const nativeBarFocused = () => !!desktopPlayerBar(root)?.contains(document.activeElement);
   const foreignDialog = () => Array.from(document.querySelectorAll<HTMLElement>('.dialogContainer .dialog.opened, dialog[open], [role="dialog"][aria-modal="true"]'))
@@ -27,11 +27,21 @@ export function attachRemote(root: HTMLElement, back: () => void, moveWithinPane
     const nodes = controls();
     const current = document.activeElement as HTMLElement;
     if (!root.contains(current)) {focus(lastFocus?.isConnected ? lastFocus : nodes[0]); return;}
-    const box = current.getBoundingClientRect();
-    const cx = box.left + box.width/2, cy = box.top + box.height/2;
     const horizontal = direction === 'left' || direction === 'right';
     const sign = direction === 'right' || direction === 'down' ? 1 : -1;
-    const candidates = nodes.filter(node => node !== current).map(node => {
+    const grid = current.closest<HTMLElement>('.tvl-provider-grid,.tvl-library-grid,.tvl-library-genres,.tvl-browse-grid:not(.tvl-browse-row),.tvl-browse-genres,.tvl-collection-grid,.tvl-film-grid');
+    if (grid) {
+      const rows = remoteRows(nodes.filter(node => grid.contains(node)));
+      const rowIndex = rows.findIndex(row => row.includes(current));
+      if (rowIndex >= 0) {
+        if (horizontal) { focus(rows[rowIndex][rows[rowIndex].indexOf(current) + sign]); return; }
+        const next = rows[rowIndex + sign];
+        if (next) { focus(nearestRemoteControl(next, remoteCenter(current))); return; }
+      }
+    }
+    const box = current.getBoundingClientRect();
+    const cx = box.left + box.width/2, cy = box.top + box.height/2;
+    const candidates = nodes.filter(node => node !== current && !(grid && !horizontal && grid.contains(node))).map(node => {
       const b = node.getBoundingClientRect();
       const dx = b.left + b.width/2-cx, dy = b.top + b.height/2-cy;
       const along = (horizontal ? dx : dy)*sign;
