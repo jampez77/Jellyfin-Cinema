@@ -10,11 +10,11 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.33.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.34.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB, with Disney studio titles also included on Disney+.
 
-**0.2.33 is available as a prerelease** ([release notes](docs/releases/v0.2.33.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Disney+ pages now include library titles from recognised Disney studios even before or between streaming releases, alongside the existing UK availability matches. The same rule applies to Disney+ Watchlist rows, including live-action Moana. Empty Watchlist rows remain hidden and the trailer pause-information fixes are retained. Update the existing installation; no uninstall is needed. Physical LG webOS testing of this release remains pending.
+**0.2.34 is available as a prerelease** ([release notes](docs/releases/v0.2.34.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. TV arrow navigation follows the streaming-service page’s content order, so moving back up visits each row instead of jumping to the fixed Back button. Horizontal rows remember their selected item, and full provider, library, browse and collection grids move between adjacent visual rows even when captions have different heights. View all, Retry and Load more remain reachable. Saved settings and Disney+ studio matching are unchanged. Update the existing installation; no uninstall is needed. Physical LG webOS testing of this release remains pending.
 
 ## Try the demo
 
@@ -122,7 +122,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.33 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.33) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.33 release notes](docs/releases/v0.2.33.md) for changes and validation status.
+The [v0.2.34 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.34) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.34 release notes](docs/releases/v0.2.34.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -138,7 +138,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.33.1` for 10.10.7, `0.2.33.2` for 10.11.x and `0.2.33.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.34.1` for 10.10.7, `0.2.34.2` for 10.11.x and `0.2.34.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -178,7 +178,7 @@ Optional theme-conflict checks use an external [ElegantFin stylesheet](https://g
 | Path | Purpose |
 | --- | --- |
 | `src/view.ts`, `src/style.css` | Media layouts, loading/empty/error states and actions |
-| `src/remote.ts` | Focus navigation and remote key handling |
+| `src/remote.ts`, `src/remote-layout.ts` | Focus navigation, adjacent visual-row selection and remote key handling |
 | `src/guide-view.ts`, `src/guide.ts`, `src/guide.css` | Main Live TV page, horizontal guide and timeline navigation |
 | `src/library-view.ts`, `src/library.css` | Shared Movies and TV Shows filters, suggestions and paginated browsing |
 | `src/collection-view.ts`, `src/collection.css` | Collections list and member browsing |

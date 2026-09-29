@@ -1,5 +1,6 @@
 import { button, el, picture, replace } from './dom';
 import { attachRemote } from './remote';
+import { nearestRemoteControl, remoteCenter, remoteControls, remoteRows } from './remote-layout';
 import type { Item, MediaApi } from './types';
 import { providerAppearance, providerLogo } from './provider-appearance';
 import { createProviderHomesStore } from './provider-settings-store';
@@ -64,6 +65,8 @@ export class ProviderHomeView {
   private featureId?: string;
   private focusPending?: string;
   private watchlistRefreshPending = false;
+  private rowFocus = new WeakMap<HTMLElement, HTMLElement>();
+  private navigationX?: number;
 
   constructor(private api: MediaApi, private options: Options) {
     this.store = createProviderHomesStore(api); this.data = new ProviderData(api); this.focusPending = options.focusId;
@@ -188,6 +191,8 @@ export class ProviderHomeView {
   private async loadRow(row: RowState, append = false): Promise<void> {
     if (row.busy || this.disposed) return;
     const generation = this.generation;
+    const inputRevision = this.inputRevision, previousCount = row.items.length;
+    const restoreMore = append && document.activeElement === row.more;
     const current = () => !this.disposed && generation === this.generation && this.states.includes(row);
     row.busy = true; row.more.disabled = true;
     try {
@@ -235,14 +240,25 @@ export class ProviderHomeView {
       row.status.textContent = messages.join(' ');
       row.status.hidden = !messages.length;
       this.updateWatchlistVisibility(row, ownedFocus);
-      if (row === this.states[0]) this.updateHero(items[0]); this.focusInitial();
+      if (row === this.states[0]) this.updateHero(items[0]);
+      if (!restoreMore || inputRevision !== this.inputRevision) this.focusInitial();
     } catch {
       if (!current()) return;
       row.status.textContent = row.items.length ? 'This row could not refresh. Your existing results are still shown.' : 'This row could not be loaded.';
       row.status.hidden = false;
       const retry = button('Retry', '', '', () => { void this.loadRow(row); }); retry.dataset.focusId = `provider-retry:${row.config.id}`; row.status.append(retry);
       this.updateWatchlistVisibility(row);
-    } finally { row.busy = false; row.more.disabled = false; this.refreshWatchlist(); }
+    } finally {
+      row.busy = false; row.more.disabled = false;
+      // Disabling Load more can blur it. Restore its place after the request,
+      // unless the viewer has already used the remote or pointer elsewhere.
+      if (restoreMore && current() && inputRevision === this.inputRevision) {
+        const next = remoteControls(row.status)[0] || (!row.more.hidden ? row.more : undefined)
+          || remoteControls(row.cards)[previousCount] || remoteControls(row.cards).slice(-1)[0];
+        next?.focus({ preventScroll: true }); next?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      this.refreshWatchlist();
+    }
   }
 
   private updateHero(item?: Item): void {
@@ -266,13 +282,56 @@ export class ProviderHomeView {
     } else if (!this.element.contains(document.activeElement) && document.activeElement === document.body) this.header.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
   }
   private moveRow(direction: string): boolean {
-    if (this.options.rowId || !['left', 'right'].includes(direction)) return false;
     const active = document.activeElement as HTMLElement;
+    if (!this.element.contains(active)) return false;
     const row = this.states.find(row => row.cards.contains(active));
-    if (!row) return false;
-    const cards = Array.from(row.cards.querySelectorAll<HTMLButtonElement>('button'));
-    const next = cards[cards.indexOf(active as HTMLButtonElement) + (direction === 'right' ? 1 : -1)];
-    next?.focus({ preventScroll: true }); next?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return true;
+    const focus = (next?: HTMLElement) => {
+      next?.focus({ preventScroll: true }); next?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    };
+    if (row) this.rowFocus.set(row.cards, active);
+    // Crossing a right-aligned View all button should not pull the next row's
+    // selection over to its far edge.
+    if (!active.closest('.tvl-provider-row-heading')) this.navigationX = remoteCenter(active);
+    if (direction === 'left' || direction === 'right') {
+      if (!row || this.options.rowId) return false;
+      const cards = remoteControls(row.cards);
+      focus(cards[cards.indexOf(active) + (direction === 'right' ? 1 : -1)]); return true;
+    }
+    if (!['up', 'down'].includes(direction)) return false;
+
+    // The header does not scroll with the content. Build the vertical route in
+    // content order so it cannot overtake rows that have scrolled above it.
+    const bands: { nodes: HTMLElement[]; rail?: HTMLElement }[] = [];
+    const append = (host: HTMLElement, rail = false) => {
+      const nodes = remoteControls(host);
+      if (rail) { if (nodes.length) bands.push({ nodes, rail: host }); }
+      else bands.push(...remoteRows(nodes).map(nodes => ({ nodes })));
+    };
+    append(this.header); append(this.hero);
+    for (const state of this.states) {
+      if (state.navigationOnly || state.element.hidden) continue;
+      append(state.element.querySelector<HTMLElement>('.tvl-provider-row-heading')!);
+      append(state.cards, !this.options.rowId);
+      append(state.status);
+      if (!state.more.hidden && !state.more.disabled) bands.push({ nodes: [state.more] });
+    }
+    const index = bands.findIndex(band => band.nodes.includes(active));
+    if (index < 0) return false;
+    const next = bands[index + (direction === 'down' ? 1 : -1)];
+    if (next) {
+      const remembered = next.rail && this.rowFocus.get(next.rail);
+      // Prefer artwork already visible horizontally; never exclude a row for
+      // being vertically off-screen, since moving there scrolls it into view.
+      const bounds = next.rail?.getBoundingClientRect();
+      const visible = bounds ? next.nodes.filter(node => {
+        const art = (node.querySelector('.tvl-home-row-art') || node).getBoundingClientRect();
+        return art.right > bounds.left && art.left < bounds.right;
+      }) : next.nodes;
+      const target = remembered && next.nodes.includes(remembered) ? remembered
+        : nearestRemoteControl(visible.length ? visible : next.nodes, this.navigationX ?? remoteCenter(active));
+      focus(target);
+    }
+    return true;
   }
   private scheduleRefresh(): void {
     window.clearTimeout(this.refreshTimer);

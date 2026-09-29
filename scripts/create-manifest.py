@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Includes titles from recognised Disney studios on Disney+ pages and their Watchlist rows regardless of current UK streaming availability, using existing Jellyfin studio metadata. Covers new releases and remakes such as live-action Moana while preserving existing streaming matches, saved settings, access restrictions and empty-row hiding. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Fixes TV arrow navigation on streaming-service pages: Up and Down follow content order instead of jumping to the fixed Back button, and each horizontal row remembers its selected item. Full provider, library, browse and collection grids navigate adjacent visual rows despite different caption heights. View all, Retry and Load more remain reachable; hidden and inert controls are excluded. Saved settings and Disney+ studio matching are unchanged. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.
