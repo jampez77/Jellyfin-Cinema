@@ -12,6 +12,7 @@ import type { ProviderHomesSettings, ProviderId } from './provider-settings';
 import { providerHomeRow } from './provider-home';
 import { isDesktopLayout } from './layout';
 import { getAllWatchlistItems, subscribeWatchlist } from './watchlist';
+import { HomeLibraryVisibility, homeLibraryExcludedClass } from './home-library-visibility';
 
 type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void> };
 type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement; retry?: boolean };
@@ -20,7 +21,8 @@ type HomeSnapshot = { key: string; collections?: Item[]; items: Map<string, { va
 // Reuse successful data, never DOM handlers or promises owned by a disposed view.
 // Only the last account is retained, in memory, until sign-out/server change.
 let lastHome: HomeSnapshot | undefined;
-export function clearHomeSession(): void { lastHome = undefined; clearHomeChannelArtwork(); }
+let lastHomeExclusions: { key: string; ids: string[] } | undefined;
+export function clearHomeSession(): void { lastHome = undefined; lastHomeExclusions = undefined; clearHomeChannelArtwork(); }
 
 // Native Home is DOM-cached. Its controller can attempt Back restoration while
 // the initial row batch is masked, so remember its last native target by account.
@@ -71,6 +73,11 @@ export class HomeCollections {
   private displayedRevision = 0;
   private readiness = new HomeReadiness(() => this.attach());
   private channelArtwork: HomeChannelArtwork;
+  private libraryVisibility = new HomeLibraryVisibility();
+  private exclusionsReady = false;
+  private exclusionsRequest?: Promise<void>;
+  private exclusionsRefreshPending = false;
+  private lastExclusionsRead = 0;
   private settings = emptyHomeCollections();
   private seasonalTimer?: number;
   private activeRowIds = '';
@@ -120,6 +127,9 @@ export class HomeCollections {
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string,
     private openProvider?: (id: ProviderId) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
+    const exclusions = lastHomeExclusions?.key === this.key ? lastHomeExclusions.ids : undefined;
+    this.exclusionsReady = !api.getHomeLibraryExclusions || !!exclusions;
+    if (exclusions) this.libraryVisibility.setExclusions(exclusions);
     this.providerStore = createProviderHomesStore(api); this.providers = this.providerStore.cached;
     const cached = lastHome?.key === this.key ? lastHome : undefined;
     if (cached) {
@@ -163,8 +173,8 @@ export class HomeCollections {
         || (record.target as Element).matches('.verticalSection, .ec-root, .homeSectionsContainer, #homeTab'))) this.attach();
     });
     this.observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style', 'aria-busy'] });
-    this.attach(); void this.render();
-    if (this.store.synced || this.providerStore.synced || this.api.getWatchlist) {
+    this.attach(); void this.render(); void this.refreshLibraryExclusions(true);
+    if (this.store.synced || this.providerStore.synced || this.api.getWatchlist || this.api.getHomeLibraryExclusions) {
       this.syncTimer = window.setInterval(this.onVisible, 60_000);
     }
     if (!this.warmReturn && (this.store.synced || this.providerStore.synced)) void this.loadInitialSettings();
@@ -364,6 +374,7 @@ export class HomeCollections {
   }
   async refreshSettings(force = false): Promise<void> {
     this.refreshSeasons();
+    void this.refreshLibraryExclusions(force);
     if (this.initialRefreshPending) { this.providerRefreshPending ||= force; return; }
     void this.refreshProviders(force);
     if (!this.store.synced && activeHomeRows(this.settings).some(row => row.kind === 'watchlist') && (force || Date.now() - this.lastWatchlistSync >= 5_000)) {
@@ -387,6 +398,29 @@ export class HomeCollections {
       // Background sync stays quiet on Home and preserves the last loaded rows.
       // The editor still reports load/save failures so unsaved edits are clear.
     } finally { this.syncing = false; }
+  }
+
+  private refreshLibraryExclusions(force = false): Promise<void> {
+    if (this.exclusionsRequest) { this.exclusionsRefreshPending ||= force; return this.exclusionsRequest; }
+    if (this.disposed || !this.api.getHomeLibraryExclusions || !force && Date.now() - this.lastExclusionsRead < 5_000) return Promise.resolve();
+    this.lastExclusionsRead = Date.now();
+    const current = () => !this.disposed && JSON.stringify([this.api.serverId, this.api.userId]) === this.accountIdentity
+      && (!this.api.homeCollections || this.api.homeCollections.isCurrent());
+    const request = this.api.getHomeLibraryExclusions().then(ids => {
+      if (!current()) return;
+      lastHomeExclusions = { key: this.key, ids: ids.slice() };
+      this.libraryVisibility.setExclusions(ids);
+    }).catch(() => {
+      // Keep known exclusions through a transient error. A first-time failure
+      // leaves native Home usable and retries when it regains focus.
+    }).finally(() => {
+      if (this.exclusionsRequest === request) this.exclusionsRequest = undefined;
+      if (current()) {
+        this.exclusionsReady = true; this.attach();
+        if (this.exclusionsRefreshPending) { this.exclusionsRefreshPending = false; void this.refreshLibraryExclusions(true); }
+      }
+    });
+    this.exclusionsRequest = request; return request;
   }
 
   private refreshSeasons = (): void => {
@@ -512,12 +546,21 @@ export class HomeCollections {
     if (this.disposed) return;
     const host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab');
     if (!host) return;
+    this.libraryVisibility.sync(host);
+    const excludedFocus = document.activeElement instanceof HTMLElement && host.contains(document.activeElement)
+      ? document.activeElement.closest<HTMLElement>(`.${homeLibraryExcludedClass}`) : null;
+    if (excludedFocus) {
+      const visible = Array.from(host.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex="0"]'))
+        .filter(node => !node.closest(`.hide,[hidden],.${homeLibraryExcludedClass}`) && node.getClientRects().length > 0
+          && getComputedStyle(node).visibility !== 'hidden');
+      this.focus(visible.find(node => !!(excludedFocus.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) || visible[visible.length - 1]);
+    }
     this.holdInitialHome(host);
     let staged = this.staged;
     if (staged?.sections && staged.sourceRevision !== this.sourceRevision) {
       void this.prepare(staged); staged = undefined;
     }
-    const initialRowsReady = this.initialSettingsReady && !!staged && staged.revision === this.revision;
+    const initialRowsReady = this.initialSettingsReady && this.exclusionsReady && !!staged && staged.revision === this.revision;
     // Cached content skips network waits, not native layout settlement: reveal
     // every row together, even when Jellyfin rebuilds its Home during Back.
     if (!this.readiness.update(host, this.initialPaint || initialRowsReady, this.warmReturn)) return;
@@ -841,7 +884,7 @@ export class HomeCollections {
     }
     this.rememberNativeFocus();
     this.disposed = true; this.revision++; this.observer.disconnect();
-    this.channelArtwork.destroy(); this.removeWatchlist();
+    this.channelArtwork.destroy(); this.libraryVisibility.destroy(); this.removeWatchlist();
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.clearTimeout(this.seasonalTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);

@@ -69,6 +69,7 @@ export interface MediaApi extends BrowseApi {
   userId?: string;
   homeCollections?: HomeCollectionTransport;
   providerHomes?: ProviderHomesTransport;
+  getHomeLibraryExclusions?(): Promise<string[]>;
   getProviderDirectory?(): Promise<ProviderDirectory>;
   getProviderItems?(provider: ProviderId, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
   previewProviderItems?(provider: ProviderHomeConfig, query: ProviderItemsQuery): Promise<ProviderItemsPage>;

@@ -39,7 +39,7 @@ export class HomeReadiness {
   private watch(host: HTMLElement): void {
     for (const element of Array.from(host.querySelectorAll<NativeItems>('.sections .itemsContainer, .homeSectionsContainer .itemsContainer'))) {
       const original = element.fetchData;
-      if (element.closest('.tvl-home-collection-row, .tvl-home-provider-row') || this.watches.has(element) || element.childElementCount
+      if (element.closest('.tvl-home-collection-row, .tvl-home-provider-row, .tvl-home-library-excluded') || this.watches.has(element) || element.childElementCount
         || typeof original === 'function' && completed.get(element) === original) continue;
       if (typeof original !== 'function') continue;
       const owner = this;
@@ -87,7 +87,7 @@ export class HomeReadiness {
     // rows. That placeholder alone must never mark a rebuilt Home as ready.
     if (!Array.from(sections.querySelectorAll('.itemsContainer, .homeLibraryButton, .ec-root, .sectionTitle'))
       .some(element => !element.closest('.ec-placeholder, .ec-bootstrap-placeholder'))) return false;
-    if (host.querySelector('.sections [aria-busy="true"]')) return false;
+    if (Array.from(host.querySelectorAll('.sections [aria-busy="true"]')).some(element => !element.closest('.tvl-home-library-excluded'))) return false;
     // Featured rebuilds its carousel on return and reserves the final height
     // while fetching artwork. Warm Home rows need not wait for that artwork.
     if (!this.allowFeaturedPlaceholder && host.querySelector('.ec-placeholder, .ec-bootstrap-placeholder')) return false;
@@ -97,7 +97,7 @@ export class HomeReadiness {
     for (const watch of this.watches.values()) {
       // Cached inactive Home containers are deliberately paused by Jellyfin.
       // They do not represent a pending request, even if they are empty.
-      if (!host.contains(watch.element) || watch.element.paused === true && !watch.pending) continue;
+      if (!host.contains(watch.element) || watch.element.closest('.tvl-home-library-excluded') || watch.element.paused === true && !watch.pending) continue;
       if (watch.pending || !watch.done && !watch.element.childElementCount) return false;
     }
     return true;

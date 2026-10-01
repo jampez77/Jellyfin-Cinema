@@ -28,7 +28,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds seasonal Home groups with named collection, item or Watchlist sub-rows, inclusive annual date ranges and one shared Home position. Only active sub-rows render, with no group heading or empty space outside a season. Optional Shuffle on load randomises Home items per visit while background refreshes retain their order. Dates, sources, tabs, ranks and shuffle sync to the Jellyfin account. Existing settings and identity are preserved; old editing clients cannot erase seasonal settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Respects saved Jellyfin Home library exclusions for Home Screen Sections' extra per-library Recently Added rows. Both Home visibility options are respected; Music, Playlists and other excluded libraries stay hidden by stable library ID on TV and desktop, while My Media shortcuts and explicitly chosen collection rows retain their behavior. Re-enabling a library restores its row. Account-scoped caching keeps return visits fast, and hidden background rows no longer delay Home readiness. Seasonal groups, shuffle and existing settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

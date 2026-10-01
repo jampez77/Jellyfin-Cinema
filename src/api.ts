@@ -304,6 +304,26 @@ export function createJellyfinApi(): MediaApi | null {
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     homeCollections: createHomeCollectionTransport(client, sessionCurrent),
     providerHomes: createProviderHomesTransport(client, sessionCurrent),
+    getHomeLibraryExclusions: () => read(async () => {
+      const user = await client.getJSON(client.getUrl(`Users/${encodeURIComponent(userId)}`)) as {
+        Id?: string; Configuration?: { LatestItemsExcludes?: unknown; MyMediaExcludes?: unknown }
+      } | null;
+      if (typeof user?.Id !== 'string' || identity(user.Id) !== identity(userId) || !user.Configuration
+        || typeof user.Configuration !== 'object' || Array.isArray(user.Configuration)) {
+        throw new Error('Jellyfin returned invalid Home preferences.');
+      }
+      // Native Home first gets user views without MyMediaExcludes, then applies
+      // LatestItemsExcludes. HSS enumerates folders directly and bypasses both.
+      const ids: string[] = [];
+      for (const excluded of [user.Configuration.LatestItemsExcludes, user.Configuration.MyMediaExcludes]) {
+        if (excluded === undefined) continue;
+        if (!Array.isArray(excluded) || !excluded.every(id => typeof id === 'string' && id.length > 0 && id.length < 200)) {
+          throw new Error('Jellyfin returned invalid Home library exclusions.');
+        }
+        ids.push(...excluded.map(identity));
+      }
+      return [...new Set(ids)];
+    }),
     getProviderDirectory: () => read(async () => {
       const data = await client.getJSON(client.getUrl('TvItemLayout/Providers/Catalogue')) as ProviderDirectory | null;
       const valid = (items: unknown): items is ProviderDirectoryEntry[] => Array.isArray(items) && items.length <= 2000
