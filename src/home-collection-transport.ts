@@ -3,7 +3,7 @@ import { HomeCollectionSyncError, boundedHomeSettings, homeCollectionSnapshot, t
 type Client = {
   getUrl(path: string): string;
   getJSON(url: string): Promise<unknown>;
-  ajax(options: { type: 'PUT'; url: string; data: string; contentType: 'application/json'; dataType: 'json' }): Promise<unknown>;
+  ajax(options: { type: 'PUT'; url: string; data: string; contentType: 'application/json'; dataType: 'json'; headers: Record<string, string> }): Promise<unknown>;
 };
 
 /** The current native client alone supplies authentication. No user ID is sent
@@ -28,6 +28,7 @@ export function createHomeCollectionTransport(client: Client, isCurrent: () => b
   return { isCurrent,
     load: () => request(() => client.getJSON(client.getUrl('TvItemLayout/HomeCollections'))),
     save: (settings, revision) => request(() => client.ajax({ type: 'PUT', url: client.getUrl('TvItemLayout/HomeCollections'),
-      data: JSON.stringify({ Revision: revision, Settings: boundedHomeSettings(settings) }), contentType: 'application/json', dataType: 'json' }))
+      data: JSON.stringify({ Revision: revision, Settings: boundedHomeSettings(settings) }), contentType: 'application/json', dataType: 'json',
+      headers: { 'X-ScreenHarbour-Home-Rows': '2' } }))
   };
 }

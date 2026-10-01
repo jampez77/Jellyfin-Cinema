@@ -75,7 +75,22 @@ public static class HomeCollectionsHttpChecks
             using var loaded = await client.GetAsync(endpoint);
             assert((await Json(loaded)).GetRawText() == saved.GetRawText(),
                 "Actual HTTP GET reads the existing persisted settings without changing their revision or shape");
+            var seasonalSettings = HomeCollectionsSeasonalChecks.Settings();
+            using var seasonal = await Put(revision, seasonalSettings);
+            var seasonalSaved = await Json(seasonal);
+            revision = seasonalSaved.GetProperty("Revision").GetString();
+            using var seasonalLoaded = await client.GetAsync(endpoint);
+            assert(seasonal.StatusCode == HttpStatusCode.OK && seasonalSaved.GetProperty("Settings").GetRawText() == seasonalSettings.GetRawText()
+                && (await Json(seasonalLoaded)).GetRawText() == seasonalSaved.GetRawText(),
+                "Actual HTTP round trip preserves seasonal child dates, source tabs, shuffle and shared placement using Jellyfin serialization");
             var empty = JsonSerializer.SerializeToElement(new { version = 1, rows = Array.Empty<object>() });
+            using var legacyErase = await Put(revision, empty);
+            using var afterLegacyErase = await client.GetAsync(endpoint);
+            assert(legacyErase.StatusCode == HttpStatusCode.Conflict
+                && (await legacyErase.Content.ReadAsStringAsync()).Contains("Reload ScreenHarbour", StringComparison.Ordinal)
+                && (await Json(afterLegacyErase)).GetRawText() == seasonalSaved.GetRawText(),
+                "Actual HTTP legacy edits cannot erase seasonal settings and explain that the client needs reloading");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "2");
             using var cleared = await Put(revision, empty);
             var deleted = await Json(cleared);
             assert(cleared.StatusCode == HttpStatusCode.OK && deleted.GetProperty("Revision").GetString() != revision

@@ -93,6 +93,12 @@ public sealed class HomeCollectionsController(
             var current = await Read(path, cancellationToken);
             if (!string.Equals(request.Revision, current.Revision, StringComparison.Ordinal))
                 return Conflict("Home rows changed on another device. Reload them before saving.");
+            // Earlier clients normalize unknown seasonal/shuffle fields away.
+            // Require an explicit capability before allowing them to overwrite
+            // an account that already uses either feature.
+            if (current.Settings is JsonElement currentSettings && UsesSeasonalOrShuffle(currentSettings)
+                && Request.Headers["X-ScreenHarbour-Home-Rows"].ToString() != "2")
+                return Conflict("These Home rows use seasonal or shuffle settings. Reload ScreenHarbour on this device before saving.");
             var saved = new HomeCollectionsResponse(Guid.NewGuid().ToString("N"), request.Settings.Clone());
             var serialized = JsonSerializer.Serialize(saved);
             if (Encoding.UTF8.GetByteCount(serialized) > MaximumBytes)
@@ -121,33 +127,59 @@ public sealed class HomeCollectionsController(
         && array.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String && item.GetString()!.Length is > 0 and < 200);
     private static bool Sort(JsonElement value) => value.TryGetProperty("itemSort", out var sort) && sort.ValueKind == JsonValueKind.String
         && new[] { "collection", "title", "title-desc", "newest", "oldest", "custom" }.Contains(sort.GetString());
+    private static bool UsesSeasonalOrShuffle(JsonElement settings) => settings.GetProperty("rows").EnumerateArray().Any(row =>
+        row.GetProperty("kind").GetString() == "seasonal" || row.TryGetProperty("shuffle", out var shuffle) && shuffle.ValueKind == JsonValueKind.True);
+    private static bool SeasonDate(JsonElement season, string key)
+    {
+        if (!Text(season, key, 5, false)) return false;
+        var value = season.GetProperty(key).GetString()!;
+        if (value.Length != 5 || value[2] != '-' || value.Where((_, index) => index != 2).Any(character => character is < '0' or > '9')) return false;
+        var month = (value[0] - '0') * 10 + value[1] - '0';
+        var day = (value[3] - '0') * 10 + value[4] - '0';
+        // Recurring ranges may cross New Year. A leap-year calendar also permits
+        // February 29 without inventing a date in non-leap years.
+        return month is >= 1 and <= 12 && day >= 1 && day <= DateTime.DaysInMonth(2000, month);
+    }
+    private static bool ValidRow(JsonElement row, HashSet<string> ids, bool child = false)
+    {
+        if (!Properties(row, "id", "kind", "title", "collectionIds", "ranked", "placement", "itemSort", "itemOrder", "tabs", "children", "season", "shuffle")
+            || !Text(row, "id", 100, false) || !ids.Add(row.GetProperty("id").GetString()!) || !Text(row, "title", 80)
+            || !row.TryGetProperty("kind", out var kindValue) || kindValue.ValueKind != JsonValueKind.String
+            || kindValue.GetString() is not ("collections" or "items" or "watchlist" or "seasonal")
+            || !row.TryGetProperty("ranked", out var ranked) || ranked.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || !Text(row, "placement", 240, false) || !Sort(row) || !Strings(row, "itemOrder", 2000)) return false;
+        var kind = kindValue.GetString();
+        if (!Strings(row, "collectionIds", kind is "watchlist" or "seasonal" ? 0 : kind == "items" ? 1 : 40)) return false;
+        var placement = row.GetProperty("placement").GetString()!;
+        if (placement is not ("start" or "end") && !placement.StartsWith("native:", StringComparison.Ordinal)) return false;
+        if (row.TryGetProperty("shuffle", out var shuffle) && shuffle.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return false;
+        var hasSeason = row.TryGetProperty("season", out var season);
+        if (child != hasSeason || hasSeason && (!Properties(season, "start", "end") || !SeasonDate(season, "start") || !SeasonDate(season, "end"))) return false;
+        if (kind == "seasonal")
+        {
+            if (child || row.GetProperty("title").GetString()!.Length != 0 || ranked.GetBoolean()
+                || row.GetProperty("itemSort").GetString() != "collection" || row.GetProperty("itemOrder").GetArrayLength() != 0
+                || shuffle.ValueKind == JsonValueKind.True || row.TryGetProperty("tabs", out _)
+                || !row.TryGetProperty("children", out var children) || children.ValueKind != JsonValueKind.Array || children.GetArrayLength() > 12) return false;
+            return children.EnumerateArray().All(value => ValidRow(value, ids, child: true));
+        }
+        if (row.TryGetProperty("children", out _) || kind == "watchlist" && (ranked.GetBoolean() || row.TryGetProperty("tabs", out _))) return false;
+        if (!row.TryGetProperty("tabs", out var tabs)) return true;
+        if (kind != "items" || tabs.ValueKind != JsonValueKind.Array || tabs.GetArrayLength() > 6) return false;
+        var tabIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tab in tabs.EnumerateArray())
+            if (!Properties(tab, "id", "label", "collectionId", "itemSort", "itemOrder") || !Text(tab, "id", 100, false)
+                || !tabIds.Add(tab.GetProperty("id").GetString()!) || !Text(tab, "label", 40)
+                || !Text(tab, "collectionId", 199) || !Sort(tab) || !Strings(tab, "itemOrder", 2000)) return false;
+        return true;
+    }
     private static bool ValidSettings(JsonElement settings)
     {
         if (!Properties(settings, "version", "rows") || !settings.TryGetProperty("version", out var version)
             || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 1 || !settings.TryGetProperty("rows", out var rows)
             || rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() > 12) return false;
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var row in rows.EnumerateArray())
-        {
-            if (!Properties(row, "id", "kind", "title", "collectionIds", "ranked", "placement", "itemSort", "itemOrder", "tabs")
-                || !Text(row, "id", 100, false) || !ids.Add(row.GetProperty("id").GetString()!) || !Text(row, "title", 80)
-                || !row.TryGetProperty("kind", out var kind) || kind.ValueKind != JsonValueKind.String
-                || kind.GetString() is not ("collections" or "items" or "watchlist")
-                || !Strings(row, "collectionIds", kind.GetString() == "watchlist" ? 0 : kind.GetString() == "items" ? 1 : 40)
-                || !row.TryGetProperty("ranked", out var ranked) || ranked.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
-                || !Text(row, "placement", 240, false) || !Sort(row) || !Strings(row, "itemOrder", 2000)) return false;
-            if (kind.GetString() == "watchlist" && (ranked.GetBoolean() || row.TryGetProperty("tabs", out _))) return false;
-            var placement = row.GetProperty("placement").GetString()!;
-            if (placement is not ("start" or "end") && !placement.StartsWith("native:", StringComparison.Ordinal)) return false;
-            if (!row.TryGetProperty("tabs", out var tabs)) continue;
-            if (kind.GetString() != "items" || tabs.ValueKind != JsonValueKind.Array || tabs.GetArrayLength() > 6) return false;
-            var tabIds = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var tab in tabs.EnumerateArray())
-                if (!Properties(tab, "id", "label", "collectionId", "itemSort", "itemOrder") || !Text(tab, "id", 100, false)
-                    || !tabIds.Add(tab.GetProperty("id").GetString()!) || !Text(tab, "label", 40)
-                    || !Text(tab, "collectionId", 199) || !Sort(tab) || !Strings(tab, "itemOrder", 2000)) return false;
-        }
-        return true;
+        return rows.EnumerateArray().All(row => ValidRow(row, ids));
     }
 }
 

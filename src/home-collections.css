@@ -173,3 +173,19 @@
 .tvl-home-editor .tvl-home-source-tab[aria-selected=true] { background:#e3ede5;color:#101b14;border-color:#e3ede5; }
 .tvl-home-preview .tvl-home-source-tabs>.tvl-home-source-tab { margin:0 .4rem .4rem 0; }
 .tvl-home-editor .tvl-home-preview .tvl-home-source-tab { min-height:1.8rem;padding:.3rem .65rem;font-size:.75rem; }
+.tvl-home-editor .tvl-home-season-choice { width:calc(100% - 1rem);margin-left:1rem;padding:.65rem .8rem;border-left:3px solid #65776a; }
+.tvl-home-editor .tvl-home-season-back { margin-bottom:1rem;font-size:.8rem; }
+.tvl-home-season-list { padding:0;list-style:none; }
+.tvl-home-season-list>li { display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff20;padding:.8rem 0;gap:.5rem; }
+.tvl-home-editor .tvl-home-season-edit { display:flex;flex-direction:column;align-items:flex-start;text-align:left;flex:1;min-width:11rem; }
+.tvl-home-season-edit small { margin-top:.35rem;color:#b9c4bd;font-size:.75rem; }
+.tvl-home-season-add { display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.2rem; }
+.tvl-home-editor .tvl-home-season-add .tvl-button { font-size:.85rem; }
+.tvl-home-season-dates { border-bottom:1px solid #ffffff20;margin-bottom:1.4rem;padding-bottom:.5rem; }
+.tvl-home-season-date-fields { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem; }
+.tvl-home-season-date-fields fieldset { min-width:0;border:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(4.2rem,.45fr);gap:.6rem; }
+.tvl-home-season-date-fields legend { font-weight:650;padding:0 0 .5rem;color:#eef2ec; }
+.tvl-home-editor select { display:block;width:100%;min-width:0;color:#f5f5f2;background:#111813;border:1px solid #65776a;border-radius:6px;font:inherit;padding:.7rem .5rem;margin:.5rem 0; }
+.tvl-home-editor select:focus { outline:3px solid #f3f7ed;outline-offset:3px; }
+.tvl-home-editor .tvl-home-preview-season { color:#c4d9cf;font-size:.75rem;line-height:1.5;margin:.8rem 0; }
+@media(max-width:800px){.tvl-home-season-date-fields{grid-template-columns:1fr}.tvl-home-season-list .tvl-home-editor-actions{width:100%}.tvl-home-season-list .tvl-home-editor-actions>.tvl-button:first-child{margin-left:0}}

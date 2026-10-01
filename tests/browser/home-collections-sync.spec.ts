@@ -123,6 +123,9 @@ test('concurrent editor rejects lost updates, preserves draft and reloads only o
     await expect(second.getByLabel('Row title', { exact: true })).toHaveValue('Unsaved on second desktop');
     await expect(second.getByRole('button', { name: 'Save rows', exact: true })).toBeDisabled();
     expect((await cached(b.page)).rows[0].title).toBe('Weekend picks');
+    await second.getByRole('button', { name: 'Into the Wilderness', exact: true }).click();
+    await expect(second.getByRole('button', { name: 'Reload saved rows', exact: true })).toBeVisible();
+    await expect(second.getByRole('button', { name: 'Save rows', exact: true })).toBeDisabled();
     await second.getByRole('button', { name: 'Reload saved rows', exact: true }).click();
     await expect(second.getByLabel('Row title', { exact: true })).toHaveValue('Saved on desktop');
     await second.getByRole('button', { name: 'Cancel', exact: true }).click();

@@ -4,28 +4,68 @@ export const itemSorts = ['collection', 'title', 'title-desc', 'newest', 'oldest
 export type HomeItemSort = typeof itemSorts[number];
 export type HomeCollectionTab = { id: string; label: string; collectionId: string; itemSort: HomeItemSort; itemOrder: string[] };
 export const maxHomeCollectionTabs = 6;
-export type HomeCollectionRow = { id: string; kind: 'collections' | 'items' | 'watchlist'; title: string; collectionIds: string[]; ranked: boolean;
-  placement: string; itemSort: HomeItemSort; itemOrder: string[]; tabs?: HomeCollectionTab[] };
+export const maxSeasonalRows = 12;
+export type HomeCollectionSeason = { start: string; end: string };
+export type HomeCollectionRow = { id: string; kind: 'collections' | 'items' | 'watchlist' | 'seasonal'; title: string; collectionIds: string[]; ranked: boolean;
+  placement: string; itemSort: HomeItemSort; itemOrder: string[]; tabs?: HomeCollectionTab[]; children?: HomeCollectionRow[];
+  season?: HomeCollectionSeason; shuffle?: boolean };
 export type HomeCollectionSettings = { version: 1; rows: HomeCollectionRow[] };
 export const emptyHomeCollections = (): HomeCollectionSettings => ({ version: 1, rows: [] });
+
+/** Seasons recur annually. A leap reference year permits February 29 without accepting impossible dates. */
+export function validSeasonDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{2}-\d{2}$/.test(value)) return false;
+  const month = Number(value.slice(0, 2)), day = Number(value.slice(3));
+  const date = new Date(2000, month - 1, day);
+  return date.getFullYear() === 2000 && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+/** Inclusive dates use the viewer's local calendar, including seasons that cross New Year. */
+export function isSeasonActive(season: HomeCollectionSeason | undefined, date = new Date()): boolean {
+  if (!season || !validSeasonDate(season.start) || !validSeasonDate(season.end) || !Number.isFinite(date.getTime())) return false;
+  const today = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return season.start <= season.end
+    ? today >= season.start && today <= season.end
+    : today >= season.start || today <= season.end;
+}
+
+/** A seasonal group occupies one configured position; only its currently visible rows enter the page. */
+export function activeHomeRows(settings: HomeCollectionSettings, date = new Date()): HomeCollectionRow[] {
+  return settings.rows.flatMap(row => row.kind === 'seasonal'
+    ? (row.children || []).filter(child => child.kind !== 'seasonal' && isSeasonActive(child.season, date))
+      .map(child => ({ ...child, placement: row.placement }))
+    : [row]);
+}
 
 /** Keep preferences bounded and treat local storage as untrusted input. */
 export function parseHomeCollections(value: unknown): HomeCollectionSettings {
   if (!value || typeof value !== 'object' || !('version' in value) || value.version !== 1 || !('rows' in value) || !Array.isArray(value.rows)) return emptyHomeCollections();
   const seen = new Set<string>();
-  const rows: HomeCollectionRow[] = [];
-  for (const row of value.rows.slice(0, 12)) {
-    if (!row || !['collections', 'items', 'watchlist'].includes(row.kind) || typeof row.id !== 'string' || !row.id || seen.has(row.id.slice(0, 100))) continue;
-    const ids = Array.isArray(row.collectionIds) ? Array.from(new Set<string>(row.collectionIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))) : [];
+  const parseRow = (row: unknown, child = false): HomeCollectionRow | undefined => {
+    if (!row || typeof row !== 'object' || !('kind' in row) || typeof row.kind !== 'string' || !['collections', 'items', 'watchlist', 'seasonal'].includes(row.kind) || !('id' in row) || typeof row.id !== 'string' || !row.id || seen.has(row.id.slice(0, 100))) return undefined;
+    // A missing or invalid child schedule must never turn into a permanently visible Home row.
+    if (child && (row.kind === 'seasonal' || !('season' in row) || !row.season || typeof row.season !== 'object' || !('start' in row.season) || !('end' in row.season) || !validSeasonDate(row.season.start) || !validSeasonDate(row.season.end))) return undefined;
+    const source = row as Record<string, unknown>;
+    const kind = row.kind as HomeCollectionRow['kind'];
+    const placement = typeof source.placement === 'string' && (['start', 'end'].includes(source.placement) || source.placement.startsWith('native:')) ? source.placement.slice(0, 240) : 'end';
     seen.add(row.id.slice(0, 100));
-    const itemOrder = Array.isArray(row.itemOrder) ? Array.from(new Set<string>(row.itemOrder.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))).slice(0, 2000) : [];
-    const next: HomeCollectionRow = { id: row.id.slice(0, 100), kind: row.kind, title: typeof row.title === 'string' ? row.title.trim().slice(0, 80) : '', collectionIds: row.kind === 'watchlist' ? [] : ids.slice(0, row.kind === 'items' ? 1 : 40), ranked: row.kind === 'items' && row.ranked === true,
-      placement: typeof row.placement === 'string' && (['start', 'end'].includes(row.placement) || row.placement.startsWith('native:')) ? row.placement.slice(0, 240) : 'end',
-      itemSort: itemSorts.includes(row.itemSort) ? row.itemSort : 'collection', itemOrder };
-    if (row.kind === 'items' && Array.isArray(row.tabs)) {
+    if (kind === 'seasonal') {
+      const children = Array.isArray(source.children) ? source.children.slice(0, maxSeasonalRows).map(value => parseRow(value, true)).filter((value): value is HomeCollectionRow => !!value) : [];
+      return { id: row.id.slice(0, 100), kind, title: '', collectionIds: [], ranked: false, placement, itemSort: 'collection', itemOrder: [], children };
+    }
+    const ids = Array.isArray(source.collectionIds) ? Array.from(new Set<string>(source.collectionIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))) : [];
+    const itemOrder = Array.isArray(source.itemOrder) ? Array.from(new Set<string>(source.itemOrder.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length < 200))).slice(0, 2000) : [];
+    const next: HomeCollectionRow = { id: row.id.slice(0, 100), kind, title: typeof source.title === 'string' ? source.title.trim().slice(0, 80) : '', collectionIds: kind === 'watchlist' ? [] : ids.slice(0, kind === 'items' ? 1 : 40), ranked: kind === 'items' && source.ranked === true,
+      placement, itemSort: itemSorts.includes(source.itemSort as HomeItemSort) ? source.itemSort as HomeItemSort : 'collection', itemOrder };
+    if (child) {
+      const season = source.season as HomeCollectionSeason;
+      next.season = { start: season.start, end: season.end };
+    }
+    if (source.shuffle === true) next.shuffle = true;
+    if (kind === 'items' && Array.isArray(source.tabs)) {
       const seenTabs = new Set<string>();
       const tabs: HomeCollectionTab[] = [];
-      for (const tab of row.tabs.slice(0, maxHomeCollectionTabs)) {
+      for (const tab of source.tabs.slice(0, maxHomeCollectionTabs)) {
         if (!tab || typeof tab.id !== 'string' || !tab.id || seenTabs.has(tab.id.slice(0, 100)) || typeof tab.collectionId !== 'string' || tab.collectionId.length >= 200) continue;
         seenTabs.add(tab.id.slice(0, 100));
         tabs.push({ id: tab.id.slice(0, 100), label: typeof tab.label === 'string' ? tab.label.trim().slice(0, 40) : '', collectionId: tab.collectionId,
@@ -39,8 +79,9 @@ export function parseHomeCollections(value: unknown): HomeCollectionSettings {
         next.itemSort = tabs[0].itemSort; next.itemOrder = tabs[0].itemOrder.slice();
       }
     }
-    rows.push(next);
-  }
+    return next;
+  };
+  const rows = value.rows.slice(0, 12).map(row => parseRow(row)).filter((row): row is HomeCollectionRow => !!row);
   return { version: 1, rows };
 }
 
@@ -71,6 +112,16 @@ export function orderHomeItems(items: Item[], row: Pick<HomeCollectionRow, 'item
     }
     return (Number.isNaN(comparison) ? 0 : comparison) || a.index - b.index;
   }).map(entry => entry.item);
+}
+
+/** Shuffle the rendered copy without changing Jellyfin's collection or the user's saved ordering. */
+export function shuffleHomeItems(items: Item[], random: () => number = Math.random): Item[] {
+  const shuffled = items.slice();
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const target = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+  return shuffled;
 }
 
 // Outlined vector digits: artwork beside the poster, never a title prefix.

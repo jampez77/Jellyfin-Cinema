@@ -10,11 +10,11 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.34.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.35.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB, with Disney studio titles also included on Disney+.
 
-**0.2.34 is available as a prerelease** ([release notes](docs/releases/v0.2.34.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. TV arrow navigation follows the streaming-service page’s content order, so moving back up visits each row instead of jumping to the fixed Back button. Horizontal rows remember their selected item, and full provider, library, browse and collection grids move between adjacent visual rows even when captions have different heights. View all, Retry and Load more remain reachable. Saved settings and Disney+ studio matching are unchanged. Update the existing installation; no uninstall is needed. Physical LG webOS testing of this release remains pending.
+**0.2.35 is available as a prerelease** ([release notes](docs/releases/v0.2.35.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Seasonal Home groups hold named sub-rows with annually recurring dates, such as Halloween in October and Christmas in December. Active sub-rows share the group's Home position; outside those dates, no seasonal section appears. Optional **Shuffle on load** gives any custom Home row a fresh item order on each visit while keeping background refreshes steady. Existing settings are retained. Update the existing installation, restart Jellyfin and fully reopen editing clients. Physical LG webOS testing of this release remains pending.
 
 ## Try the demo
 
@@ -92,13 +92,17 @@ In desktop display mode, open **Collections → Customize Home rows**. Choose a 
 - **Item order:** keep the collection’s order, sort members by title or year, or move them into a custom order. Each tab has its own source and item order. Collection cards can also be reordered. These changes affect this Home row only, not the server’s collection order.
 - **Home position:** move your row between existing Home sections, including Featured and each library’s Latest row. Visit Home once if its sections are not listed. A row falls back to the end when its chosen section is unavailable.
 
+Choose **Add seasonal group** to reserve one position for seasonal content, then add named collection, collection-items or Watchlist sub-rows. Set each sub-row's start and end month/day: **1 October–31 October** for Halloween, or **1 December–6 January** for Christmas. Both endpoints are included, the dates repeat annually, and ranges can cross New Year. The viewing device's local calendar determines visibility. Each sub-row keeps the usual content, tabs, artwork and ordering options. Use the group's **Home position** to move all its active sub-rows together; arrange overlapping seasons within the group. Only child row names appear on Home. When no child is in season, the group creates no section or blank space.
+
+Under **Item order**, enable **Shuffle on load** for a normal row or a seasonal sub-row. Home shuffles its collection tiles or members on each visit. Background refreshes keep the current order stable and add new members without rearranging the existing ones. Saved manual ordering and Jellyfin collections are unchanged; turning shuffle off restores the chosen order. The editor shows a sample shuffle.
+
 The **Home preview** shows the selected row’s title, artwork and chosen item order, including ranked number images and the selected collection tab when enabled. It updates as you edit so you can review the result before saving. The position context shows where the row will appear among your Home sections. Missing-artwork placeholders stay inside their thumbnails, keeping the editor controls usable.
 
 Choose **Save rows** to apply your changes. Ranked artwork uses large outlined SVG number images to the left of posters; numbers follow the row’s chosen item order, not popularity scores. Existing saved rows keep their collection order and end-of-Home position until you change them.
 
 For platform charts, use one row per service with separate **Movies** and **Shows** tabs. The [UK platform trending setup](docs/platform-trending.md) explains optional SmartLists/MDBList sources for Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, BBC iPlayer, ITVX and Channel 4. Existing Jellyfin collections work without those integrations.
 
-These choices now sync through your Jellyfin server for the signed-in account, including row titles, sources, tabs, ranking, item order and Home position. After upgrading, open Home once in the desktop browser where you configured your rows so it can migrate them. Then reopen Home on the TV using the same account; an already-open Home checks for updates every minute and when it regains focus. The server copy wins if devices disagree; concurrent edits prompt you to reload instead of overwriting another device. Local storage is an offline cache. Home sync failures stay quiet and retry automatically; the collection editor still reports failed loads and saves. The standalone demo remains local-only. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 custom rows, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
+These choices now sync through your Jellyfin server for the signed-in account, including row titles, sources, tabs, ranking, item order, shuffle, seasonal dates and Home position. After upgrading, open Home once in the desktop browser where you configured your rows so it can migrate them. Then reopen Home on the TV using the same account; an already-open Home checks for updates every minute and when it regains focus. The server copy wins if devices disagree; concurrent edits prompt you to reload instead of overwriting another device. Local storage is an offline cache. Home sync failures stay quiet and retry automatically; the collection editor still reports failed loads and saves. The standalone demo remains local-only. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 top-level rows or seasonal groups, with up to 12 sub-rows per seasonal group, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
 
 ## Your provider Home pages
 
@@ -122,7 +126,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.34 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.34) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.34 release notes](docs/releases/v0.2.34.md) for changes and validation status.
+The [v0.2.35 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.35) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.35 release notes](docs/releases/v0.2.35.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -138,7 +142,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.34.1` for 10.10.7, `0.2.34.2` for 10.11.x and `0.2.34.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.35.1` for 10.10.7, `0.2.35.2` for 10.11.x and `0.2.35.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

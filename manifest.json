@@ -3,11 +3,35 @@
     "guid": "1a06b74f-7609-4af9-899d-430c9b5a52b1",
     "name": "ScreenHarbour",
     "overview": "Cinematic TV and desktop browsing, personal Watchlist and collection rows, and in-player navigation.",
-    "description": "An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with a personal film/series Watchlist, optional mixed Watchlist Home rows, branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
+    "description": "An independent cinematic interface for Jellyfin Web in TV and desktop display modes, with a personal film/series Watchlist, optional mixed Watchlist Home rows, branded UK streaming-provider Home pages and Settings-based configuration, configurable Home collection rows and optional collection tabs, matching Jellyfin Featured styling, Movies, TV Shows, Music, Recordings, Collections, a horizontal Live TV guide and pause artwork. Add items to collections and browse seasons during playback. Preview Home collection rows while editing. Add seasonal groups with annual visibility dates and optional shuffle on load. Ranked Home artwork follows the chosen item order; it does not calculate popularity. Formerly Jellyfin Cinema and TV Item Layout, with the same plugin ID and saved settings for upgrades. Not affiliated with or endorsed by Jellyfin. Install File Transformation separately for automatic loading. Native Android TV, Roku and other independent clients are not supported.",
     "owner": "jampez77",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
+      {
+        "version": "0.2.35.3",
+        "changelog": "Adds seasonal Home groups with named collection, item or Watchlist sub-rows, inclusive annual date ranges and one shared Home position. Only active sub-rows render, with no group heading or empty space outside a season. Optional Shuffle on load randomises Home items per visit while background refreshes retain their order. Dates, sources, tabs, ranks and shuffle sync to the Jellyfin account. Existing settings and identity are preserved; old editing clients cannot erase seasonal settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.35/TvItemLayout_0.2.35.3_jellyfin-12.0.0.zip",
+        "checksum": "2dca4728b28c889ecd33874dee61941b",
+        "timestamp": "2026-10-01T09:35:11Z"
+      },
+      {
+        "version": "0.2.35.2",
+        "changelog": "Adds seasonal Home groups with named collection, item or Watchlist sub-rows, inclusive annual date ranges and one shared Home position. Only active sub-rows render, with no group heading or empty space outside a season. Optional Shuffle on load randomises Home items per visit while background refreshes retain their order. Dates, sources, tabs, ranks and shuffle sync to the Jellyfin account. Existing settings and identity are preserved; old editing clients cannot erase seasonal settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.35/TvItemLayout_0.2.35.2_jellyfin-10.11.0.zip",
+        "checksum": "13a74bc321b82fbb89b565c5590e2919",
+        "timestamp": "2026-10-01T09:35:11Z"
+      },
+      {
+        "version": "0.2.35.1",
+        "changelog": "Adds seasonal Home groups with named collection, item or Watchlist sub-rows, inclusive annual date ranges and one shared Home position. Only active sub-rows render, with no group heading or empty space outside a season. Optional Shuffle on load randomises Home items per visit while background refreshes retain their order. Dates, sources, tabs, ranks and shuffle sync to the Jellyfin account. Existing settings and identity are preserved; old editing clients cannot erase seasonal settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.35/TvItemLayout_0.2.35.1_jellyfin-10.10.7.zip",
+        "checksum": "73d55a5e8cfb48e7278b733949a9ab3e",
+        "timestamp": "2026-10-01T09:35:11Z"
+      },
       {
         "version": "0.2.34.3",
         "changelog": "Fixes TV arrow navigation on streaming-service pages: Up and Down follow content order instead of jumping to the fixed Back button, and each horizontal row remembers its selected item. Full provider, library, browse and collection grids navigate adjacent visual rows despite different caption heights. View all, Retry and Load more remain reachable; hidden and inert controls are excluded. Saved settings and Disney+ studio matching are unchanged. Update the existing plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",

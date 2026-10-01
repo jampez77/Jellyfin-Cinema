@@ -1,6 +1,6 @@
 import type { Item, MediaApi } from './types';
 import { button, el, replace } from './dom';
-import { emptyHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, type HomeCollectionRow } from './home-collection-settings';
+import { emptyHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, activeHomeRows, shuffleHomeItems, type HomeCollectionRow } from './home-collection-settings';
 import { createHomeCollectionStore, type HomeCollectionStore } from './home-collection-store';
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
@@ -72,6 +72,11 @@ export class HomeCollections {
   private readiness = new HomeReadiness(() => this.attach());
   private channelArtwork: HomeChannelArtwork;
   private settings = emptyHomeCollections();
+  private seasonalTimer?: number;
+  private activeRowIds = '';
+  // Per Home visit, not persisted: refreshing metadata must not reshuffle the
+  // row underneath the user. A new Home view gets a fresh random order.
+  private shuffledOrders = new Map<string, string[]>();
   private key: string;
   private store: HomeCollectionStore;
   private syncing = false;
@@ -128,7 +133,7 @@ export class HomeCollections {
     this.accountIdentity = JSON.stringify([api.serverId, api.userId]);
     this.removeWatchlist = subscribeWatchlist(api, () => {
       this.watchlist = undefined;
-      if (!this.settings.rows.some(row => row.kind === 'watchlist')) return;
+      if (!activeHomeRows(this.settings).some(row => row.kind === 'watchlist')) return;
       const active = document.activeElement as HTMLElement | null;
       if (this.owns(active)) this.restoreFocus = active?.dataset.focusId;
       void this.render();
@@ -289,6 +294,15 @@ export class HomeCollections {
         const behavior = element.style.scrollBehavior; element.style.scrollBehavior = 'auto';
         element.scrollTop = top; element.scrollLeft = left; element.style.scrollBehavior = behavior;
       }
+      // A shuffled row has a fresh order on this visit. Restore the same item,
+      // then keep its new horizontal position visible instead of the old slot.
+      const rowId = target?.closest<HTMLElement>('[data-home-row]')?.dataset.homeRow;
+      const cards = target?.closest<HTMLElement>('.tvl-home-row-cards');
+      if (target && cards && activeHomeRows(this.settings).some(row => row.id === rowId && row.shuffle)) {
+        const item = target.getBoundingClientRect(), strip = cards.getBoundingClientRect();
+        if (item.left < strip.left + 8) cards.scrollLeft += item.left - strip.left - 8;
+        else if (item.right > strip.right - 8) cards.scrollLeft += item.right - strip.right + 8;
+      }
     };
     apply();
     // Native focus centering may finish in the next animation frame. Restore
@@ -349,9 +363,10 @@ export class HomeCollections {
     if (changed) await this.render();
   }
   async refreshSettings(force = false): Promise<void> {
+    this.refreshSeasons();
     if (this.initialRefreshPending) { this.providerRefreshPending ||= force; return; }
     void this.refreshProviders(force);
-    if (!this.store.synced && this.settings.rows.some(row => row.kind === 'watchlist') && (force || Date.now() - this.lastWatchlistSync >= 5_000)) {
+    if (!this.store.synced && activeHomeRows(this.settings).some(row => row.kind === 'watchlist') && (force || Date.now() - this.lastWatchlistSync >= 5_000)) {
       this.lastWatchlistSync = Date.now();
       if (await this.refreshWatchlist() && !this.disposed) await this.render();
     }
@@ -372,6 +387,34 @@ export class HomeCollections {
       // Background sync stays quiet on Home and preserves the last loaded rows.
       // The editor still reports load/save failures so unsaved edits are clear.
     } finally { this.syncing = false; }
+  }
+
+  private refreshSeasons = (): void => {
+    if (this.disposed) return;
+    const ids = JSON.stringify(activeHomeRows(this.settings).map(row => row.id));
+    if (ids !== this.activeRowIds) void this.render();
+    else this.scheduleSeasonCheck();
+  };
+  private scheduleSeasonCheck(): void {
+    window.clearTimeout(this.seasonalTimer);
+    if (!this.settings.rows.some(row => row.kind === 'seasonal')) return;
+    const now = new Date();
+    const nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    // Use local calendar dates, including DST. Visibility/focus also rechecks
+    // after a sleeping TV wakes, without waiting for a server settings request.
+    this.seasonalTimer = window.setTimeout(this.refreshSeasons, nextDay.getTime() - now.getTime() + 50);
+  }
+
+  private displayItems(items: Item[], row: HomeCollectionRow, sourceId: string): Item[] {
+    if (!row.shuffle) return items;
+    const key = JSON.stringify([row.id, sourceId]);
+    const previous = this.shuffledOrders.get(key) || [];
+    const byId = new Map(items.map(item => [item.Id, item]));
+    const retained = previous.filter(id => byId.has(id));
+    const seen = new Set(retained);
+    const order = [...retained, ...shuffleHomeItems(items.filter(item => !seen.has(item.Id))).map(item => item.Id)];
+    this.shuffledOrders.set(key, order);
+    return order.map(id => byId.get(id)!);
   }
 
   private collectionItems(id: string): Promise<Item[]> {
@@ -395,7 +438,7 @@ export class HomeCollections {
     return this.watchlist.promise;
   }
   private async refreshWatchlist(): Promise<boolean> {
-    if (!this.settings.rows.some(row => row.kind === 'watchlist')) return false;
+    if (!activeHomeRows(this.settings).some(row => row.kind === 'watchlist')) return false;
     const before = this.watchlist;
     try {
       const items = await getAllWatchlistItems(this.api);
@@ -423,7 +466,7 @@ export class HomeCollections {
       this.collectionList(true).then(items => JSON.stringify(items) !== before).catch(() => false),
       this.refreshItems()
     ]);
-    return listChanged && this.settings.rows.length > 0 || membersChanged;
+    return listChanged && activeHomeRows(this.settings).length > 0 || membersChanged;
   }
 
   private refreshItems(): Promise<boolean> {
@@ -439,7 +482,7 @@ export class HomeCollections {
     // Membership and source order can change without a settings revision (for
     // example after SmartLists refreshes). Revalidate visited sources quietly;
     // keep successful data during failures and leave unchanged DOM/focus alone.
-    const sources = new Set(this.settings.rows.filter(row => row.kind === 'items').flatMap(row => homeCollectionTabs(row).map(tab => tab.collectionId)));
+    const sources = new Set(activeHomeRows(this.settings).filter(row => row.kind === 'items').flatMap(row => homeCollectionTabs(row).map(tab => tab.collectionId)));
     let changed = false;
     const pending = Array.from(this.items).filter(([id, entry]) => {
       if (!sources.has(id)) { this.items.delete(id); return false; }
@@ -625,18 +668,36 @@ export class HomeCollections {
   };
   private onPointer = (): void => { this.rememberPosition(); this.inputRevision++; };
   private current(revision: number): boolean { return !this.disposed && (revision === this.revision || revision === this.displayedRevision); }
+  private removeInactiveRows(rows: HomeCollectionRow[]): void {
+    const ids = new Set(rows.map(row => row.id));
+    const expired = this.sections.filter(section => !section.element.classList.contains('tvl-home-provider-row') && !ids.has(section.row.id));
+    if (!expired.length) return;
+    const active = document.activeElement as HTMLElement | null;
+    const focused = expired.find(section => active && section.element.contains(active));
+    const controls = focused ? Array.from(this.root.parentElement?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex="0"]') || [])
+      .filter(node => !expired.some(section => section.element.contains(node)) && !node.closest('.hide,[hidden]') && node.getClientRects().length > 0) : [];
+    const next = focused && (controls.find(node => !!(focused.element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) || controls[controls.length - 1]);
+    // Do not leave yesterday's rows visible while tomorrow's source loads.
+    expired.forEach(section => { section.element.remove(); this.selectedSources.delete(section.row.id); });
+    this.sections = this.sections.filter(section => !expired.includes(section));
+    if (next) this.focus(next);
+  }
   private async render(refreshList = false): Promise<void> {
     const revision = ++this.revision;
+    const rows = activeHomeRows(this.settings);
+    this.activeRowIds = JSON.stringify(rows.map(row => row.id));
+    this.scheduleSeasonCheck();
     const inputRevision = this.inputRevision;
     this.staged = undefined;
+    this.removeInactiveRows(rows);
     const providerElement = this.openProvider ? providerHomeRow(this.providers, this.openProvider) : null;
     const providerRows: RenderedRow[] = providerElement ? [{ row: { id: 'provider-homes:brands', placement: this.providers.placement },
       element: providerElement, reconcileSource: async () => {} }] : [];
-    if (!this.settings.rows.length) { this.staged = { revision, inputRevision, sections: providerRows }; this.attach(); return; }
+    if (!rows.length) { this.staged = { revision, inputRevision, sections: providerRows }; this.attach(); return; }
     try {
-      const available = new Map((this.settings.rows.some(row => row.kind !== 'watchlist') ? await this.collectionList(refreshList) : []).map(item => [item.Id, item]));
+      const available = new Map((rows.some(row => row.kind !== 'watchlist') ? await this.collectionList(refreshList) : []).map(item => [item.Id, item]));
       if (this.disposed || revision !== this.revision) return;
-      const rendered = await Promise.all(this.settings.rows.map(row => this.section(row, available, revision)));
+      const rendered = await Promise.all(rows.map(row => this.section(row, available, revision)));
       if (this.disposed || revision !== this.revision) return;
       this.staged = { revision, inputRevision, sections: [...providerRows, ...rendered.filter((row): row is RenderedRow => row !== null)] }; this.attach();
     } catch {
@@ -645,7 +706,7 @@ export class HomeCollections {
       const error = el('div', 'tvl-home-row-status'); error.setAttribute('role', 'status');
       error.append(el('p', '', 'Your Home rows could not be loaded.'), button('Retry Home rows', '', '', () => { void this.render(true); }));
       this.staged = { revision, inputRevision, error, retry: true,
-        sections: [...providerRows, ...this.sections.filter(section => !section.element.classList.contains('tvl-home-provider-row'))] }; this.attach();
+        sections: [...providerRows, ...this.sections.filter(section => rows.some(row => row.id === section.row.id))] }; this.attach();
     }
   }
 
@@ -692,8 +753,9 @@ export class HomeCollections {
       cards.setAttribute('aria-busy', 'true');
       cards.append(el('p', 'tvl-home-row-status', row.kind === 'watchlist' ? 'Loading Watchlist…' : 'Loading collection…'));
       try {
-        const items = row.kind === 'watchlist' ? orderHomeItems(await this.watchlistItems(), row) : row.kind === 'items' ? orderHomeItems(await this.collectionItems(collection!.Id), source) : chosen;
+        const ordered = row.kind === 'watchlist' ? orderHomeItems(await this.watchlistItems(), row) : row.kind === 'items' ? orderHomeItems(await this.collectionItems(collection!.Id), source) : chosen;
         if (!this.current(revision) || currentSource !== sourceRevision) return;
+        const items = this.displayItems(ordered, row, row.kind === 'items' ? source.collectionId : row.kind);
         replace(cards);
         let shown = 0;
         const more = button('Show more Watchlist', 'grid', '', () => {
@@ -714,6 +776,15 @@ export class HomeCollections {
           if (row.kind === 'watchlist' && shown < items.length) { more.dataset.focusId = `home:${row.id}:more`; cards.append(more); }
         };
         const restore = this.restoreFocus || this.positionToRestore?.focusId;
+        if (row.kind === 'items' && row.shuffle && restore && items.length > 60) {
+          const restoredIndex = items.findIndex(item => restore === (tabbed ? `${focusPrefix(source.id)}${encodeURIComponent(item.Id)}` : `home:${row.id}:${item.Id}`));
+          // Keep Back's selected card reachable in the bounded Home preview,
+          // even if this visit's shuffle placed it in the full-collection tail.
+          if (restoredIndex >= 60) {
+            items.splice(59, 0, items.splice(restoredIndex, 1)[0]);
+            this.shuffledOrders.set(JSON.stringify([row.id, source.collectionId]), items.map(item => item.Id));
+          }
+        }
         const focusedIndex = row.kind === 'watchlist' ? items.findIndex(item => restore === `home:${row.id}:${item.Id}`) : -1;
         appendItems(Math.max(60, row.kind === 'watchlist' ? this.watchlistShown.get(row.id) || 0 : 0, Math.ceil((focusedIndex + 1) / 60) * 60));
         if (!items.length && row.kind !== 'watchlist') cards.append(el('p', 'tvl-home-row-status', 'This collection is empty.'));
@@ -772,7 +843,7 @@ export class HomeCollections {
     this.disposed = true; this.revision++; this.observer.disconnect();
     this.channelArtwork.destroy(); this.removeWatchlist();
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
-    this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.removeEventListener('focus', this.onVisible);
+    this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.clearTimeout(this.seasonalTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);
     document.removeEventListener('viewshow', this.onNativeShow, true);
     window.removeEventListener('storage', this.onProviderStorage);
