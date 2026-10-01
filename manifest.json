@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.38.3",
+        "changelog": "Adds personal Loading screen settings with six animation choices, an editable title and message, previews and account sync across devices. Cached choices appear immediately without delaying Home or its fast return visits. Desktop administrators gain More actions on supported media pages, opening Jellyfin's native item menu for metadata, images, refresh, identification and other permitted actions. Existing Home, provider, collection and account settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.38/TvItemLayout_0.2.38.3_jellyfin-12.0.0.zip",
+        "checksum": "f1c8db122056fcaed818ca9ebe9724f7",
+        "timestamp": "2026-10-01T21:08:15Z"
+      },
+      {
+        "version": "0.2.38.2",
+        "changelog": "Adds personal Loading screen settings with six animation choices, an editable title and message, previews and account sync across devices. Cached choices appear immediately without delaying Home or its fast return visits. Desktop administrators gain More actions on supported media pages, opening Jellyfin's native item menu for metadata, images, refresh, identification and other permitted actions. Existing Home, provider, collection and account settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.38/TvItemLayout_0.2.38.2_jellyfin-10.11.0.zip",
+        "checksum": "f99e38d8611b33543b96c2944dc9c399",
+        "timestamp": "2026-10-01T21:08:15Z"
+      },
+      {
+        "version": "0.2.38.1",
+        "changelog": "Adds personal Loading screen settings with six animation choices, an editable title and message, previews and account sync across devices. Cached choices appear immediately without delaying Home or its fast return visits. Desktop administrators gain More actions on supported media pages, opening Jellyfin's native item menu for metadata, images, refresh, identification and other permitted actions. Existing Home, provider, collection and account settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.38/TvItemLayout_0.2.38.1_jellyfin-10.10.7.zip",
+        "checksum": "95b87388c8483b1df8c6a2d45741e6fc",
+        "timestamp": "2026-10-01T21:08:15Z"
+      },
+      {
         "version": "0.2.37.3",
         "changelog": "Fixes Playlists still appearing in Home Screen Sections' extra Recently Added rows when hidden in Jellyfin Home preferences. Resolves the account's excluded user-view IDs to their underlying library folder IDs on the server, without matching names. Works on desktop and TV, including renamed libraries and TV headings without links. Existing exclusions, custom collection rows and all saved settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

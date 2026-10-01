@@ -2,9 +2,9 @@
 
 ScreenHarbour, formerly Jellyfin Cinema and TV Item Layout, is an independent server plugin that loads the bundled client into **Jellyfin Web**. The layout activates in the web client's TV and desktop display modes; mobile retains its native pages. Native clients that do not load the server's Jellyfin Web assets cannot use this plugin. ScreenHarbour is not affiliated with or endorsed by Jellyfin.
 
-The current prerelease is **0.2.37**, available through the catalogue and manual downloads below. It fixes Playlists remaining in Home Screen Sections' extra Recently Added row when hidden in Jellyfin Home preferences. The server resolves excluded user-view IDs to their underlying folder IDs, including Jellyfin's per-user playlist view. Matching uses those IDs, so it works on TV without heading links and after library renames. Existing exclusions, custom collection rows, seasonal groups, shuffle and saved settings are retained. This release has not been deployed to the live server or tested on physical LG webOS hardware during this release work.
+The current prerelease is **0.2.38**, available through the catalogue and manual downloads below. It adds six loading-screen animations with an editable title and message, saved per Jellyfin account, and a desktop administrator **More** button that opens Jellyfin's native item actions. Existing Home exclusions, custom collection rows, seasonal groups, provider choices and saved settings are retained. Physical LG webOS testing of this release remains pending.
 
-The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). It has a separate name, assembly, API route, and plugin ID (`1a06b74f-7609-4af9-899d-430c9b5a52b1`), so it can be installed alongside that plugin. The inherited MIT notice is included in every archive.
+The integration is adapted from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). It has a separate name, assembly, API route, and plugin ID (`1a06b74f-7609-4af9-899d-430c9b5a52b1`), so it can be installed alongside that plugin. The inherited MIT notice is included in every archive. Archives also include the optional Jellyfin loading icon's source SVG, attribution and CC BY-SA 4.0 licence under `assets/loading/`; the icon identifies Jellyfin and is not ScreenHarbour branding.
 
 ScreenHarbour retains the existing plugin ID, `Jellyfin.Plugin.TvItemLayout.dll`, API endpoints, script and archive filenames. Its public repository is [jampez77/ScreenHarbour](https://github.com/jampez77/ScreenHarbour). Replace the old catalogue repository entry with the new URL below, then update the existing plugin without uninstalling. Saved collection rows, provider selections and account preferences keep their existing internal keys and server paths. The catalogue retains releases from 0.2.0 onward; older TV Item Layout releases remain outside it.
 
@@ -21,19 +21,19 @@ ScreenHarbour retains the existing plugin ID, `Jellyfin.Plugin.TvItemLayout.dll`
 4. Restart Jellyfin. Check Dashboard → Plugins for **ScreenHarbour**. The server log should contain `ScreenHarbour registered with File Transformation`.
 5. Reload Jellyfin Web, using **Desktop** or **TV** display mode in your user's display settings. Fully close and reopen a web-based TV app to clear its loaded client. Open a movie, series, or Live TV item.
 
-Choose the build from the [v0.2.37 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.37) that matches your Jellyfin server:
+Choose the build from the [v0.2.38 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.38) that matches your Jellyfin server:
 
 | Jellyfin server | ScreenHarbour version |
 | --- | --- |
-| 10.10.7 | `0.2.37.1` |
-| 10.11.x | `0.2.37.2` |
-| 12.x | `0.2.37.3` |
+| 10.10.7 | `0.2.38.1` |
+| 10.11.x | `0.2.38.2` |
+| 12.x | `0.2.38.3` |
 
 The repository lists all three targets and Jellyfin filters them by server compatibility. This is a server-testing prerelease. Physical Mac mini/TV deployment, remote controls and real-server playback have not been tested by this release work.
 
 If a newly published version is missing, Jellyfin 12’s dashboard can reuse its [cached catalogue for 15 minutes](https://github.com/jellyfin/jellyfin-web/blob/v12.0/src/apps/dashboard/features/plugins/api/usePackages.ts#L19-L25), even after a page reload. Leave and reopen **Catalogue** after that interval. To refresh immediately, remove only the **ScreenHarbour repository entry** from **Repositories**, then add it again using the same catalogue URL above. This refreshes the listing without uninstalling the plugin or clearing your Home row preferences.
 
-If Jellyfin Cinema or TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace its catalogue entry with the ScreenHarbour URL above. Update the existing plugin to the matching 0.2.37 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV and desktop display modes, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Mobile layouts retain Jellyfin's normal pages.
+If Jellyfin Cinema or TV Item Layout is already installed, open **Dashboard → Plugins → Repositories** and replace its catalogue entry with the ScreenHarbour URL above. Update the existing plugin to the matching 0.2.38 build, restart Jellyfin and fully reopen the client. Do not uninstall it or add a second copy: the unchanged GUID identifies the update. In TV and desktop display modes, **Live TV** opens our guide at `web/#/livetv?collectionType=livetv`, and **Channels & guide** on channel details links to the same page. Mobile layouts retain Jellyfin's normal pages.
 
 Theme videos use Jellyfin’s existing background player and follow its theme-video preference. If there is no playable theme video, the static backdrop remains. Collections list actual membership and open styled collection pages. The Collections library, explicit BoxSet list, and Movies → Collections tab also use the new layout. The Movies and TV Shows libraries also use the new style, including Jellyfin suggestions, favourites, genres, search and A–Z/# browsing. Native Upcoming, Networks and Episodes TV routes remain available through Jellyfin. Unrelated library lists and unsupported URL filters retain their native pages.
 
@@ -60,13 +60,13 @@ To compile all three baseline targets and preserve their archives in a single ru
 bash scripts/package-plugin.sh all
 ```
 
-The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.37.1` for Jellyfin 10.10.7, `0.2.37.2` for 10.11.x and `0.2.37.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
+The script builds the client first, embeds it in the plugin DLL, and creates ZIP files and SHA-256 checksums in `dist/releases/`. The published packages and this source tree use `0.2.38.1` for Jellyfin 10.10.7, `0.2.38.2` for 10.11.x and `0.2.38.3` for 12.x. The target labels describe the Jellyfin API packages compiled against; test on your actual server before relying on a different patch release. Compilation alone does not establish compatibility with every client or server configuration.
 
 ## Install manually
 
 1. In Dashboard → Plugins → Repositories, add the repository from the [File Transformation installation instructions](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation#installation): `https://www.iamparadox.dev/jellyfin/plugins/manifest.json`.
 2. Install **File Transformation** from the catalogue, choosing a release compatible with your Jellyfin version.
-3. Download the matching archive from the [0.2.37 release assets](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.37), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.37.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
+3. Download the matching archive from the [0.2.38 release assets](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.38), or use a matching local archive from `dist/releases/`. Stop Jellyfin. Extract the ZIP into a versioned folder inside your server's configured `plugins` directory, such as `TV Item Layout_0.2.38.3` for Jellyfin 12. Keep the DLL directly inside this folder and replace the previous version when upgrading manually. Common plugin locations are `/config/plugins` for the official container and `/var/lib/jellyfin/plugins` for a Linux package installation; use the location belonging to your installation.
 4. Start Jellyfin. Check Dashboard → Plugins for **ScreenHarbour** and the File Transformation registration message.
 5. Reload Jellyfin Web, using Desktop or TV display mode in your user's display settings. Open a movie, series, or Live TV item.
 
@@ -128,6 +128,20 @@ Custom row settings sync through the server for the signed-in account. **After u
 The optional [UK platform trending guide](https://github.com/jampez77/ScreenHarbour/blob/main/docs/platform-trending.md) explains how SmartLists 12.0.3.0 or newer on Jellyfin 12 can maintain weekly UK JustWatch collections through MDBList. ScreenHarbour displays the matching items already in your library. It can show these as six platform rows with **Movies**/**Shows** tabs, or use any existing collections without external list plugins.
 
 Use **Add to collection** on a media detail page to choose an existing collection or create one. This writes to Jellyfin and requires your account’s collection-management permission. Existing memberships are marked to avoid duplicate additions; successful saves refresh the item’s collection links.
+
+## Personal loading screen
+
+In TV or desktop display mode, open **Settings → ScreenHarbour → Loading screen**. Choose **Film projector**, **Clapperboard**, **Film reel**, **Cinema countdown**, **Spotlights** or **Jellyfin logo** and preview your own title and message. The title accepts up to 60 characters and the message up to 120; either can be empty. **Save** applies the choices to the current account. **Restore defaults** changes only the preview until saved; **Cancel** keeps the previous saved choices.
+
+The authenticated, uncached `GET/PUT TvItemLayout/LoadingScreen` endpoint reads and saves only the current user/device session's settings and rejects API keys. Its response is `{ "Revision": string | null, "Settings": object | null }`; a new account receives null fields and uses the default animation without a background write. PUT accepts the same envelope, with the revision returned by GET and settings `{ "version": 1, "animation": "projector" | "clapperboard" | "film-reel" | "countdown" | "spotlights" | "jellyfin", "brandText": string, "message": string }`. Unknown settings fields, unsupported animations, control characters and excessive text are rejected. Requests are limited to 8 KiB. A conflicting edit returns HTTP 409; the editor keeps its draft and asks to reload before saving again.
+
+Settings are stored at `jellyfin-cinema/loading-screen/<user-id>.json` under the server data directory. **Include this directory in backups** alongside `home-collections` and `provider-homes`; those existing settings remain separate. The account-scoped local cache displays immediately, and fresh preferences load independently of Home content. Failed background reads retain the cached choice and stay quiet; the editor reports failed reads or saves. Changing animation preferences does not add a delay or force an animation on return visits. The standalone demo stores its choices only in the browser.
+
+## Desktop item administration
+
+Signed-in administrators can select **More** on supported media pages to open Jellyfin's native item menu. Available actions depend on the item and server, including **Edit metadata**, **Edit images**, **Refresh metadata** and **Identify**. Jellyfin supplies the editor forms, refresh choices, permission checks and confirmations. Successfully edited metadata and artwork refresh the current ScreenHarbour view. If a client cannot open the native menu, ScreenHarbour opens the original item page so its controls remain available.
+
+Administrator permission is checked again when the button is selected. The controls are hidden for non-administrator accounts and TV display mode. The demo has no native Jellyfin editors; use an installed server to verify these actions.
 
 ## Provider Home data and settings
 

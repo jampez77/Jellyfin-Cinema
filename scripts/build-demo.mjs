@@ -14,6 +14,7 @@ for (const path of ['dist/demo.js', 'dist/jellyfin-tv-layout.js', 'dist/jellyfin
   await cp(new URL(path, root), new URL(path, output));
 }
 await cp(new URL('demo/assets/', root), new URL('demo/assets/', output), { recursive: true });
+await cp(new URL('assets/loading/', root), new URL('assets/loading/', output), { recursive: true });
 const html = await readFile(new URL('demo/index.html', root), 'utf8');
 // Keep the existing local /demo/index.html route while publishing a root
 // entry point whose assets stay within any GitHub Pages project subpath.

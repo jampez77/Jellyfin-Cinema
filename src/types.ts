@@ -1,3 +1,4 @@
+import type { LoadingScreenTransport } from './loading-settings-store';
 import type { BrowseApi } from './browse-api';
 import type { HomeCollectionTransport } from './home-collection-store';
 import type { ProviderHomesTransport } from './provider-settings-store';
@@ -69,6 +70,7 @@ export interface MediaApi extends BrowseApi {
   userId?: string;
   homeCollections?: HomeCollectionTransport;
   providerHomes?: ProviderHomesTransport;
+  loadingScreen?: LoadingScreenTransport;
   getHomeLibraryExclusions?(): Promise<string[]>;
   getProviderDirectory?(): Promise<ProviderDirectory>;
   getProviderItems?(provider: ProviderId, query: ProviderItemsQuery): Promise<ProviderItemsPage>;
