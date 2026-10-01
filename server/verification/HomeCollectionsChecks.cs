@@ -105,6 +105,7 @@ public static class HomeCollectionsChecks
             local = true;
             assert(Value(await controller.GetHomeCollections()).Revision == cleared.Revision, "Rejected writes leave the last saved revision intact");
             assert(!Directory.GetFiles(directory, "*.tmp", SearchOption.AllDirectories).Any(), "Atomic Home writes leave no temporary files");
+            await HomeCollectionsSeasonalChecks.Run(assert, controller, second, cleared.Revision!);
             user.Id = Guid.NewGuid(); session.UserId = user.Id;
             await HomeCollectionsHttpChecks.Run(assert, services =>
             {

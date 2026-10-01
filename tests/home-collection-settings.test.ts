@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { homeCollectionKey, parseHomeCollections, rankImage, orderHomeItems, homeCollectionTabs, homeTabLabel } from '../src/home-collection-settings.ts';
+import { homeCollectionKey, parseHomeCollections, rankImage, orderHomeItems, homeCollectionTabs, homeTabLabel,
+  activeHomeRows, validSeasonDate, isSeasonActive, maxSeasonalRows, shuffleHomeItems } from '../src/home-collection-settings.ts';
 
 test('home collection preferences reject corrupt data, bound choices and preserve chosen order',()=>{
   assert.deepEqual(parseHomeCollections({version:2,rows:[]}),{version:1,rows:[]});
@@ -64,4 +65,124 @@ test('watchlist rows keep presentation settings without collection sources or ra
     tabs: [{ id: 'tab', collectionId: 'forged' }] }] }).rows[0];
   assert.deepEqual(row, { id: 'saved', kind: 'watchlist', title: 'Watch next', collectionIds: [], ranked: false,
     placement: 'native:next up:1', itemSort: 'custom', itemOrder: ['movie', 'show'] });
+});
+
+test('season dates accept real calendar days, including leap day, and reject malformed dates', () => {
+  for (const date of ['01-01', '02-28', '02-29', '04-30', '12-31']) assert.equal(validSeasonDate(date), true, date);
+  for (const date of [undefined, null, 101, '', '1-01', '01-1', '2026-10-01', '00-01', '13-01', '01-00', '01-32', '04-31', '02-30', ' 10-01', '10-01\n']) assert.equal(validSeasonDate(date), false, String(date));
+});
+
+test('season visibility uses inclusive local dates and repeats each year', () => {
+  const season = { start: '10-01', end: '10-31' };
+  assert.equal(isSeasonActive(season, new Date(2026, 8, 30, 23, 59, 59)), false);
+  assert.equal(isSeasonActive(season, new Date(2026, 9, 1)), true);
+  assert.equal(isSeasonActive(season, new Date(2026, 9, 31, 23, 59, 59)), true);
+  assert.equal(isSeasonActive(season, new Date(2026, 10, 1)), false);
+  assert.equal(isSeasonActive(season, new Date(2031, 9, 20)), true);
+  assert.equal(isSeasonActive({ start: '10-31', end: '10-31' }, new Date(2026, 9, 30)), false);
+  assert.equal(isSeasonActive({ start: '10-31', end: '10-31' }, new Date(2026, 9, 31)), true);
+  assert.equal(isSeasonActive(undefined), false);
+  assert.equal(isSeasonActive({ start: '12-32', end: '01-31' }), false);
+  assert.equal(isSeasonActive(season, new Date('invalid')), false);
+});
+
+test('seasons can cross New Year, and leap-day-only rows appear only on February 29', () => {
+  const winter = { start: '12-20', end: '01-05' };
+  for (const date of [new Date(2026, 11, 20), new Date(2026, 11, 31), new Date(2027, 0, 1), new Date(2027, 0, 5)]) assert.equal(isSeasonActive(winter, date), true);
+  for (const date of [new Date(2026, 11, 19), new Date(2027, 0, 6), new Date(2027, 5, 1)]) assert.equal(isSeasonActive(winter, date), false);
+  const leapDay = { start: '02-29', end: '02-29' };
+  assert.equal(isSeasonActive(leapDay, new Date(2028, 1, 29)), true);
+  assert.equal(isSeasonActive(leapDay, new Date(2027, 1, 28)), false);
+  assert.equal(isSeasonActive(leapDay, new Date(2027, 2, 1)), false);
+});
+
+test('seasonal groups preserve child capabilities and flatten only active children at the group position', () => {
+  const settings = parseHomeCollections({ version: 1, rows: [
+    { id: 'before', kind: 'collections', collectionIds: ['regular'] },
+    { id: 'seasonal', kind: 'seasonal', title: 'Hidden group name', collectionIds: ['ignored'], ranked: true, itemSort: 'title', itemOrder: ['ignored'], shuffle: true,
+      placement: 'native:continue watching:1', children: [
+        { id: 'halloween', kind: 'items', title: ' Halloween ', ranked: true, shuffle: true, placement: 'start', season: { start: '10-01', end: '10-31', ignored: true },
+          tabs: [{ id: 'films', label: 'Films', collectionId: 'spooky-films', itemSort: 'custom', itemOrder: ['second', 'first'] }, { id: 'shows', label: 'Shows', collectionId: 'spooky-shows' }] },
+        { id: 'autumn', kind: 'collections', title: 'Autumn collections', collectionIds: ['leaves', 'cozy'], itemSort: 'title-desc', season: { start: '09-01', end: '11-30' } },
+        { id: 'christmas', kind: 'watchlist', title: 'Christmas watchlist', itemSort: 'newest', season: { start: '12-01', end: '12-31' } },
+      ] },
+    { id: 'after', kind: 'watchlist', title: 'Watch later' },
+  ] });
+  const group = settings.rows[1];
+  assert.equal(group.title, ''); assert.deepEqual(group.collectionIds, []); assert.equal(group.ranked, false);
+  assert.equal(group.itemSort, 'collection'); assert.deepEqual(group.itemOrder, []); assert.equal(group.shuffle, undefined);
+  const spooky = group.children![0];
+  assert.equal(spooky.title, 'Halloween'); assert.equal(spooky.ranked, true); assert.equal(spooky.shuffle, true);
+  assert.deepEqual(spooky.season, { start: '10-01', end: '10-31' });
+  assert.deepEqual(spooky.collectionIds, ['spooky-films']); assert.deepEqual(spooky.itemOrder, ['second', 'first']);
+  assert.equal(spooky.tabs?.length, 2); assert.equal(group.children![1].itemSort, 'title-desc'); assert.equal(group.children![2].kind, 'watchlist');
+  const october = activeHomeRows(settings, new Date(2026, 9, 15));
+  assert.deepEqual(october.map(row => row.id), ['before', 'halloween', 'autumn', 'after']);
+  assert.equal(october[1].placement, group.placement); assert.equal(october[2].placement, group.placement);
+  assert.equal(spooky.placement, 'start', 'flattening must not change saved settings');
+  assert.deepEqual(activeHomeRows(settings, new Date(2026, 11, 15)).map(row => row.id), ['before', 'christmas', 'after']);
+  assert.deepEqual(activeHomeRows(settings, new Date(2026, 5, 15)).map(row => row.id), ['before', 'after']);
+  assert.deepEqual(parseHomeCollections(settings), settings, 'normalized settings must round-trip unchanged');
+});
+
+test('seasonal children need valid schedules, cannot nest groups, and share the root ID namespace', () => {
+  const season = { start: '10-01', end: '10-31' };
+  const settings = parseHomeCollections({ version: 1, rows: [
+    { id: 'existing', kind: 'items', collectionIds: ['one'] },
+    { id: 'group', kind: 'seasonal', children: [
+      { id: 'missing', kind: 'items' },
+      { id: 'invalid', kind: 'items', season: { start: '04-31', end: '10-31' } },
+      { id: 'incomplete', kind: 'items', season: { start: '10-01' } },
+      { id: 'nested', kind: 'seasonal', season, children: [{ id: 'hidden', kind: 'items', season }] },
+      { id: 'existing', kind: 'items', season },
+      { id: 'group', kind: 'items', season },
+      { id: 'child', kind: 'items', season },
+      { id: 'child', kind: 'collections', season },
+    ] },
+    { id: 'child', kind: 'items' },
+    { id: 'another-group', kind: 'seasonal', children: [{ id: 'child', kind: 'watchlist', season }] },
+  ] });
+  assert.deepEqual(settings.rows.map(row => row.id), ['existing', 'group', 'another-group']);
+  assert.deepEqual(settings.rows[1].children?.map(row => row.id), ['child']);
+  assert.deepEqual(settings.rows[2].children, []);
+  assert.deepEqual(activeHomeRows(settings, new Date(2026, 9, 15)).map(row => row.id), ['existing', 'child']);
+  assert.deepEqual(activeHomeRows(settings, new Date(2026, 6, 15)).map(row => row.id), ['existing']);
+});
+
+test('seasonal limits bound both groups and children and normalize IDs before checking collisions', () => {
+  const season = { start: '01-01', end: '12-31' };
+  const rows = Array.from({ length: 15 }, (_, root) => ({ id: `group-${root}`, kind: 'seasonal', children:
+    Array.from({ length: 20 }, (_, child) => ({ id: `child-${root}-${child}`, kind: 'collections', season })) }));
+  const settings = parseHomeCollections({ version: 1, rows });
+  assert.equal(settings.rows.length, 12); assert.equal(settings.rows[0].children?.length, maxSeasonalRows);
+  assert.equal(activeHomeRows(settings, new Date(2026, 9, 15)).length, 12 * maxSeasonalRows);
+  const longId = 'x'.repeat(100);
+  const collision = parseHomeCollections({ version: 1, rows: [{ id: `${longId}root`, kind: 'items' },
+    { id: 'group', kind: 'seasonal', children: [{ id: `${longId}child`, kind: 'items', season }] }] });
+  assert.equal(collision.rows[0].id, longId); assert.deepEqual(collision.rows[1].children, []);
+});
+
+test('ordinary rows retain optional shuffle without acquiring seasonal fields', () => {
+  const settings = parseHomeCollections({ version: 1, rows: [
+    { id: 'shuffle', kind: 'items', shuffle: true, season: { start: '10-01', end: '10-31' }, children: [{ id: 'nested', kind: 'items' }] },
+    { id: 'off', kind: 'collections', shuffle: false }, { id: 'invalid', kind: 'watchlist', shuffle: 'true' },
+  ] });
+  assert.equal(settings.rows[0].shuffle, true); assert.equal(settings.rows[0].season, undefined); assert.equal(settings.rows[0].children, undefined);
+  assert.equal(settings.rows[1].shuffle, undefined); assert.equal(settings.rows[2].shuffle, undefined);
+  assert.deepEqual(activeHomeRows(settings, new Date(2026, 5, 1)), settings.rows);
+});
+
+test('shuffle returns a fresh permutation, supports deterministic randomness and leaves saved ordering untouched', () => {
+  const items = [{ Id: 'a', Name: 'Alpha' }, { Id: 'b', Name: 'Beta' }, { Id: 'c', Name: 'Gamma' }, { Id: 'd', Name: 'Delta' }];
+  const randomValues = [0.25, 0.75, 0];
+  let calls = 0;
+  const shuffled = shuffleHomeItems(items, () => randomValues[calls++]);
+  assert.equal(calls, items.length - 1);
+  assert.deepEqual(shuffled.map(item => item.Id), ['d', 'a', 'c', 'b']);
+  assert.deepEqual(items.map(item => item.Id), ['a', 'b', 'c', 'd']);
+  assert.notEqual(shuffled, items); assert.deepEqual(new Set(shuffled), new Set(items));
+  assert.notDeepEqual(shuffleHomeItems(items, () => 0), shuffleHomeItems(items, () => 0.999));
+  const single = [items[0]];
+  assert.deepEqual(shuffleHomeItems(single), single); assert.notEqual(shuffleHomeItems(single), single);
+  assert.deepEqual(shuffleHomeItems([], () => { throw new Error('No draw needed'); }), []);
 });
