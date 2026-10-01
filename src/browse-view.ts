@@ -3,12 +3,14 @@ import type { MusicKind } from './browse-api';
 import { button, el, icon, picture, replace } from './dom';
 import { attachRemote } from './remote';
 import { plainText, resumePosition, runtime } from './utils';
+import { AdminItemActions } from './admin-item-actions';
 
 export type BrowseTab = MusicKind | 'suggestions' | 'genres' | 'all' | 'active' | 'completed';
 export type BrowseState = { tab: BrowseTab; search: string; letter: string; genreId?: string; genreName?: string;
   favorite?: boolean; loadedCount: number; focusId?: string; scrollTop?: number };
 type Options = { kind: 'music' | 'recordings'; tab?: BrowseTab; parentId?: string; item?: Item;
   back: () => void; navigate: (id: string) => void; navigateRoute: (hash: string) => void;
+  openNative?: (item: Item) => void;
   focusId?: string; state?: BrowseState; onState?: (state: BrowseState) => void };
 const pageSize = 48;
 const playable = (item: Item) => ['Movie','Episode','Video','Recording','Audio','MusicAlbum','Playlist'].includes(item.Type || '')
@@ -39,6 +41,7 @@ export class BrowseView {
   private initialScroll: number;
   private restored = false;
   private removeRemote: () => void;
+  private adminActions: AdminItemActions;
   private get title(): string { return this.options.kind === 'music' ? 'Music' : 'Recordings'; }
   private get playlist(): boolean { return this.options.item?.Type === 'Playlist'; }
   private entryKey(item: Item): string { return this.playlist ? item.PlaylistItemId || item.Id : item.Id; }
@@ -60,6 +63,8 @@ export class BrowseView {
     }
     this.status.setAttribute('role', 'status');
     this.content.append(header, this.hero, this.controls, this.status, this.results); this.element.append(this.content);
+    this.adminActions = new AdminItemActions(api, this.element, { openNative: options.openNative, announce: message => { this.status.textContent = message; },
+      updated: () => { void this.refreshMetadata(); } });
     this.renderHero(options.item); this.renderControls();
     this.removeRemote = attachRemote(this.element, options.back);
     this.element.addEventListener('focusin', event => {
@@ -241,7 +246,7 @@ export class BrowseView {
       card.append(copy);if(this.playlist){const duration=item.RunTimeTicks?Math.floor(item.RunTimeTicks/10_000_000):0;card.append(el('span','tvl-browse-track-duration',duration?`${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`:''));}
       card.addEventListener('focus',()=>{if(!this.options.item)this.renderHero(item);});
       card.addEventListener('click',()=>{if(this.disposed)return;this.save();if(this.playlist)void this.play(this.options.item!,item.PlaylistItemId);else if(this.options.item?.Type==='MusicAlbum')void this.play(item);else this.options.navigate(item.Id);});
-      entry.append(card);grid.append(entry);
+      entry.append(card, this.adminActions.button(item));grid.append(entry);
     }
     return grid;
   }
@@ -261,6 +266,7 @@ export class BrowseView {
       if(this.options.item && this.options.kind==='music'){
         const favorite=button(item.UserData?.IsFavorite?'Remove from favourites':'Add to favourites','heart','',()=>{void this.favorite(item);});favorite.dataset.focusId='favorite-item';actions.append(favorite);
       }
+      actions.append(this.adminActions.button(item));
       copy.append(actions);
     } else copy.append(el('p','tvl-browse-overview','Explore your Jellyfin library.'));
     this.hero.append(backdrop,copy);
@@ -286,6 +292,19 @@ export class BrowseView {
     try{await this.api.setFavorite(item.Id,next);if(this.disposed)return;item.UserData={...item.UserData,IsFavorite:next};this.renderHero(item);this.focus('favorite-item');this.status.textContent=next?'Added to favourites.':'Removed from favourites.';}
     catch{if(!this.disposed)this.status.textContent='Unable to update favourites. Try again.';}finally{this.launching=false;}
   }
+  private async refreshMetadata(): Promise<void> {
+    if (this.disposed) return;
+    const selected = this.options.item || this.selected;
+    if (selected) {
+      try {
+        const updated = await this.api.getItem(selected.Id);
+        if (this.disposed) return;
+        if (this.options.item?.Id === selected.Id) this.options.item = updated;
+        if (this.selected?.Id === selected.Id) this.renderHero(updated);
+      } catch { /* Native dialogs report save failures; retain usable artwork. */ }
+    }
+    if (!this.disposed) await this.fetch();
+  }
   private empty(title:string,message:string):HTMLElement{const box=el('div','tvl-browse-empty');box.append(el('h2','',title),el('p','',message));return box;}
-  destroy():void{this.save();this.disposed=true;this.revision++;this.launchRevision++;window.clearTimeout(this.launchTimer);this.removeRemote();this.element.remove();}
+  destroy():void{this.save();this.disposed=true;this.revision++;this.launchRevision++;window.clearTimeout(this.launchTimer);this.adminActions.destroy();this.removeRemote();this.element.remove();}
 }

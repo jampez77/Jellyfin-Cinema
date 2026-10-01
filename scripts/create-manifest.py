@@ -25,10 +25,12 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
         assert info['id'] == plugin_id and info['version'] == version
         assert info['jellyfinVersion'] == target and info['clientSha256'] == client_hash
         assert 'Jellyfin.Plugin.TvItemLayout.dll' in package.namelist()
+        for name in ('CREDITS.md', 'JELLYFIN-LICENSE.md', 'jellyfin-icon--color-on-dark.svg'):
+            assert 'assets/loading/' + name in package.namelist(), f'Missing loading-artwork credit or source: {name}'
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Fixes Playlists still appearing in Home Screen Sections' extra Recently Added rows when hidden in Jellyfin Home preferences. Resolves the account's excluded user-view IDs to their underlying library folder IDs on the server, without matching names. Works on desktop and TV, including renamed libraries and TV headings without links. Existing exclusions, custom collection rows and all saved settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Adds personal Loading screen settings with six animation choices, an editable title and message, previews and account sync across devices. Cached choices appear immediately without delaying Home or its fast return visits. Desktop administrators gain More actions on supported media pages, opening Jellyfin's native item menu for metadata, images, refresh, identification and other permitted actions. Existing Home, provider, collection and account settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

@@ -4,6 +4,7 @@ import { runtime, progress, playbackEnd, resumePosition, isWatched, seasonName, 
 import { attachRemote } from './remote';
 import { CollectionPicker } from './collection-picker';
 import { subscribeWatchlist } from './watchlist';
+import { AdminItemActions } from './admin-item-actions';
 
 type Pane = 'overview' | 'episodes' | 'similar';
 export class DetailView {
@@ -15,6 +16,7 @@ export class DetailView {
   private watchedItem?: Item;
   private watchedPending = false;
   private watchedRevision = 0;
+  private metadataRevision = 0;
   private seasons: Item[] = [];
   private selectedSeason?: Item;
   private episodes = new Map<string, Item[]>();
@@ -41,8 +43,9 @@ export class DetailView {
   private watchlistRevision = 0;
   private watchlistRefreshNeeded = false;
   private stopWatchlist?: () => void;
+  private adminActions: AdminItemActions;
 
-  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; openAdditional?: (item: Item) => boolean; focusId?: string }) {
+  constructor(private api: MediaApi, private options: { id: string; close: () => void; back: () => void; navigate: (id: string) => void; openGuide: () => void; openCollection: (item: Item) => void; openAdditional?: (item: Item) => boolean; openNative?: (item: Item) => void; focusId?: string }) {
     this.restoreId = options.focusId || '';
     this.element.id = 'tv-layout';
     this.element.setAttribute('role', 'dialog');
@@ -51,9 +54,11 @@ export class DetailView {
     this.status.setAttribute('role','status');
     this.status.setAttribute('aria-live','polite');
     this.element.append(this.content, this.status);
+    this.adminActions = new AdminItemActions(api, this.element, { openNative: options.openNative, announce: message => this.announce(message),
+      updated: () => { if (this.disposed) return; const season = this.selectedSeason?.Id; this.loadingRevision++; this.metadataRevision++; this.target = null; this.episodes.clear(); this.episodeRequests.clear(); replace(this.content); void this.load(season); } });
     this.removeRemote = attachRemote(this.element, () => this.back(), direction=>this.moveBetweenSeasons(direction));
   }
-  async load(): Promise<void> {
+  async load(retainSeasonId?: string): Promise<void> {
     this.content.append(this.header(), el('div', 'tvl-loading', 'Loading your library…'));
     this.focusFirst();
     try {
@@ -84,7 +89,8 @@ export class DetailView {
         if (this.disposed) return;
         this.seasons = seasons.status === 'fulfilled' ? seasons.value : [];
         this.target ||= next.status === 'fulfilled' ? next.value : null;
-        this.selectedSeason = this.seasons.find(s => s.Id === (requested.Type === 'Season' ? requested.Id : this.target?.SeasonId))
+        this.selectedSeason = this.seasons.find(s => s.Id === retainSeasonId)
+          || this.seasons.find(s => s.Id === (requested.Type === 'Season' ? requested.Id : this.target?.SeasonId))
           || this.seasons.find(s => s.IndexNumber === this.target?.ParentIndexNumber) || this.seasons.find(s => s.IndexNumber !== 0) || this.seasons[0];
         if (!this.target && this.selectedSeason) {
           // Empty first seasons should not hide playable episodes in later ones.
@@ -242,6 +248,7 @@ export class DetailView {
       const watched = this.watchedButton(this.watchedItem, movie ? 'tvl-icon-button' : '');
       watched.dataset.focusId = 'watched'; actions.insertBefore(watched, favorite);
     }
+    if (!live) actions.append(this.adminActions.button(this.watchedItem || this.item));
     body.append(actions);
     if (!live && !movie && this.item.Genres?.length) body.append(el('p','tvl-genre-line',this.item.Genres.slice(0,3).join('  ·  ')));
     hero.append(body);
@@ -343,6 +350,7 @@ export class DetailView {
     if (pending) return pending;
     const cached = this.episodes.get(season.Id);
     if (cached) return cached;
+    const metadataRevision = this.metadataRevision;
     const request = (async () => {
       let revision: number, items: Item[];
       do {
@@ -350,7 +358,7 @@ export class DetailView {
         items = await this.api.getEpisodes(this.item.Id, season.Id);
         // A list started before a watched write must not put old badges back.
       } while (!this.disposed && revision !== this.watchedRevision);
-      if (!this.disposed) this.episodes.set(season.Id, items);
+      if (!this.disposed && metadataRevision === this.metadataRevision) this.episodes.set(season.Id, items);
       return items;
     })();
     this.episodeRequests.set(season.Id, request);
@@ -408,6 +416,7 @@ export class DetailView {
     anchor?.focus({preventScroll:true});
     const heading = el('div','tvl-browser-heading');heading.append(el('h2','',seasonName(season)));
     if (this.api.setPlayed) heading.append(this.watchedButton(season, 'tvl-season-watched'));
+    heading.append(this.adminActions.button(season));
     area.setAttribute('aria-busy','true');
     const loading = el('div','tvl-loading','Loading episodes…');
     replace(area,heading,loading);
@@ -431,6 +440,7 @@ export class DetailView {
         card.append(thumb,copy);card.addEventListener('click',()=>void this.play(episode));
         const row = el('div', 'tvl-episode-row'); row.append(card);
         if (this.api.setPlayed) row.append(this.watchedButton(episode, 'tvl-icon-button tvl-episode-watched', `${episodeCode(episode)} ${episode.Name}`));
+        row.append(this.adminActions.button(episode));
         list.append(row);
       }
       loading.replaceWith(list);
@@ -756,5 +766,5 @@ export class DetailView {
       ||within.querySelector<HTMLElement>('.tvl-primary:not(:disabled), .tvl-film-card, .tvl-season')||within.querySelector<HTMLElement>('button:not(:disabled)');
     node?.focus({preventScroll:true});
   }
-  destroy(): void {this.stopWatchlist?.();this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearTimeout(this.endTimeTimer);window.clearInterval(this.liveTimer);this.element.remove();}
+  destroy(): void {this.stopWatchlist?.();this.disposed=true;this.loadingRevision++;this.revision++;this.collectionPicker?.destroy();this.adminActions.destroy();this.removeRemote();window.clearTimeout(this.launchTimer);window.clearTimeout(this.endTimeTimer);window.clearInterval(this.liveTimer);this.element.remove();}
 }

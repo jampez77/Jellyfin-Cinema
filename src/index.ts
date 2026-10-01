@@ -1,3 +1,7 @@
+import { LoadingSettingsEditor } from './loading-settings-editor';
+import loadingAnimationStyles from './loading-animation.css';
+import loadingSettingsStyles from './loading-settings.css';
+import adminItemActionStyles from './admin-item-actions.css';
 import styles from './style.css';
 import { isCinemaLayout } from './layout';
 import { DesktopPlayer } from './desktop-player';
@@ -49,8 +53,8 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles+trailerActionStyles;document.head.append(sheet);
-let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|ProviderHomeView|ProviderSettingsEditor|null=null;
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles+trailerActionStyles+loadingAnimationStyles+loadingSettingsStyles+adminItemActionStyles;document.head.append(sheet);
+let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|ProviderHomeView|ProviderSettingsEditor|LoadingSettingsEditor|null=null;
 let providerPreview:ProviderData|undefined;
 let homeCollections:HomeCollections|null=null;
 let activeKey='';let openedHash='';let dismissed='';let previousFocus:HTMLElement|null=null;
@@ -81,7 +85,7 @@ let stopThemeVideo: (() => void) | undefined;
 const nativePages='.itemDetailPage, #itemDetailPage, .liveTvPage, #liveTvSuggestedPage, .mainAnimatedPage, #boxsetsPage, #moviesPage, #tvRecommendedPage, #indexPage, #musicRecommendedPage';
 type CollectionRoute = {kind:'collections';parentId?:string;scope:'list'|'boxsets'|'movies';verifyParent?:boolean};
 type BrowseRoute = ({kind:'home'}|{kind:'music'}|{kind:'recordings'}) & {parentId?:string;tab?:BrowseTab;scope?:'list'|'livetv'|'playlists'};
-type Route = {kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderId;rowId?:string}|{kind:'provider-settings';providerId?:ProviderId}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
+type Route = {kind:'loading-settings'}|{kind:'detail';id:string}|{kind:'guide'}|{kind:'provider';provider:ProviderId;rowId?:string}|{kind:'provider-settings';providerId?:ProviderId}|{kind:'movies';parentId?:string;tab:LibraryTab}|{kind:'shows';parentId?:string;tab:LibraryTab}|CollectionRoute|BrowseRoute;
 function close(restore=true):void{
   homeCollections?.destroy();homeCollections=null;
   providerPreview?.destroy();providerPreview=undefined;
@@ -95,6 +99,8 @@ function close(restore=true):void{
 function currentRoute():Route|null{
   const [path,query='']=location.hash.replace(/^#\/?/,'').split('?');
   const params=new URLSearchParams(query);
+  if(/^mypreferencesmenu\/?$/i.test(path)&&params.get('cinemaLoading')==='1'
+    &&onlyParams(params,['cinemaLoading','serverId']))return {kind:'loading-settings'};
   if(/^mypreferencesmenu\/?$/i.test(path)&&params.get('cinemaProviders')==='1'
     &&onlyParams(params,['cinemaProviders','cinemaService','serverId'])
     &&(!params.has('cinemaService')||validProviderId(params.get('cinemaService'))))return {kind:'provider-settings',providerId:params.get('cinemaService')||undefined};
@@ -206,7 +212,7 @@ function ensureProviderVisit(api:MediaApi,provider:ProviderId):void{
 }
 function hideNativeHost(route:Route):void{
   if(route.kind==='home')return;
-  if(route.kind==='provider'||route.kind==='provider-settings'){
+  if(route.kind==='provider'||route.kind==='provider-settings'||route.kind==='loading-settings'){
     nativeHostMask.setSelector(route.kind==='provider'?'#indexPage':'#myPreferencesMenuPage');return;
   }
   const selector=route.kind==='music'&&!route.scope?'#musicRecommendedPage':route.kind==='guide'||route.kind==='recordings'&&route.scope==='livetv'?'.liveTvPage, #liveTvSuggestedPage':route.kind==='detail'?'.itemDetailPage, #itemDetailPage':route.kind==='shows'?'#tvRecommendedPage':route.kind==='movies'||route.kind==='collections'&&route.scope==='movies'?'#moviesPage':route.kind==='collections'&&route.scope==='boxsets'?'#boxsetsPage':'.mainAnimatedPage, [data-role="page"].libraryPage';
@@ -344,6 +350,13 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   hideNativeHost(route);
   document.body.classList.add('tvl-open');
   const go=(id:string)=>navigate(id,api.serverId,route.kind==='recordings');
+  const openNative=(item:Item)=>{
+    const params=new URLSearchParams({id:item.Id});
+    const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;
+    if(serverId)params.set('serverId',serverId);
+    const target=`#/details?${params}`;dismissed=target;close(false);
+    if(location.hash!==target)location.hash=target;
+  };
   const navigateRoute=(hash:string)=>{
     rememberFocus();
     const [path,query='']=hash.replace(/^#/,'').split('?');
@@ -365,8 +378,9 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
     const data=new ProviderData(api);providerPreview=data;
     view=new ProviderSettingsEditor(api,{onBack:back,providerId:route.providerId,loadPreview:async(provider,row)=>(await data.load(provider,row,0,8,true)).items});
   }
+  else if(route.kind==='loading-settings')view=new LoadingSettingsEditor(api,{onBack:back});
   else if(route.kind==='guide')view=new GuideView(api,{back});
-  else if(route.kind==='collections')view=new CollectionView(api,{parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
+  else if(route.kind==='collections')view=new CollectionView(api,{openNative,parentId:route.parentId,back:()=>collectionBack(route),navigate:go,focusId});
   else if(route.kind==='movies'||route.kind==='shows'){
     const hash=location.hash;
     view=new LibraryView(api,{kind:route.kind,parentId:route.parentId,initialTab:route.tab,back,navigate:go,focusId,state:libraryStates.get(hash),onState:state=>{
@@ -391,7 +405,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   }
   else if(route.kind==='music'||route.kind==='recordings'){
     const hash=location.hash;
-    view=new BrowseView(api,{...route,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
+    view=new BrowseView(api,{openNative,...route,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
       browseStates.set(hash,state);
       if(browseStates.size>100)browseStates.delete(browseStates.keys().next().value!);
     }});
@@ -399,7 +413,7 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
   else {
     const openCollection=(item:Item)=>{
       stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
-      view=new CollectionView(api,{item,back,navigate:go,focusId});
+      view=new CollectionView(api,{openNative,item,back,navigate:go,focusId});
       document.body.append(view.element);void view.load();
     };
     const openAdditional=(item:Item):boolean=>{
@@ -408,13 +422,13 @@ function openRoute(route:Route,api:MediaApi,key:string):void{
       if(!kind)return false;
       stopThemeVideo?.();stopThemeVideo=undefined;view?.destroy();
       const hash=location.hash;
-      view=new BrowseView(api,{kind,item,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
+      view=new BrowseView(api,{openNative,kind,item,back,navigate:go,navigateRoute,focusId,state:browseStates.get(hash),onState:state=>{
         browseStates.set(hash,state);
         if(browseStates.size>100)browseStates.delete(browseStates.keys().next().value!);
       }});
       document.body.append(view.element);void view.load();return true;
     };
-    view=new DetailView(api,{id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo&&!detailOrigins.has(location.hash))dismiss();else back();},focusId,navigate:go,openCollection,openAdditional,openGuide:()=>{
+    view=new DetailView(api,{openNative,id:route.id,close:dismiss,back:()=>{if(window.TvItemLayoutDemo&&!detailOrigins.has(location.hash))dismiss();else back();},focusId,navigate:go,openCollection,openAdditional,openGuide:()=>{
       rememberFocus('guide');
       const params=new URLSearchParams({collectionType:'livetv'});
       const serverId=new URLSearchParams(location.hash.split('?')[1]||'').get('serverId')||api.serverId;

@@ -4,6 +4,7 @@ import { attachRemote } from './remote';
 import { plainText } from './utils';
 import { HomeCollectionEditor } from './home-collection-editor';
 import { isDesktopLayout } from './layout';
+import { AdminItemActions } from './admin-item-actions';
 
 type CollectionOptions = {
   item?: Item;
@@ -11,6 +12,7 @@ type CollectionOptions = {
   back: () => void;
   navigate: (id: string) => void;
   focusId?: string;
+  openNative?: (item: Item) => void;
 };
 
 const typeNames: Record<string, string> = {
@@ -34,6 +36,7 @@ export class CollectionView {
   private focusId: string;
   private editor?: HomeCollectionEditor;
   private layoutObserver: MutationObserver;
+  private adminActions: AdminItemActions;
 
   constructor(private api: MediaApi, private options: CollectionOptions) {
     this.focusId = options.focusId || '';
@@ -42,6 +45,8 @@ export class CollectionView {
     this.element.setAttribute('role', 'dialog');
     this.element.setAttribute('aria-modal', 'true');
     this.element.setAttribute('aria-label', options.item ? `${options.item.Name} collection` : 'Collections');
+    this.adminActions = new AdminItemActions(api, this.element, { openNative: options.openNative, updated: () => { void this.refreshMetadata(); },
+      announce: message => { this.count.textContent = message; } });
     const header = el('header', 'tvl-header');
     this.backButton = button('Back', 'back', 'tvl-back', options.back);
     this.backButton.dataset.focusId = 'back';
@@ -63,6 +68,7 @@ export class CollectionView {
     if (overview) copy.append(el('p', 'tvl-collection-overview', overview));
     this.count.setAttribute('aria-live', 'polite');
     copy.append(this.count);
+    if (options.item) copy.append(this.adminActions.button(options.item));
     this.hero.append(copy);
     this.setArtwork(options.item);
     this.content.append(header, this.hero, this.body);
@@ -123,7 +129,7 @@ export class CollectionView {
       for (const item of items) {
         const entry = el('div', 'tvl-collection-entry');
         entry.setAttribute('role', 'listitem');
-        entry.append(this.card(item));
+        entry.append(this.card(item), this.adminActions.button(item));
         list.append(entry);
       }
       replace(this.body, heading, list);
@@ -150,6 +156,25 @@ export class CollectionView {
 
   private current(revision: number): boolean {
     return !this.disposed && revision === this.revision;
+  }
+
+  private async refreshMetadata(): Promise<void> {
+    if (this.disposed) return;
+    if (this.options.item) {
+      try {
+        const item = await this.api.getItem(this.options.item.Id);
+        if (this.disposed) return;
+        this.options.item = item;
+        this.element.setAttribute('aria-label', `${item.Name} collection`);
+        this.hero.querySelector<HTMLElement>('.tvl-collection-title')!.textContent = item.Name;
+        this.hero.querySelector('.tvl-collection-overview')?.remove();
+        const overview = plainText(item.Overview);
+        if (overview) this.count.before(el('p', 'tvl-collection-overview', overview));
+        this.hero.querySelector('.tvl-admin-item')?.replaceWith(this.adminActions.button(item));
+        this.setArtwork(item);
+      } catch { /* Keep the last known collection if its metadata read fails. */ }
+    }
+    if (!this.disposed) await this.load();
   }
 
   private setArtwork(item?: Item): void {
@@ -185,6 +210,7 @@ export class CollectionView {
     this.revision++;
     this.layoutObserver.disconnect();
     this.editor?.destroy(); this.editor = undefined;
+    this.adminActions.destroy();
     this.removeRemote();
     this.element.remove();
   }

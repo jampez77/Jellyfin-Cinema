@@ -1,3 +1,5 @@
+import { loadingAnimation } from './loading-animation';
+import { createLoadingScreenStore, type LoadingScreenStore } from './loading-settings-store';
 import type { Item, MediaApi } from './types';
 import { button, el, replace } from './dom';
 import { emptyHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, activeHomeRows, shuffleHomeItems, type HomeCollectionRow } from './home-collection-settings';
@@ -37,23 +39,6 @@ type HomePosition = {
 // again on return; custom rows are resolved by their stable saved identifiers.
 const homePositions = new Map<string, HomePosition>();
 
-function loadingCinema(): HTMLElement {
-  const status = el('div', 'tvl-home-loading-status');
-  status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-label', 'Loading Home');
-  const art = el('div', 'tvl-home-loading-projector'); art.setAttribute('aria-hidden', 'true');
-  art.append(el('div', 'tvl-home-loading-beam'));
-  for (const side of ['left', 'right']) {
-    const reel = el('div', `tvl-home-loading-reel tvl-home-loading-reel-${side}`);
-    for (let index = 0; index < 3; index++) reel.append(el('i'));
-    art.append(reel);
-  }
-  art.append(el('div', 'tvl-home-loading-camera'), el('div', 'tvl-home-loading-lens'), el('div', 'tvl-home-loading-foot'));
-  const copy = el('div', 'tvl-home-loading-copy');
-  copy.append(el('span', 'tvl-home-loading-brand', 'SCREENHARBOUR'), el('span', 'tvl-home-loading-label', 'Preparing your Home'));
-  const dots = el('span', 'tvl-home-loading-dots'); dots.setAttribute('aria-hidden', 'true');
-  for (let index = 0; index < 3; index++) dots.append(el('i'));
-  status.append(art, copy, dots); return status;
-}
 
 function showingHome(host = document.querySelector<HTMLElement>('#indexPage #homeTab, #homeTab')): boolean {
   // Home and Favourites share a route/controller. A body-level status must
@@ -112,7 +97,8 @@ export class HomeCollections {
   private initialPaint = false;
   private loadingHost?: HTMLElement;
   private previousBusy: string | null = null;
-  private loadingStatus = loadingCinema();
+  private loadingStatus: HTMLElement;
+  private loadingStore: LoadingScreenStore;
   private loadingTimer?: number;
   private restoreFrame?: number;
   private captureFrame?: number;
@@ -127,6 +113,16 @@ export class HomeCollections {
   constructor(private api: MediaApi, private navigate: (id: string) => void, private restoreFocus?: string,
     private openProvider?: (id: ProviderId) => void) {
     this.store = createHomeCollectionStore(api); this.key = this.store.key; this.settings = this.store.cached;
+    this.loadingStore = createLoadingScreenStore(api);
+    const loadingSettings = this.loadingStore.cached;
+    this.loadingStatus = loadingAnimation(loadingSettings);
+    // Never delay Home for its animation preferences. The account cache is
+    // immediate; a fresh server choice can update a still-visible first load.
+    void this.loadingStore.load().then(settings => {
+      if (this.disposed || JSON.stringify(settings) === JSON.stringify(loadingSettings)) return;
+      const next = loadingAnimation(settings);
+      this.loadingStatus.replaceWith(next); this.loadingStatus = next;
+    }).catch(() => { /* Retain the account's cached animation during outages. */ });
     const exclusions = lastHomeExclusions?.key === this.key ? lastHomeExclusions.ids : undefined;
     this.exclusionsReady = !api.getHomeLibraryExclusions || !!exclusions;
     if (exclusions) this.libraryVisibility.setExclusions(exclusions);
@@ -884,7 +880,7 @@ export class HomeCollections {
     }
     this.rememberNativeFocus();
     this.disposed = true; this.revision++; this.observer.disconnect();
-    this.channelArtwork.destroy(); this.libraryVisibility.destroy(); this.removeWatchlist();
+    this.channelArtwork.destroy(); this.libraryVisibility.destroy(); this.loadingStore.destroy(); this.removeWatchlist();
     this.staged = undefined; this.readiness.destroy(); this.releaseInitialHome();
     this.store.destroy(); this.providerStore.destroy(); window.clearInterval(this.syncTimer); window.clearTimeout(this.seasonalTimer); window.removeEventListener('focus', this.onVisible);
     document.removeEventListener('visibilitychange', this.onVisible);

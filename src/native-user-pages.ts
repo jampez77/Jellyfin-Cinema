@@ -110,6 +110,11 @@ export class NativeUserPages {
       const glyph = el('span', 'material-icons listItemIcon listItemIcon-transparent', 'video_library'); glyph.setAttribute('aria-hidden', 'true');
       const text = el('div', 'listItemBody'); text.append(el('div', 'listItemBodyText', 'Streaming services'), el('div', 'listItemBodyText secondary', 'Provider homes and rows'));
       item.append(glyph, text); link.append(item); this.providerSection.append(link);
+      const loading = el('a', 'emby-button show-focus listItem-border tvl-settings-loading-link'); loading.href = '#/mypreferencesmenu?cinemaLoading=1';
+      const loadingItem = el('div', 'listItem');
+      const loadingGlyph = el('span', 'material-icons listItemIcon listItemIcon-transparent', 'movie'); loadingGlyph.setAttribute('aria-hidden', 'true');
+      const loadingText = el('div', 'listItemBody'); loadingText.append(el('div', 'listItemBodyText', 'Loading screen'), el('div', 'listItemBodyText secondary', 'Animation and custom text'));
+      loadingItem.append(loadingGlyph, loadingText); loading.append(loadingItem); this.providerSection.append(loading);
     }
     if (this.providerSection.parentElement !== host) host.append(this.providerSection);
   }
