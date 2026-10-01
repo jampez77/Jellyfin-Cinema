@@ -84,7 +84,7 @@ Open **Live TV** from Jellyfin's navigation (`web/#/livetv?collectionType=livetv
 
 The plugin activates in Jellyfin Web’s TV and desktop display modes. Mobile mode retains its normal pages. Web-based TV clients can load it; native clients with independent interfaces cannot. CSS and JavaScript include fallbacks for webOS 6’s Chromium 79 engine. Physical remotes and an actual Jellyfin server still need installation testing.
 
-Home Screen Sections compatibility also respects the native **Display in home screen sections such as Recently Added Media and Continue Watching** checkbox for that plugin's extra per-library **Recently Added** rows. Saved exclusions are read for the signed-in account and matched by library ID, including after a rename. Re-enable the checkbox to restore the row. This does not change My Media shortcuts, deliberately selected custom collection rows or aggregate third-party sections that do not identify a single library.
+Home Screen Sections compatibility also respects both native visibility checkboxes—**Display on home screen** and **Display in home screen sections such as Recently Added Media and Continue Watching**—for that plugin's extra per-library **Recently Added** rows. Saved exclusions are read for the signed-in account and matched by library ID, including after a rename. Re-enable Home visibility to restore the row. This does not change My Media shortcuts, deliberately selected custom collection rows or aggregate third-party sections that do not identify a single library.
 
 ## Your Home collection rows
 

@@ -6,7 +6,7 @@ function libraryId(value: string): string | undefined {
 }
 
 /** Home Screen Sections creates RecentlyAddedInLibrary rows independently of
- * Jellyfin's LatestItemsExcludes preference. Match its explicit library IDs,
+ * Jellyfin's LatestItemsExcludes and MyMediaExcludes preferences. Match its IDs,
  * including on TV where the heading has no library link, without changing the
  * plugin's configuration or hiding deliberately selected collection rows. */
 export class HomeLibraryVisibility {

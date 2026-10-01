@@ -1124,23 +1124,31 @@ test('Watchlist write failures expose denied access, missing titles and duplicat
   }
 });
 
-test('Home exclusions read the current account preferences afresh and normalise library IDs', async () => {
+test('Home exclusions combine both current account Home preferences afresh and normalise library IDs', async () => {
   const calls: string[] = [];
   const music = '7E64E319-657A-9516-EC78-490DA03EDCCB';
+  const playlists = '9A7514E8-2739-4E21-B502-5BF28AD38AA1';
+  const musicId = music.replace(/-/g, '').toLowerCase(), playlistsId = playlists.replace(/-/g, '').toLowerCase();
   let exclusions: unknown = [music, music.replace(/-/g, '').toLowerCase()];
+  let myMediaExclusions: unknown = [playlists, music.toLowerCase()];
   const api = client({ getUrl: (path: string) => path, getJSON: async (path: string) => {
-    calls.push(path); return { Id: 'user-a', Configuration: { LatestItemsExcludes: exclusions, MyMediaExcludes: ['unrelated'] } };
+    calls.push(path); return { Id: 'user-a', Configuration: { LatestItemsExcludes: exclusions, MyMediaExcludes: myMediaExclusions } };
   } });
-  assert.deepEqual(await api.getHomeLibraryExclusions!(), ['7e64e319657a9516ec78490da03edccb']);
-  exclusions = []; assert.deepEqual(await api.getHomeLibraryExclusions!(), []);
-  exclusions = undefined; assert.deepEqual(await api.getHomeLibraryExclusions!(), []);
-  assert.deepEqual(calls, ['Users/user-a','Users/user-a','Users/user-a']);
+  assert.deepEqual(await api.getHomeLibraryExclusions!(), [musicId, playlistsId]);
+  exclusions = []; myMediaExclusions = [playlists]; assert.deepEqual(await api.getHomeLibraryExclusions!(), [playlistsId]);
+  exclusions = undefined; assert.deepEqual(await api.getHomeLibraryExclusions!(), [playlistsId]);
+  myMediaExclusions = undefined; assert.deepEqual(await api.getHomeLibraryExclusions!(), []);
+  exclusions = [music]; assert.deepEqual(await api.getHomeLibraryExclusions!(), [musicId]);
+  assert.deepEqual(calls, Array(5).fill('Users/user-a'));
 });
 
 test('Home exclusions reject malformed preferences and results from another account', async () => {
+  const invalidLists = ['music', null, [null], [1], [''], ['a'.repeat(200)]];
+  const malformed = ['LatestItemsExcludes', 'MyMediaExcludes'].flatMap(field => invalidLists.map(value => ({
+    Id: 'user-a', Configuration: { LatestItemsExcludes: [], MyMediaExcludes: [], [field]: value }
+  })));
   for (const response of [null, { Id: 'user-a' }, { Id: 'user-a', Configuration: [] }, { Id: 'user-a', Configuration: 'invalid' },
-    { Id: 'user-b', Configuration: { LatestItemsExcludes: [] } },
-    { Id: 'user-a', Configuration: { LatestItemsExcludes: 'music' } }, { Id: 'user-a', Configuration: { LatestItemsExcludes: [null] } }]) {
+    { Id: 'user-b', Configuration: { LatestItemsExcludes: [], MyMediaExcludes: [] } }, ...malformed]) {
     const api = client({ getUrl: (path: string) => path, getJSON: async () => response });
     await assert.rejects(api.getHomeLibraryExclusions!(), /invalid Home/);
   }
