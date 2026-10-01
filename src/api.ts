@@ -304,6 +304,21 @@ export function createJellyfinApi(): MediaApi | null {
     serverId: typeof serverId === 'string' && serverId.trim() ? serverId.trim() : undefined,
     homeCollections: createHomeCollectionTransport(client, sessionCurrent),
     providerHomes: createProviderHomesTransport(client, sessionCurrent),
+    getHomeLibraryExclusions: () => read(async () => {
+      const user = await client.getJSON(client.getUrl(`Users/${encodeURIComponent(userId)}`)) as {
+        Id?: string; Configuration?: { LatestItemsExcludes?: unknown }
+      } | null;
+      if (typeof user?.Id !== 'string' || identity(user.Id) !== identity(userId) || !user.Configuration
+        || typeof user.Configuration !== 'object' || Array.isArray(user.Configuration)) {
+        throw new Error('Jellyfin returned invalid Home preferences.');
+      }
+      const ids = user.Configuration.LatestItemsExcludes;
+      if (ids === undefined) return [];
+      if (!Array.isArray(ids) || !ids.every(id => typeof id === 'string' && id.length > 0 && id.length < 200)) {
+        throw new Error('Jellyfin returned invalid Home library exclusions.');
+      }
+      return [...new Set(ids.map(identity))];
+    }),
     getProviderDirectory: () => read(async () => {
       const data = await client.getJSON(client.getUrl('TvItemLayout/Providers/Catalogue')) as ProviderDirectory | null;
       const valid = (items: unknown): items is ProviderDirectoryEntry[] => Array.isArray(items) && items.length <= 2000

@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.36.3",
+        "changelog": "Respects saved Jellyfin Home library exclusions for Home Screen Sections' extra per-library Recently Added rows. Music and other excluded libraries stay hidden by stable library ID on TV and desktop, while My Media shortcuts and explicitly chosen collection rows retain their behavior. Re-enabling a library restores its row. Account-scoped caching keeps return visits fast, and hidden background rows no longer delay Home readiness. Seasonal groups, shuffle and existing settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.36/TvItemLayout_0.2.36.3_jellyfin-12.0.0.zip",
+        "checksum": "c76f997afff3fc5d6d4518d50a1cb03b",
+        "timestamp": "2026-10-01T11:48:44Z"
+      },
+      {
+        "version": "0.2.36.2",
+        "changelog": "Respects saved Jellyfin Home library exclusions for Home Screen Sections' extra per-library Recently Added rows. Music and other excluded libraries stay hidden by stable library ID on TV and desktop, while My Media shortcuts and explicitly chosen collection rows retain their behavior. Re-enabling a library restores its row. Account-scoped caching keeps return visits fast, and hidden background rows no longer delay Home readiness. Seasonal groups, shuffle and existing settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.36/TvItemLayout_0.2.36.2_jellyfin-10.11.0.zip",
+        "checksum": "82ad6a2c1a7291cba86e723419916323",
+        "timestamp": "2026-10-01T11:48:44Z"
+      },
+      {
+        "version": "0.2.36.1",
+        "changelog": "Respects saved Jellyfin Home library exclusions for Home Screen Sections' extra per-library Recently Added rows. Music and other excluded libraries stay hidden by stable library ID on TV and desktop, while My Media shortcuts and explicitly chosen collection rows retain their behavior. Re-enabling a library restores its row. Account-scoped caching keeps return visits fast, and hidden background rows no longer delay Home readiness. Seasonal groups, shuffle and existing settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.36/TvItemLayout_0.2.36.1_jellyfin-10.10.7.zip",
+        "checksum": "a7afd3157c6ed346b99a079eca418bfa",
+        "timestamp": "2026-10-01T11:48:44Z"
+      },
+      {
         "version": "0.2.35.3",
         "changelog": "Adds seasonal Home groups with named collection, item or Watchlist sub-rows, inclusive annual date ranges and one shared Home position. Only active sub-rows render, with no group heading or empty space outside a season. Optional Shuffle on load randomises Home items per visit while background refreshes retain their order. Dates, sources, tabs, ranks and shuffle sync to the Jellyfin account. Existing settings and identity are preserved; old editing clients cannot erase seasonal settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
