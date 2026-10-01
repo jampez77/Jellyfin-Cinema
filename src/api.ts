@@ -305,24 +305,20 @@ export function createJellyfinApi(): MediaApi | null {
     homeCollections: createHomeCollectionTransport(client, sessionCurrent),
     providerHomes: createProviderHomesTransport(client, sessionCurrent),
     getHomeLibraryExclusions: () => read(async () => {
-      const user = await client.getJSON(client.getUrl(`Users/${encodeURIComponent(userId)}`)) as {
-        Id?: string; Configuration?: { LatestItemsExcludes?: unknown; MyMediaExcludes?: unknown }
+      // Jellyfin can save a synthetic user-view ID (notably Playlists) while
+      // HSS renders the physical folder ID. The server resolves that relationship.
+      const data = await client.getJSON(client.getUrl('TvItemLayout/HomeLibraryExclusions')) as {
+        UserId?: string; ExcludedLibraryIds?: unknown
       } | null;
-      if (typeof user?.Id !== 'string' || identity(user.Id) !== identity(userId) || !user.Configuration
-        || typeof user.Configuration !== 'object' || Array.isArray(user.Configuration)) {
+      if (typeof data?.UserId !== 'string' || identity(data.UserId) !== identity(userId)) {
         throw new Error('Jellyfin returned invalid Home preferences.');
       }
-      // Native Home first gets user views without MyMediaExcludes, then applies
-      // LatestItemsExcludes. HSS enumerates folders directly and bypasses both.
-      const ids: string[] = [];
-      for (const excluded of [user.Configuration.LatestItemsExcludes, user.Configuration.MyMediaExcludes]) {
-        if (excluded === undefined) continue;
-        if (!Array.isArray(excluded) || !excluded.every(id => typeof id === 'string' && id.length > 0 && id.length < 200)) {
-          throw new Error('Jellyfin returned invalid Home library exclusions.');
-        }
-        ids.push(...excluded.map(identity));
+      const ids = data.ExcludedLibraryIds;
+      if (!Array.isArray(ids) || !ids.every(id => typeof id === 'string'
+        && /^(?:[\da-f]{32}|[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12})$/i.test(id))) {
+        throw new Error('Jellyfin returned invalid Home library exclusions.');
       }
-      return [...new Set(ids)];
+      return [...new Set(ids.map(identity))];
     }),
     getProviderDirectory: () => read(async () => {
       const data = await client.getJSON(client.getUrl('TvItemLayout/Providers/Catalogue')) as ProviderDirectory | null;

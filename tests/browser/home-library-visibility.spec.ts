@@ -3,11 +3,13 @@ import { parseHomeCollections } from '../../src/home-collection-settings';
 
 const music = '7e64e319657a9516ec78490da03edccb';
 const preroll = '6c63e838853847e4abcad56c2be4f895';
+const playlistView = '03e69facd973b23e36355c45ba598e6b';
+const playlistLibrary = '1071671e7bffa0532e930debee501d2e';
 const movies = 'b918990112f341a59a50fc7e8e289d71';
 const row = (page: Page, id: string) => page.locator(`#hss-${id}`);
 
 async function fixture(page: Page, options: { layout?: 'tv' | 'desktop'; busy?: boolean; hold?: boolean } = {}) {
-  const saved = parseHomeCollections({ version: 1, rows: [{ id: 'explicit', kind: 'items', title: 'Recently added in Music',
+  const saved = parseHomeCollections({ version: 1, rows: [{ id: 'explicit', kind: 'items', title: 'Recently added in Playlists',
     collectionIds: ['collection-coast'], placement: 'end' }] });
   await page.clock.install();
   await page.addInitScript(saved => localStorage.setItem(`jellyfin-cinema.home-collections.v1:${encodeURIComponent(location.origin)}:demo`, JSON.stringify(saved)), saved);
@@ -16,7 +18,8 @@ async function fixture(page: Page, options: { layout?: 'tv' | 'desktop'; busy?: 
     await route.fulfill({ response, body: `${await response.text()}\n(() => {
       const api = window.TvItemLayoutDemo.api;
       const state = window.__libraryVisibility = {
-        calls: 0, exclusions: ${JSON.stringify([music, preroll])}, fail: false, hold: ${!!options.hold}, pending: []
+        // The server resolves an excluded synthetic view to its physical library.
+        calls: 0, exclusions: ${JSON.stringify([music, preroll, playlistView, playlistLibrary])}, fail: false, hold: ${!!options.hold}, pending: []
       };
       api.getHomeLibraryExclusions = async () => {
         state.calls++;
@@ -45,7 +48,10 @@ async function fixture(page: Page, options: { layout?: 'tv' | 'desktop'; busy?: 
       // HSS emits Guid.ToString(), while Jellyfin's preference uses compact IDs.
       state.add('music', '7E64E319-657A-9516-EC78-490DA03EDCCB', 'Renamed albums library', ${!!options.busy});
       state.add('preroll', '${preroll}', 'Pre-Roll');
-      state.add('movies', '${movies}', 'Recently added in Music');
+      // TV headings have no link from which to infer the library. Its caption
+      // may also be renamed independently of the saved Playlists preference.
+      state.add('playlists', '1071671E-7BFF-A053-2E93-0DEBEE501D2E', 'Family favourites');
+      state.add('movies', '${movies}', 'Recently added in Playlists');
       state.add('unknown', 'not-a-library-id', 'Recently added in Music');
     })();` });
   });
@@ -58,12 +64,15 @@ for (const layout of ['tv', 'desktop'] as const) test(`${layout} Home applies sa
   await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
   await expect(row(page, 'music')).toBeHidden();
   await expect(row(page, 'preroll')).toBeHidden();
+  await expect(row(page, 'playlists')).toBeHidden();
+  await expect(row(page, 'playlists').locator('.sectionTitle a')).toHaveCount(0);
   await expect(row(page, 'movies')).toBeVisible();
   await expect(row(page, 'unknown')).toBeVisible();
   await expect(page.locator('#homeTab [aria-label="My Media"]').getByRole('button', { name: 'Music', exact: true })).toBeVisible();
   await expect(page.locator('#homeTab [data-home-row="explicit"] .tvl-home-row-card')).toHaveCount(2);
   await expect(page.locator('#homeTab [data-home-row="explicit"]')).toBeVisible();
   expect(await row(page, 'music').evaluate(element => element.getBoundingClientRect().height)).toBe(0);
+  expect(await row(page, 'playlists').evaluate(element => element.getBoundingClientRect().height)).toBe(0);
 });
 
 test('the initial Home reveal waits for saved library preferences instead of flashing excluded rows', async ({ page }) => {
@@ -77,6 +86,7 @@ test('the initial Home reveal waits for saved library preferences instead of fla
   });
   await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
   await expect(row(page, 'music')).toBeHidden();
+  await expect(row(page, 'playlists')).toBeHidden();
   await expect(row(page, 'movies')).toBeVisible();
 });
 
@@ -93,12 +103,15 @@ test('late HSS rows follow exclusions, and re-enabling preserves the owner’s h
   }, music);
   await expect(row(page, 'late-music')).toBeHidden();
   await expect(row(page, 'preroll')).toBeHidden();
+  await expect(row(page, 'playlists')).toBeHidden();
   await page.evaluate(() => {
     (window as any).__libraryVisibility.exclusions = [];
     window.dispatchEvent(new Event('focus'));
   });
   await expect(row(page, 'late-music')).toBeVisible();
   await expect(row(page, 'preroll')).toBeVisible();
+  await expect(row(page, 'playlists')).toBeVisible();
+  await expect(page.locator('#homeTab [data-home-row="explicit"]')).toBeVisible();
   await expect(row(page, 'music')).not.toHaveClass(/tvl-home-library-excluded/);
   await expect(row(page, 'music')).toHaveClass(/hide/);
   await expect(row(page, 'music')).toHaveAttribute('hidden', '');
@@ -136,9 +149,10 @@ test('excluding the focused library moves focus to the following visible row', a
   await page.evaluate(exclusions => {
     (window as any).__libraryVisibility.exclusions = exclusions;
     window.dispatchEvent(new Event('focus'));
-  }, [music, preroll]);
+  }, [music, preroll, playlistView, playlistLibrary]);
   await expect(row(page, 'music')).toBeHidden();
   await expect(row(page, 'preroll')).toBeHidden();
+  await expect(row(page, 'playlists')).toBeHidden();
   await expect(row(page, 'movies').getByRole('button')).toBeFocused();
   await page.keyboard.press('ArrowDown');
   await expect(row(page, 'unknown').getByRole('button')).toBeFocused();
@@ -174,6 +188,7 @@ test('a warm return uses the account’s saved exclusions while a fresh read is 
   await expect(page.locator('#homeTab')).toBeVisible();
   await expect(page.locator('#homeTab')).not.toHaveClass(/tvl-home-initial-loading/);
   await expect(row(page, 'music')).toHaveClass(/tvl-home-library-excluded/);
+  await expect(row(page, 'playlists')).toHaveClass(/tvl-home-library-excluded/);
   await expect(row(page, 'movies')).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as any).__libraryVisibility.pending.length)).toBeGreaterThan(0);
   await page.evaluate(() => {
@@ -198,8 +213,10 @@ test('an outgoing account’s delayed preference response cannot hide the new ac
     window.TvItemLayout!.refresh();
   });
   await expect(row(page, 'music')).toBeVisible();
+  await expect(row(page, 'playlists')).toBeVisible();
   await page.evaluate(() => (window as any).__libraryVisibility.pending.splice(0).forEach((resolve: () => void) => resolve()));
   await expect(row(page, 'music')).toBeVisible();
+  await expect(row(page, 'playlists')).toBeVisible();
   await expect(row(page, 'music')).not.toHaveClass(/tvl-home-library-excluded/);
 });
 

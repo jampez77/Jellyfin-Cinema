@@ -1124,38 +1124,35 @@ test('Watchlist write failures expose denied access, missing titles and duplicat
   }
 });
 
-test('Home exclusions combine both current account Home preferences afresh and normalise library IDs', async () => {
-  const calls: string[] = [];
+test('Home exclusions read resolved view and physical library IDs afresh for the current account', async () => {
+  const calls: { path: string; query?: unknown }[] = [];
   const music = '7E64E319-657A-9516-EC78-490DA03EDCCB';
-  const playlists = '9A7514E8-2739-4E21-B502-5BF28AD38AA1';
-  const musicId = music.replace(/-/g, '').toLowerCase(), playlistsId = playlists.replace(/-/g, '').toLowerCase();
-  let exclusions: unknown = [music, music.replace(/-/g, '').toLowerCase()];
-  let myMediaExclusions: unknown = [playlists, music.toLowerCase()];
-  const api = client({ getUrl: (path: string) => path, getJSON: async (path: string) => {
-    calls.push(path); return { Id: 'user-a', Configuration: { LatestItemsExcludes: exclusions, MyMediaExcludes: myMediaExclusions } };
-  } });
-  assert.deepEqual(await api.getHomeLibraryExclusions!(), [musicId, playlistsId]);
-  exclusions = []; myMediaExclusions = [playlists]; assert.deepEqual(await api.getHomeLibraryExclusions!(), [playlistsId]);
-  exclusions = undefined; assert.deepEqual(await api.getHomeLibraryExclusions!(), [playlistsId]);
-  myMediaExclusions = undefined; assert.deepEqual(await api.getHomeLibraryExclusions!(), []);
+  const playlistView = '03e69facd973b23e36355c45ba598e6b';
+  const playlistFolder = '1071671E-7BFF-A053-2E93-0DEBEE501D2E';
+  const musicId = music.replace(/-/g, '').toLowerCase(), folderId = playlistFolder.replace(/-/g, '').toLowerCase();
+  let exclusions: unknown = [music, playlistView, playlistFolder, musicId];
+  const api = client({ getUrl: (path: string, query?: unknown) => { calls.push({ path, query }); return path; },
+    getJSON: async () => ({ UserId: 'user-a', ExcludedLibraryIds: exclusions }) });
+  assert.deepEqual(await api.getHomeLibraryExclusions!(), [musicId, playlistView, folderId]);
   exclusions = [music]; assert.deepEqual(await api.getHomeLibraryExclusions!(), [musicId]);
-  assert.deepEqual(calls, Array(5).fill('Users/user-a'));
+  exclusions = []; assert.deepEqual(await api.getHomeLibraryExclusions!(), []);
+  assert.deepEqual(calls, Array(3).fill({ path: 'TvItemLayout/HomeLibraryExclusions', query: undefined }));
 });
 
-test('Home exclusions reject malformed preferences and results from another account', async () => {
-  const invalidLists = ['music', null, [null], [1], [''], ['a'.repeat(200)]];
-  const malformed = ['LatestItemsExcludes', 'MyMediaExcludes'].flatMap(field => invalidLists.map(value => ({
-    Id: 'user-a', Configuration: { LatestItemsExcludes: [], MyMediaExcludes: [], [field]: value }
-  })));
-  for (const response of [null, { Id: 'user-a' }, { Id: 'user-a', Configuration: [] }, { Id: 'user-a', Configuration: 'invalid' },
-    { Id: 'user-b', Configuration: { LatestItemsExcludes: [], MyMediaExcludes: [] } }, ...malformed]) {
+test('Home exclusions reject malformed mappings and results from another account', async () => {
+  const invalidLists = [undefined, 'music', null, [null], [1], [''], ['not-a-library-id'], ['a'.repeat(200)]];
+  const malformed = invalidLists.map(ExcludedLibraryIds => ({ UserId: 'user-a', ExcludedLibraryIds }));
+  for (const response of [null, {}, [], { UserId: 'user-b', ExcludedLibraryIds: [] }, ...malformed]) {
     const api = client({ getUrl: (path: string) => path, getJSON: async () => response });
     await assert.rejects(api.getHomeLibraryExclusions!(), /invalid Home/);
   }
-  let user = 'user-a', resolve!: (value: unknown) => void;
-  const api = client({ getCurrentUserId: () => user, getUrl: (path: string) => path,
-    getJSON: () => new Promise(done => { resolve = done; }) });
-  const pending = api.getHomeLibraryExclusions!(); user = 'user-b';
-  resolve({ Id: 'user-a', Configuration: { LatestItemsExcludes: [] } });
-  await assert.rejects(pending, /account changed/);
+  for (const change of ['user', 'server']) {
+    let user = 'user-a', server = 'server-a', resolve!: (value: unknown) => void;
+    const api = client({ getCurrentUserId: () => user, serverId: () => server, getUrl: (path: string) => path,
+      getJSON: () => new Promise(done => { resolve = done; }) });
+    const pending = api.getHomeLibraryExclusions!();
+    if (change === 'user') user = 'user-b'; else server = 'server-b';
+    resolve({ UserId: 'user-a', ExcludedLibraryIds: [] });
+    await assert.rejects(pending, /account changed/);
+  }
 });

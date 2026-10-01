@@ -20,6 +20,7 @@ await TrailerActionsChecks.Run(Assert);
 await WatchlistChecks.Run(Assert);
 await ProfileSwitchChecks.Run(Assert);
 await HomeCollectionsChecks.Run(Assert);
+await HomeLibraryExclusionsChecks.Run(Assert);
 await ProviderHomesChecks.Run(Assert);
 await ProviderHomesRestartChecks.Run(Assert);
 await ProviderChecks.Run(Assert);
