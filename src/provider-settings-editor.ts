@@ -1,4 +1,5 @@
 import { button, el, replace } from './dom';
+import { brandLabel } from './interface-branding';
 import { attachRemote } from './remote';
 import { providerBrand, providerBrands } from './provider-brands';
 import { cloneProviderHomes, defaultProviderConfig, defaultCustomProvider, maxProviders, maxProviderRows, type ProviderId, type ProviderHomeConfig, type ProviderHomesSettings, type ProviderRow, type ProviderRowSource, type ProviderItemSort } from './provider-settings';
@@ -63,7 +64,7 @@ export class ProviderSettingsEditor {
     this.anchors = Array.from(unique.values());
     const panel = el('div', 'tvl-provider-settings-panel');
     const header = el('header', 'tvl-provider-settings-header');
-    const heading = el('div'); heading.append(el('p', 'tvl-provider-settings-eyebrow', 'PERSONALISE SCREENHARBOUR'), el('h1', '', 'Streaming services'));
+    const heading = el('div'); heading.append(brandLabel('p', 'tvl-provider-settings-eyebrow', 'PERSONALISE '), el('h1', '', 'Streaming services'));
     const actions = el('div', 'tvl-provider-settings-actions');
     actions.append(this.control(options.providerId ? 'Back to service' : 'Back to settings', 'back', () => this.options.onBack(), 'back'));
     this.cancelButton = this.control('Cancel changes', 'cancel', () => this.cancel()); this.cancelButton.disabled = true; actions.append(this.cancelButton);

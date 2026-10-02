@@ -10,11 +10,11 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.38.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.39.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB, with Disney studio titles also included on Disney+.
 
-**0.2.38 is available as a prerelease** ([release notes](docs/releases/v0.2.38.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Choose from six loading animations and edit their title and message in **Settings → ScreenHarbour → Loading screen**; saved choices follow your Jellyfin account. Desktop administrators can also use **More** on supported media pages to open Jellyfin's native metadata, image, refresh and identification actions. Existing Home, provider, collection and account settings are retained. Update the existing installation, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
+**0.2.39 is available as a prerelease** ([release notes](docs/releases/v0.2.39.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. The title saved in **Settings → ScreenHarbour → Loading screen** now replaces interface wordmarks in Settings, the profile chooser and login, as well as the loading animation. The Settings section uses your custom title too. Signed-in choices follow your Jellyfin account; login uses this device's last confirmed title for the selected server. Existing Home, provider, collection and account settings are retained. Update the existing installation, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
 
 ## Try the demo
 
@@ -59,7 +59,7 @@ Captured from an installed Jellyfin library with real films and shows, including
 
 - **Profiles:** in TV or desktop mode, select your avatar to open **Who’s watching?**, a full-screen chooser with large square profile artwork, names and remote focus. Select your current profile to return, or an eligible passwordless profile to open its Home directly. Profiles marked **Sign in** and hidden accounts use native sign-in. **Settings**, **Use login screen**, **Back**, and **Dashboard** for the signed-in administrator sit below the profiles. The server checks current eligibility instead of relying on Jellyfin 12’s obsolete password flags. ScreenHarbour does not store extra credentials or change password requirements. Mobile retains Jellyfin’s current avatar and account menu.
 - **Search and Settings:** the native search field, remote alphabet keyboard, suggestions/results and user preference forms share the ScreenHarbour layout. Settings includes personal Streaming services and Loading screen preferences, plus Dashboard for the signed-in administrator, with permission checked again on selection.
-- **Loading screen:** choose a film projector, clapperboard, film reel, cinema countdown, spotlights or the Jellyfin logo in **Settings → ScreenHarbour → Loading screen**. Preview an editable title and message, or leave either blank to hide it. Save choices to your account for other devices; Restore defaults remains a preview until saved. Cached choices display immediately, and refreshing their settings never delays Home. The animation appears during the first Home load; return visits keep their existing fast loading behavior.
+- **Loading screen:** choose a film projector, clapperboard, film reel, cinema countdown, spotlights or the Jellyfin logo in **Settings → ScreenHarbour → Loading screen**. Preview an editable title and message, or leave either blank to hide it. The saved title also replaces interface wordmarks, including the Settings section heading, profile chooser and login. Signed-in choices follow your account across devices; before sign-in, each device uses its last confirmed title for that server, or the default until an account has synced. Drafts stay in the preview until **Save**, including Restore defaults. Cached choices display immediately, and refreshing their settings never delays Home. The animation appears during the first Home load; return visits keep their existing fast loading behavior.
 - **Desktop administration:** signed-in administrators get **More** on supported media pages, opening Jellyfin's native item menu for **Edit metadata**, **Edit images**, **Refresh metadata**, **Identify** and other actions appropriate to that item. Jellyfin retains its editor forms, permission checks and confirmations. If the menu cannot open in the current client, ScreenHarbour opens the original item page. These management controls stay off TV layouts and non-administrator accounts.
 - **Login:** large profile cards, a matching password form, readable focus states and themed native Quick Connect/error dialogs in TV and desktop display modes. Native authentication and saved device layout remain in control.
 - **Native folder libraries:** mixed-content and historic recording libraries receive matching headings, controls and cards while retaining native contents, filters and navigation. A previous recording library can differ from the server’s current DVR library; ScreenHarbour styles both without merging or redirecting them.
@@ -130,7 +130,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.38 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.38) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.38 release notes](docs/releases/v0.2.38.md) for changes and validation status.
+The [v0.2.39 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.39) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.39 release notes](docs/releases/v0.2.39.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -146,7 +146,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.38.1` for 10.10.7, `0.2.38.2` for 10.11.x and `0.2.38.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.39.1` for 10.10.7, `0.2.39.2` for 10.11.x and `0.2.39.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

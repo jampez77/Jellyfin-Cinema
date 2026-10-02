@@ -16,8 +16,11 @@ body.tvl-login-native { color:#f5f5f2; }
 }
 .tvl-login-native #loginPage>.padded-left::before {
   content:'SCREENHARBOUR';display:block;margin:0 0 2rem;
+  max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:break-word;
   color:#b9cdbc;font-size:.78rem;font-weight:650;letter-spacing:.3em;text-align:center;
 }
+.tvl-login-native #loginPage>.padded-left[data-tvl-title]::before { content:attr(data-tvl-title); }
+.tvl-login-native #loginPage>.padded-left[data-tvl-title='']::before { display:none;margin:0; }
 .tvl-login-native #loginPage .visualLoginForm { width:100%; }
 .tvl-login-native #loginPage .manualLoginForm::before,
 .tvl-login-native #loginPage .visualLoginForm::before { content:none;display:none; }

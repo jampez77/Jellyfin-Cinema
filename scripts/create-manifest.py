@@ -30,7 +30,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds personal Loading screen settings with six animation choices, an editable title and message, previews and account sync across devices. Cached choices appear immediately without delaying Home or its fast return visits. Desktop administrators gain More actions on supported media pages, opening Jellyfin's native item menu for metadata, images, refresh, identification and other permitted actions. Existing Home, provider, collection and account settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Uses the saved loading-screen title throughout the interface, including Settings, profile switching and login. Signed-in titles follow the current account; before sign-in, this device remembers its last confirmed title separately for each server. Blank titles hide the wordmarks, and unsaved edits remain preview-only. Existing saved titles apply automatically without reconfiguration. Background title refreshes do not delay Home, and late settings reads cannot overwrite a newer cached choice. Existing settings and plugin identity are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.39.3",
+        "changelog": "Uses the saved loading-screen title throughout the interface, including Settings, profile switching and login. Signed-in titles follow the current account; before sign-in, this device remembers its last confirmed title separately for each server. Blank titles hide the wordmarks, and unsaved edits remain preview-only. Existing saved titles apply automatically without reconfiguration. Background title refreshes do not delay Home, and late settings reads cannot overwrite a newer cached choice. Existing settings and plugin identity are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.39/TvItemLayout_0.2.39.3_jellyfin-12.0.0.zip",
+        "checksum": "db86977e505b7fc3b4ae7b587ba840a3",
+        "timestamp": "2026-10-02T09:59:25Z"
+      },
+      {
+        "version": "0.2.39.2",
+        "changelog": "Uses the saved loading-screen title throughout the interface, including Settings, profile switching and login. Signed-in titles follow the current account; before sign-in, this device remembers its last confirmed title separately for each server. Blank titles hide the wordmarks, and unsaved edits remain preview-only. Existing saved titles apply automatically without reconfiguration. Background title refreshes do not delay Home, and late settings reads cannot overwrite a newer cached choice. Existing settings and plugin identity are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.39/TvItemLayout_0.2.39.2_jellyfin-10.11.0.zip",
+        "checksum": "ee2abc8d04f5e5a365dd42af5d7b2b1f",
+        "timestamp": "2026-10-02T09:59:25Z"
+      },
+      {
+        "version": "0.2.39.1",
+        "changelog": "Uses the saved loading-screen title throughout the interface, including Settings, profile switching and login. Signed-in titles follow the current account; before sign-in, this device remembers its last confirmed title separately for each server. Blank titles hide the wordmarks, and unsaved edits remain preview-only. Existing saved titles apply automatically without reconfiguration. Background title refreshes do not delay Home, and late settings reads cannot overwrite a newer cached choice. Existing settings and plugin identity are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.39/TvItemLayout_0.2.39.1_jellyfin-10.10.7.zip",
+        "checksum": "a43a1fa5f88a4568d7cb91edf17e0760",
+        "timestamp": "2026-10-02T09:59:25Z"
+      },
+      {
         "version": "0.2.38.3",
         "changelog": "Adds personal Loading screen settings with six animation choices, an editable title and message, previews and account sync across devices. Cached choices appear immediately without delaying Home or its fast return visits. Desktop administrators gain More actions on supported media pages, opening Jellyfin's native item menu for metadata, images, refresh, identification and other permitted actions. Existing Home, provider, collection and account settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
