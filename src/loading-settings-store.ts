@@ -8,6 +8,15 @@ export type LoadingScreenTransport = {
   save(settings: LoadingScreenSettings, revision: string | null): Promise<LoadingScreenSnapshot>;
 };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+type LoadingScreenListener = (store: LoadingScreenStore, settings: LoadingScreenSettings) => void;
+const listeners = new Set<LoadingScreenListener>();
+/** Only confirmed reads/saves are published; editor drafts stay private. */
+export function subscribeLoadingScreen(listener: LoadingScreenListener): () => void {
+  listeners.add(listener); return () => listeners.delete(listener);
+}
+function changed(store: LoadingScreenStore): void {
+  for (const listener of listeners) { try { listener(store, store.cached); } catch { /* A view cannot fail a confirmed save. */ } }
+}
 type Client = {
   getUrl(path: string): string;
   getJSON(url: string): Promise<unknown>;
@@ -74,6 +83,9 @@ export class LoadingScreenStore {
     this.synced = !!transport; this.value = this.readLocal();
   }
   get cached(): LoadingScreenSettings { return boundedLoadingScreen(this.value); }
+  private cachedText(): string | null | undefined {
+    try { return this.storage.getItem(this.key); } catch { return undefined; }
+  }
   private readLocal(): LoadingScreenSettings {
     try {
       const raw = this.storage.getItem(this.key);
@@ -87,6 +99,7 @@ export class LoadingScreenStore {
     this.revision = snapshot.Revision; this.value = snapshot.Settings || defaultLoadingScreen();
     // The server read or save already succeeded even when device storage is full.
     try { this.storage.setItem(this.key, JSON.stringify(this.value)); } catch { /* Server remains authoritative. */ }
+    changed(this);
     return this.cached;
   }
   async load(): Promise<LoadingScreenSettings> {
@@ -94,9 +107,17 @@ export class LoadingScreenStore {
     const generation = ++this.generation; this.current(generation);
     // A failed reload must not leave an old revision eligible for a later save.
     this.revision = undefined;
-    if (!this.transport) { this.value = this.readLocal(); this.revision = null; return this.cached; }
+    if (!this.transport) { this.value = this.readLocal(); this.revision = null; changed(this); return this.cached; }
+    const before = this.cachedText();
     const response = await this.transport.load(); this.current(generation);
-    return this.remember(loadingScreenSnapshot(response));
+    const snapshot = loadingScreenSnapshot(response), after = this.cachedText();
+    // Another store/tab may have confirmed a newer choice while this GET was
+    // pending. Reject a differing late result before it can overwrite the cache
+    // or notify any interface branding subscribers. Identical reads may coexist.
+    if (before !== undefined && after !== undefined && after !== before
+      && after !== JSON.stringify(snapshot.Settings || defaultLoadingScreen()))
+      throw new LoadingScreenSyncError('conflict', 'Loading screen changed while loading. Reload saved settings.');
+    return this.remember(snapshot);
   }
   async save(value: LoadingScreenSettings): Promise<LoadingScreenSettings> {
     if (this.writing) throw new LoadingScreenSyncError('unavailable', 'Loading screen are still saving. Please wait.');
@@ -106,7 +127,7 @@ export class LoadingScreenStore {
     if (!this.transport) {
       try { this.storage.setItem(this.key, JSON.stringify(settings)); }
       catch { throw new LoadingScreenSyncError('unavailable', 'These settings could not be saved on this device. Check browser storage and try again.'); }
-      this.value = settings; return this.cached;
+      this.value = settings; changed(this); return this.cached;
     }
     this.writing = true;
     try {

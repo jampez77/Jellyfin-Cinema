@@ -2,6 +2,7 @@
 .tvl-provider-settings * { box-sizing:border-box; }
 .tvl-provider-settings-panel { width:100%;max-width:1520px;margin:0 auto;padding:2rem 3.5vw 5rem; }
 .tvl-provider-settings-header { display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:3;background:#101112;padding:.75rem 0;box-shadow:0 12px 18px #101112; }
+.tvl-provider-settings-header>div:first-child { min-width:0; }
 .tvl-provider-settings h1 { font-size:2rem;letter-spacing:-.035em;line-height:1.2;margin:.35rem 0; }
 .tvl-provider-settings h2 { font-size:1.5rem;letter-spacing:-.025em;line-height:1.3;margin:0 0 1rem; }
 .tvl-provider-settings h3 { font-size:1.1rem;margin:1.4rem 0 .8rem; }

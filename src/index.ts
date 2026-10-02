@@ -1,4 +1,5 @@
 import { LoadingSettingsEditor } from './loading-settings-editor';
+import { InterfaceBranding } from './interface-branding';
 import loadingAnimationStyles from './loading-animation.css';
 import loadingSettingsStyles from './loading-settings.css';
 import adminItemActionStyles from './admin-item-actions.css';
@@ -68,6 +69,7 @@ const desktopPlayer=new DesktopPlayer();
 const nativeFolderTheme=new NativeFolderTheme();
 const nativeLoginTheme=new NativeLoginTheme();
 const nativeUserPages=new NativeUserPages();
+const interfaceBranding=new InterfaceBranding();
 const returnFocus=new Map<string,string>();
 let pendingHash='';let probeRevision=0;
 const libraryStates=new Map<string,LibraryBrowseState>();
@@ -237,6 +239,7 @@ function refresh():void{
   const api=getPlayerApi();
   updateAccount(api);
   const cinema=isCinemaLayout();
+  interfaceBranding.update(api,cinema);
   if(document.body.classList.contains('tvl-layout')!==cinema)document.body.classList.toggle('tvl-layout',cinema);
   nativeRecordingsTheme.update(cinema && !!api);
   profileMenu.update(cinema && !!api, scopeOf(api));
@@ -476,6 +479,10 @@ const trailerActions=new TrailerActions(playerContext,getPlayerApi);
 const stopPauseScreen=startPauseScreen({getApi:getPlayerApi,getPlayback:playerContext.getSnapshot,subscribe:playerContext.subscribe});
 // Jellyfin's account events live on its private module event bus. Poll only
 // identity so sign-out/server switches also clear non-player pages promptly.
-const scopeTimer=window.setInterval(()=>{if(scopeOf(getPlayerApi())!==accountScope)refresh();},1000);
-window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();trailerActions.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();clearHomeSession();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
+const scopeTimer=window.setInterval(()=>{
+  const api=getPlayerApi();
+  if(scopeOf(api)!==accountScope)refresh();
+  else if(!api)interfaceBranding.update(null,isCinemaLayout());
+},1000);
+window.TvItemLayout={refresh,destroy(){disposed=true;probeRevision++;pendingHash='';stopPauseScreen();nativeRecordingsTheme.destroy();profileMenu.destroy();desktopPlayer.destroy();nativeFolderTheme.destroy();nativeLoginTheme.destroy();nativeUserPages.destroy();interfaceBranding.destroy();trailerActions.destroy();channelZapper.destroy();playerBrowser.destroy();playerContext.destroy();close();clearHomeSession();sheet.remove();observer.disconnect();document.body.classList.remove('tvl-layout');window.clearTimeout(timer);window.clearInterval(scopeTimer);window.removeEventListener('hashchange',hashChanged);window.removeEventListener('popstate',refreshNavigation);document.removeEventListener('viewshow',show,true);document.removeEventListener('viewbeforehide',hide,true);document.removeEventListener('tabchange',refreshNavigation,true);}};
 refreshNavigation();

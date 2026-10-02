@@ -1,5 +1,6 @@
 import type { MediaApi } from './types';
 import { button, el, replace } from './dom';
+import { brandLabel } from './interface-branding';
 import { attachRemote } from './remote';
 import { loadingAnimation } from './loading-animation';
 import { defaultLoadingScreen, loadingAnimations, parseLoadingScreen, type LoadingScreenSettings } from './loading-settings';
@@ -30,14 +31,14 @@ export class LoadingSettingsEditor {
     this.element.setAttribute('role', 'dialog'); this.element.setAttribute('aria-modal', 'true');
     this.element.setAttribute('aria-label', 'Loading screen settings');
     const header = el('header', 'tvl-header');
-    header.append(button('Back', 'back', 'tvl-back', () => this.cancel()), el('span', 'tvl-wordmark', 'SCREENHARBOUR'));
+    header.append(button('Back', 'back', 'tvl-back', () => this.cancel()), brandLabel('span', 'tvl-wordmark'));
     const main = el('div', 'tvl-loading-settings-content');
     main.append(el('h1', '', 'Loading screen'), el('p', 'tvl-loading-settings-intro', this.store.synced
       ? 'Make it yours. Your choices follow this Jellyfin account across your devices.' : 'Make it yours. This preview saves choices on this device.'));
     const layout = el('div', 'tvl-loading-settings-layout');
     const fields = el('div', 'tvl-loading-settings-fields');
     fields.append(el('h2', '', 'Your text'), this.field('Title', this.brand, 60, 'brandText'), this.field('Message', this.message, 120, 'message'),
-      el('p', 'tvl-loading-settings-help', 'Leave either field empty to hide it.'));
+      el('p', 'tvl-loading-settings-help', 'Your saved title appears throughout the interface, including the login screen. Changes stay in this preview until you Save. Leave either field empty to hide it.'));
     this.preview.setAttribute('aria-label', 'Loading screen preview');
     layout.append(fields, this.preview); main.append(layout, el('h2', '', 'Choose an animation'));
     this.choices.setAttribute('role', 'group'); this.choices.setAttribute('aria-label', 'Loading animation');

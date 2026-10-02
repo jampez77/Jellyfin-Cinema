@@ -97,7 +97,10 @@ for (const layout of ['desktop', 'tv']) test(`${layout} Back can leave while loa
   await expect(editor(page)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Loading screen Animation and custom text' })).toBeVisible();
   await page.evaluate(() => { const state = (window as any).__loadingSettings; state.hold = false; state.pending.splice(0).forEach((resolve: () => void) => resolve()); });
-  expect(await saved(page)).toBeNull();
+  // The parent Settings page can finish its independent branding read. Leaving
+  // the editor must still perform no save or resurrect the abandoned view.
+  await expect.poll(async () => (await saved(page))?.brandText).toBe('Family cinema');
+  expect(await page.evaluate(() => (window as any).__loadingSettings.writes)).toBe(0);
   await expect(editor(page)).toHaveCount(0);
 });
 

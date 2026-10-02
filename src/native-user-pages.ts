@@ -1,4 +1,5 @@
 import { el } from './dom';
+import { brandLabel } from './interface-branding';
 import { currentUserAccount, isCurrentUserAdministrator, sameUserAccount, type CurrentUserAccount } from './current-user-policy';
 
 const preferences = /^(mypreferencesmenu|mypreferencesdisplay|mypreferenceshome|mypreferencesplayback|mypreferencessubtitles|mypreferencescontrols|userprofile|quickconnect)\/?$/i;
@@ -104,7 +105,7 @@ export class NativeUserPages {
     }
     if (!this.providerSection) {
       this.providerSection = el('section', 'verticalSection tvl-settings-providers');
-      this.providerSection.append(el('h2', 'sectionTitle', 'ScreenHarbour'));
+      this.providerSection.append(brandLabel('h2', 'sectionTitle'));
       const link = el('a', 'emby-button show-focus listItem-border tvl-settings-provider-link'); link.href = '#/mypreferencesmenu?cinemaProviders=1';
       const item = el('div', 'listItem');
       const glyph = el('span', 'material-icons listItemIcon listItemIcon-transparent', 'video_library'); glyph.setAttribute('aria-hidden', 'true');

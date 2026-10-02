@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { defaultLoadingScreen, loadingAnimations, loadingScreenKey, parseLoadingScreen } from '../src/loading-settings';
-import { createLoadingScreenTransport, LoadingScreenStore, LoadingScreenSyncError, loadingScreenSnapshot, type LoadingScreenSnapshot } from '../src/loading-settings-store';
+import { createLoadingScreenTransport, LoadingScreenStore, LoadingScreenSyncError, loadingScreenSnapshot, subscribeLoadingScreen, type LoadingScreenSnapshot } from '../src/loading-settings-store';
 
 function cache() {
   const data = new Map<string, string>();
@@ -94,4 +94,45 @@ test('transport rejects stale sessions and failed reads retain the last successf
   storage.setItem('key', JSON.stringify(saved));
   const store = new LoadingScreenStore('key', storage, { isCurrent: () => true, load: async () => { throw new Error('offline'); }, save: async () => { throw new Error('unexpected'); } });
   await assert.rejects(store.load(), /offline/); assert.deepEqual(store.cached, saved);
+});
+
+test('interface subscribers receive only confirmed settings and cannot mutate or fail a save', async () => {
+  const storage = cache(); let conflict = true;
+  const store = new LoadingScreenStore('subscription-account', storage, { isCurrent: () => true,
+    load: async () => ({ Revision: 'one', Settings: defaultLoadingScreen() }),
+    save: async settings => {
+      if (conflict) throw new LoadingScreenSyncError('conflict', 'Changed elsewhere');
+      return { Revision: 'two', Settings: settings };
+    } });
+  const titles: string[] = [];
+  const unsubscribe = subscribeLoadingScreen((source, settings) => {
+    if (source !== store) return;
+    titles.push(settings.brandText); settings.brandText = 'Listener mutation'; throw new Error('View failure');
+  });
+  try {
+    await store.load();
+    const draft = { ...defaultLoadingScreen(), brandText: 'Family cinema' };
+    await assert.rejects(store.save(draft), /Changed elsewhere/);
+    assert.deepEqual(titles, ['SCREENHARBOUR']);
+    conflict = false; await store.load(); await store.save(draft);
+    assert.deepEqual(titles, ['SCREENHARBOUR', 'SCREENHARBOUR', 'Family cinema']);
+    assert.equal(store.cached.brandText, 'Family cinema');
+    unsubscribe(); await store.save({ ...draft, brandText: 'Another title' });
+    assert.equal(titles.length, 3);
+  } finally { unsubscribe(); store.destroy(); }
+});
+
+test('a late read cannot replace newer settings confirmed by another store or tab', async () => {
+  const storage = cache(), old = { ...defaultLoadingScreen(), brandText: 'Old title' }, next = { ...old, brandText: 'New title' };
+  storage.setItem('shared-account', JSON.stringify(old));
+  let finish!: (value: LoadingScreenSnapshot) => void;
+  const pendingStore = new LoadingScreenStore('shared-account', storage, { isCurrent: () => true,
+    load: () => new Promise(resolve => { finish = resolve; }), save: async () => { throw new Error('unused'); } });
+  const pending = pendingStore.load();
+  storage.setItem('shared-account', JSON.stringify(next));
+  finish({ Revision: 'old-revision', Settings: old });
+  await assert.rejects(pending, /changed while loading/);
+  assert.equal(JSON.parse(storage.getItem('shared-account')!).brandText, 'New title');
+  await assert.rejects(pendingStore.save(old), /Load the saved/);
+  pendingStore.destroy();
 });
