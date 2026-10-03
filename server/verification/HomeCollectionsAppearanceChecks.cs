@@ -28,7 +28,7 @@ public static class HomeCollectionsAppearanceChecks
 
         var undecorated = HomeCollectionsSeasonalChecks.Settings();
         var empty = JsonSerializer.SerializeToElement(new { version = 1, rows = Array.Empty<object>() });
-        foreach (var capability in new[] { "", "2", "3,2", "4" })
+        foreach (var capability in new[] { "", "2", "3,2", "5" })
         {
             controller.Request.Headers["X-ScreenHarbour-Home-Rows"] = capability;
             assert(Value(await controller.GetHomeCollections()).Settings!.Value.GetRawText() == settings.GetRawText(),
@@ -108,5 +108,6 @@ public static class HomeCollectionsAppearanceChecks
         var cleared = Value(await controller.PutHomeCollections(new(oldSaved.Revision, empty)));
         assert(cleared.Settings!.Value.GetProperty("rows").GetArrayLength() == 0,
             "Capability 3 also satisfies the original seasonal and shuffle overwrite guard");
+        await HomeCollectionsRankChecks.Run(assert, controller, second, cleared.Revision!);
     }
 }

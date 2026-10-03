@@ -30,7 +30,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Fixes photographic seasonal frames that appeared inset from the item edges. Frames now fit the poster, and posters and closed door covers follow the doorway opening without visible corners outside the frame. Existing seasonal appearance choices and all other settings are retained; normal rows and illustrated styles keep their existing behavior. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Adds themed ranking images to seasonal item rows. Halloween and Christmas numbers follow the frame style by default, with independent Illustrated, Playful/family, Textured and Halloween Nightmare choices. Select Standard numbers to keep the original outlined artwork. The existing Appearance preview reflects each choice. Number order, poster size, focus behavior and saved row settings are preserved; ordinary rows retain standard numbers. Older clients cannot overwrite saved number-style choices. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

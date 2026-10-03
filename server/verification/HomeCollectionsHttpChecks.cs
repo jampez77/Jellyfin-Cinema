@@ -138,6 +138,41 @@ public static class HomeCollectionsHttpChecks
             using var oldCompatible = await Put(undecoratedSaved.GetProperty("Revision").GetString(), seasonalSettings);
             assert(oldCompatible.StatusCode == HttpStatusCode.OK,
                 "Actual HTTP capability 2 remains compatible with undecorated seasonal rows");
+            var compatibleSaved = await Json(oldCompatible);
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "4");
+            var rankSettings = HomeCollectionsRankChecks.Settings();
+            using var ranked = await Put(compatibleSaved.GetProperty("Revision").GetString(), rankSettings);
+            var rankedSaved = await Json(ranked);
+            var rankedRevision = rankedSaved.GetProperty("Revision").GetString();
+            assert(ranked.StatusCode == HttpStatusCode.OK && rankedSaved.GetProperty("Settings").GetRawText() == rankSettings.GetRawText(),
+                "Actual HTTP capability 4 round trip preserves independent rank artwork and explicit standard ranks");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "3");
+            using var oldRankRead = await client.GetAsync(endpoint);
+            using var oldRankErase = await Put(rankedRevision, appearanceSettings);
+            using var oldRankDelete = await Put(rankedRevision, empty);
+            using var unchangedRanks = await client.GetAsync(endpoint);
+            assert(oldRankRead.StatusCode == HttpStatusCode.OK && (await Json(oldRankRead)).GetRawText() == rankedSaved.GetRawText()
+                && oldRankErase.StatusCode == HttpStatusCode.Conflict && oldRankDelete.StatusCode == HttpStatusCode.Conflict
+                && (await oldRankErase.Content.ReadAsStringAsync()).Contains("Reload ScreenHarbour", StringComparison.Ordinal)
+                && (await Json(unchangedRanks)).GetRawText() == rankedSaved.GetRawText(),
+                "Actual HTTP capability 3 reads rank overrides but cannot strip them or delete their rows");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "4");
+            var invalidRank = rankSettings.GetRawText().Replace("\"rankStyle\":\"standard\"", "\"rankStyle\":\"nightmare\"");
+            using var rejectedRank = await Put(rankedRevision, JsonDocument.Parse(invalidRank).RootElement);
+            assert(rejectedRank.StatusCode == HttpStatusCode.BadRequest,
+                "Actual HTTP rejects nightmare ranks for the Christmas theme");
+            using var removedRanks = await Put(rankedRevision, appearanceSettings);
+            var defaultRanks = await Json(removedRanks);
+            assert(removedRanks.StatusCode == HttpStatusCode.OK && defaultRanks.GetProperty("Settings").GetRawText() == appearanceSettings.GetRawText(),
+                "Actual HTTP capability 4 deliberately restores automatic ranking without altering the other decoration settings");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "3");
+            using var oldAppearanceCompatible = await Put(defaultRanks.GetProperty("Revision").GetString(), appearanceSettings);
+            assert(oldAppearanceCompatible.StatusCode == HttpStatusCode.OK,
+                "Actual HTTP capability 3 can edit appearance again after explicit rank overrides are removed");
             setApiKey(true);
             using var unauthorizedGet = await client.GetAsync(endpoint);
             using var unauthorizedPut = await Put(null, settings);
