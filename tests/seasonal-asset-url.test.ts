@@ -4,10 +4,10 @@ import { resolveSeasonalAssetUrl } from '../src/seasonal-asset-url';
 import { parseSeasonalAppearance, defaultSeasonalAppearance } from '../src/home-collection-settings';
 
 test('seasonal artwork follows the injected server base and its content version', () => {
-  assert.equal(resolveSeasonalAssetUrl('halloween-nightmare.webp','https://media.test/jellyfin/TvItemLayout/ClientScript?v=0.2.43.3-hash','https://client.test/web/'),
-    'https://media.test/jellyfin/TvItemLayout/SeasonalAsset/halloween-nightmare.webp?v=0.2.43.3-hash');
+  assert.equal(resolveSeasonalAssetUrl('halloween-nightmare.webp','https://media.test/jellyfin/TvItemLayout/ClientScript?v=0.2.44.3-hash','https://client.test/web/'),
+    'https://media.test/jellyfin/TvItemLayout/SeasonalAsset/halloween-nightmare.webp?v=0.2.44.3-hash');
   assert.equal(resolveSeasonalAssetUrl('christmas-photoreal.webp','https://demo.test/ScreenHarbour/dist/jellyfin-tv-layout.js','https://demo.test/ScreenHarbour/'),
-    'https://demo.test/ScreenHarbour/assets/seasonal/christmas-photoreal.webp?v=0.2.43');
+    'https://demo.test/ScreenHarbour/assets/seasonal/christmas-photoreal.webp?v=0.2.44');
 });
 
 test('independent art styles survive parsing, retain original defaults, and reject invalid selections', () => {
