@@ -30,7 +30,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds optional Halloween and Christmas appearance to seasonal Home sub-rows. Choose static or parallax scenery with fading edges, extra height while an item is focused, themed frames, and opening doors, window shutters or curtains that reveal focused or hovered items. Choose scenery, frame and cover artwork independently: Illustrated, Playful/family, Photorealistic, or Halloween-only Nightmare. Generated artwork is bundled locally. Christmas doors show item-position numbers. The desktop Appearance tab previews the result before saving; Normal preserves the standard row. Focus expansion is capped to fit the screen, reduced-motion preferences are respected, and only date-active sub-rows appear. Existing settings and plugin identity are retained without migration. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': "Fixes photographic seasonal frames that appeared inset from the item edges. Frames now fit the poster, and posters and closed door covers follow the doorway opening without visible corners outside the frame. Existing seasonal appearance choices and all other settings are retained; normal rows and illustrated styles keep their existing behavior. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

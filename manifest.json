@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.41.3",
+        "changelog": "Fixes photographic seasonal frames that appeared inset from the item edges. Frames now fit the poster, and posters and closed door covers follow the doorway opening without visible corners outside the frame. Existing seasonal appearance choices and all other settings are retained; normal rows and illustrated styles keep their existing behavior. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.41/TvItemLayout_0.2.41.3_jellyfin-12.0.0.zip",
+        "checksum": "db300f2da8581d93967d65712f9c0282",
+        "timestamp": "2026-10-03T16:14:59Z"
+      },
+      {
+        "version": "0.2.41.2",
+        "changelog": "Fixes photographic seasonal frames that appeared inset from the item edges. Frames now fit the poster, and posters and closed door covers follow the doorway opening without visible corners outside the frame. Existing seasonal appearance choices and all other settings are retained; normal rows and illustrated styles keep their existing behavior. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.41/TvItemLayout_0.2.41.2_jellyfin-10.11.0.zip",
+        "checksum": "46ed765f8b55cdd7ff30e0d4427e7f99",
+        "timestamp": "2026-10-03T16:14:59Z"
+      },
+      {
+        "version": "0.2.41.1",
+        "changelog": "Fixes photographic seasonal frames that appeared inset from the item edges. Frames now fit the poster, and posters and closed door covers follow the doorway opening without visible corners outside the frame. Existing seasonal appearance choices and all other settings are retained; normal rows and illustrated styles keep their existing behavior. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.41/TvItemLayout_0.2.41.1_jellyfin-10.10.7.zip",
+        "checksum": "d4d5f32b444cd6646b1640bc2b9ef218",
+        "timestamp": "2026-10-03T16:14:59Z"
+      },
+      {
         "version": "0.2.40.3",
         "changelog": "Adds optional Halloween and Christmas appearance to seasonal Home sub-rows. Choose static or parallax scenery with fading edges, extra height while an item is focused, themed frames, and opening doors, window shutters or curtains that reveal focused or hovered items. Choose scenery, frame and cover artwork independently: Illustrated, Playful/family, Photorealistic, or Halloween-only Nightmare. Generated artwork is bundled locally. Christmas doors show item-position numbers. The desktop Appearance tab previews the result before saving; Normal preserves the standard row. Focus expansion is capped to fit the screen, reduced-motion preferences are respected, and only date-active sub-rows appear. Existing settings and plugin identity are retained without migration. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",
