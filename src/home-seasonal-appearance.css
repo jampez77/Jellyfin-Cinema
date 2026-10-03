@@ -60,8 +60,13 @@
 .tvl-home-row-art[data-seasonal-frame-shape] > .tvl-seasonal-frame {
   left:var(--tvl-frame-left); width:var(--tvl-frame-width); height:var(--tvl-frame-height); max-width:none; border-radius:0;
 }
-.tvl-seasonal-cover { position:absolute; z-index:3; top:0; right:0; bottom:0; left:0; overflow:hidden; border-radius:inherit; pointer-events:none; perspective:650px; }
-.tvl-seasonal-panel { position:absolute; top:0; bottom:0; width:50.5%; background:#251917; overflow:hidden; transition:transform .38s ease; backface-visibility:hidden; }
+.tvl-seasonal-cover { position:absolute; z-index:3; top:0; right:0; bottom:0; left:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.tvl-seasonal-panel { position:absolute; top:0; bottom:0; width:50.5%; background:#251917; overflow:hidden; transition:transform .38s ease; }
+/* Keep closed doors flattened: permanent 3D layers for a long row can exhaust
+   the TV compositor. Promote only the opening door and its closing transition. */
+.tvl-seasonal-reveal-active .tvl-seasonal-cover { perspective:650px; }
+.tvl-seasonal-reveal-active .tvl-seasonal-panel,
+.tvl-seasonal-reveal-active .tvl-seasonal-advent-flap { backface-visibility:hidden; }
 .tvl-seasonal-panel-left { left:0; transform-origin:left center; }
 .tvl-seasonal-panel-right { right:0; transform-origin:right center; }
 .tvl-seasonal-door-art { width:100%; height:100%; object-fit:fill; }
@@ -75,7 +80,7 @@
 .tvl-seasonal-item-open .tvl-seasonal-door-number { opacity:0; }
 .tvl-seasonal-advent-flap {
   position:absolute; top:0; right:0; bottom:0; left:0; background:#642837;
-  transform-origin:left center; backface-visibility:hidden; transition:transform .42s ease;
+  transform-origin:left center; transition:transform .42s ease;
 }
 .tvl-home-row-art .tvl-seasonal-advent-art { width:100%; height:100%; object-fit:fill; }
 .tvl-home-row-art .tvl-seasonal-advent-number { position:absolute; top:34.3%; left:30%; width:40%; height:30%; object-fit:contain; }

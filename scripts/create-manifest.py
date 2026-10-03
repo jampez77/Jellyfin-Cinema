@@ -30,7 +30,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': 'Fits the complete poster inside each seasonal frame so titles near image edges remain visible. Illustrated, playful, photographic and nightmare frames use clearance matched to their shape, including the Halloween arch. Home cards, ranked cards and editor previews share the fix. Frames and reveal doors keep their full size; unframed rows and all saved settings remain unchanged. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.',
+        'changelog': 'Reduces graphics-layer usage in large seasonal rows by reserving 3D perspective and backface handling for the selected door and its closing animation. Closed doors no longer keep their own animation layers active. All artwork, frames, poster clearance, advent dates and saved settings are preserved. This addresses a measured rendering-budget issue identified while investigating LG webOS Home freezing with seasonal effects; physical TV confirmation is pending. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.',
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

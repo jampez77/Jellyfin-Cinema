@@ -10,11 +10,11 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.44.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.45.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB, with Disney studio titles also included on Disney+.
 
-**0.2.44 is available as a prerelease** ([release notes](docs/releases/v0.2.44.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Seasonal frames now leave space around the complete poster so titles printed near its edges remain visible. Each frame style has its own clearance, including arched Halloween frames. This applies on Home and in the editor preview; doors, ranks and existing settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
+**0.2.45 is available as a prerelease** ([release notes](docs/releases/v0.2.45.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Seasonal doors now reserve 3D rendering work for the selected item and its closing animation, instead of every closed door in the row. This substantially reduces graphics-layer usage in large rows while preserving their artwork, reveal behaviour and poster clearance. Existing settings are retained. Update the plugin, restart Jellyfin and fully reopen clients. Confirmation on the affected LG webOS TV remains pending.
 
 ## Try the demo
 
@@ -142,7 +142,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.44 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.44) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.44 release notes](docs/releases/v0.2.44.md) for changes and validation status.
+The [v0.2.45 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.45) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.45 release notes](docs/releases/v0.2.45.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -158,7 +158,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.44.1` for 10.10.7, `0.2.44.2` for 10.11.x and `0.2.44.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.45.1` for 10.10.7, `0.2.45.2` for 10.11.x and `0.2.45.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
