@@ -114,17 +114,29 @@ export function decorateSeasonalCard(card: HTMLElement, row: HomeCollectionRow, 
   }
 }
 
+/** Older webOS Chromium serializes custom-property numbers to six significant
+ * digits. Comparing its CSS text with a full floating-point result can rewrite
+ * the same style forever through Home's mutation observer. */
+function seasonalPixels(section: HTMLElement, property: string, value: number): void {
+  if (!Number.isFinite(value)) return;
+  const next = Math.round(Math.max(0, value) * 100) / 100;
+  const stored = section.style.getPropertyValue(property).trim();
+  const current = /^\d+(?:\.\d+)?px$/.test(stored) ? parseFloat(stored) : NaN;
+  // Keep subpixel sizing while accepting the legacy CSSOM's numeric precision.
+  const tolerance = Math.max(.005, next * .000005);
+  if (!Number.isFinite(current) || Math.abs(current - next) > tolerance) section.style.setProperty(property, `${next}px`);
+}
+
 /** Measure once mounted so expansion reveals a fixed scene instead of stretching it. */
 export function refreshSeasonalBackdrop(section: HTMLElement): void {
   if (!section.classList.contains('tvl-seasonal-row') || !section.isConnected) return;
   const style = getComputedStyle(section);
-  const base = Math.round(section.getBoundingClientRect().height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
+  const base = Math.max(0, Math.round(section.getBoundingClientRect().height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)));
+  if (!Number.isFinite(base)) return;
   const factor = section.dataset.seasonalExpansion === 'large' ? 1 : section.dataset.seasonalExpansion === 'medium' ? .5 : 0;
   const extra = Math.max(0, Math.min(base * factor, window.innerHeight * .78 - base));
-  const art = `${Math.round(base + extra + 2 * parseFloat(getComputedStyle(document.documentElement).fontSize))}px`;
-  if (section.style.getPropertyValue('--tvl-seasonal-art-height') !== art) section.style.setProperty('--tvl-seasonal-art-height', art);
-  const space = `${extra / 2}px`;
-  if (section.style.getPropertyValue('--tvl-seasonal-space') !== space) section.style.setProperty('--tvl-seasonal-space', space);
+  seasonalPixels(section, '--tvl-seasonal-art-height', Math.round(base + extra + 2 * parseFloat(getComputedStyle(document.documentElement).fontSize)));
+  seasonalPixels(section, '--tvl-seasonal-space', extra / 2);
 }
 
 /** All listeners belong to this row; there are no per-row document observers. */
