@@ -30,7 +30,7 @@ for suffix, target in [('3', '12.0.0'), ('2', '10.11.0'), ('1', '10.10.7')]:
     assert archive.with_suffix('.zip.sha256').read_text().split()[0] == hashlib.sha256(data).hexdigest()
     versions.append({
         'version': version,
-        'changelog': "Adds numbered advent-calendar doors to Christmas seasonal item rows. Choose Illustrated, Playful/family or Gilded winter wood single-opening flaps, with a number on every door even when rank images are disabled. Open freely on focus, or reveal one more film each local day from the row's season start date. Future doors hide film titles and block activation from that row; available films remain accessible elsewhere in Jellyfin. Daily calendars ignore shuffle to preserve chosen item positions, and unlock at midnight or after waking without rebuilding the row. The editor preview opens every door at any date. Existing rows/settings remain unchanged and older clients cannot overwrite saved advent settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        'changelog': 'Fits the complete poster inside each seasonal frame so titles near image edges remain visible. Illustrated, playful, photographic and nightmare frames use clearance matched to their shape, including the Halloween arch. Home cards, ranked cards and editor previews share the fix. Frames and reveal doors keep their full size; unframed rows and all saved settings remain unchanged. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.',
         'targetAbi': target,
         'sourceUrl': f'{release_url_prefix}v{release}/{archive.name}',
         # Jellyfin's catalogue protocol requires MD5; SHA-256 files are also published.

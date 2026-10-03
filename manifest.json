@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.44.3",
+        "changelog": "Fits the complete poster inside each seasonal frame so titles near image edges remain visible. Illustrated, playful, photographic and nightmare frames use clearance matched to their shape, including the Halloween arch. Home cards, ranked cards and editor previews share the fix. Frames and reveal doors keep their full size; unframed rows and all saved settings remain unchanged. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.44/TvItemLayout_0.2.44.3_jellyfin-12.0.0.zip",
+        "checksum": "0337f2170c29dadd3d4395fdf3727b0b",
+        "timestamp": "2026-10-03T18:23:08Z"
+      },
+      {
+        "version": "0.2.44.2",
+        "changelog": "Fits the complete poster inside each seasonal frame so titles near image edges remain visible. Illustrated, playful, photographic and nightmare frames use clearance matched to their shape, including the Halloween arch. Home cards, ranked cards and editor previews share the fix. Frames and reveal doors keep their full size; unframed rows and all saved settings remain unchanged. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.44/TvItemLayout_0.2.44.2_jellyfin-10.11.0.zip",
+        "checksum": "569385a10aba7625f298e52ec2a03e78",
+        "timestamp": "2026-10-03T18:23:08Z"
+      },
+      {
+        "version": "0.2.44.1",
+        "changelog": "Fits the complete poster inside each seasonal frame so titles near image edges remain visible. Illustrated, playful, photographic and nightmare frames use clearance matched to their shape, including the Halloween arch. Home cards, ranked cards and editor previews share the fix. Frames and reveal doors keep their full size; unframed rows and all saved settings remain unchanged. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.44/TvItemLayout_0.2.44.1_jellyfin-10.10.7.zip",
+        "checksum": "0c3775d8ce957735c10b7c31ca4157f6",
+        "timestamp": "2026-10-03T18:23:08Z"
+      },
+      {
         "version": "0.2.43.3",
         "changelog": "Adds numbered advent-calendar doors to Christmas seasonal item rows. Choose Illustrated, Playful/family or Gilded winter wood single-opening flaps, with a number on every door even when rank images are disabled. Open freely on focus, or reveal one more film each local day from the row's season start date. Future doors hide film titles and block activation from that row; available films remain accessible elsewhere in Jellyfin. Daily calendars ignore shuffle to preserve chosen item positions, and unlock at midnight or after waking without rebuilding the row. The editor preview opens every door at any date. Existing rows/settings remain unchanged and older clients cannot overwrite saved advent settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

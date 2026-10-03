@@ -53,6 +53,12 @@ export function decorateSeasonalCard(card: HTMLElement, row: HomeCollectionRow, 
   card.dataset.seasonalReveal = appearance.reveal;
   card.dataset.seasonalCoverStyle = appearance.coverStyle || 'classic';
   card.dataset.seasonalFrameStyle = appearance.frameStyle || 'classic';
+  if (appearance.frame) {
+    art.dataset.seasonalFrame = appearance.theme;
+    // Fit only the original poster inside the frame. Reveal layers and the
+    // frame itself keep their full-size geometry, including in the preview.
+    art.querySelector('img')?.classList.add('tvl-seasonal-poster');
+  }
   if (appearance.reveal !== 'none') {
     const cover = el('span', 'tvl-seasonal-cover'); cover.setAttribute('aria-hidden', 'true');
     if (appearance.reveal === 'advent') {

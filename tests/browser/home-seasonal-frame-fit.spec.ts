@@ -5,7 +5,7 @@ import { useDesktopLayout } from './layout-fixture';
 // A solid sentinel makes poster pixels distinguishable from every frame and door.
 // Inspect the actual screenshot: a 100%-sized <img> can still have transparent
 // artwork padding, so bounding rectangles alone do not detect this regression.
-const poster = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="440"><path fill="#ff00ff" d="M0 0h300v440H0z"/></svg>')}`;
+const solidPoster = (width = 300) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="440"><path fill="#ff00ff" d="M0 0h${width}v440H0z"/></svg>`)}`;
 const themes = ['halloween', 'christmas'] as const;
 const styles = (theme: HomeSeasonalAppearance['theme']): HomeSeasonalArtStyle[] => theme === 'halloween'
   ? ['classic', 'storybook', 'photoreal', 'nightmare'] : ['classic', 'storybook', 'photoreal'];
@@ -13,7 +13,7 @@ const homeRow = (page: Page, id: string) => page.locator(`#homeTab [data-home-ro
 const editor = (page: Page) => page.getByRole('dialog', { name: 'Customize Home rows', exact: true });
 const preview = (page: Page) => editor(page).getByRole('complementary', { name: 'Home row preview', exact: true });
 
-async function fixture(page: Page, appearance?: Partial<HomeSeasonalAppearance>, artwork: 'poster' | 'missing' | 'error' = 'poster') {
+async function fixture(page: Page, appearance?: Partial<HomeSeasonalAppearance>, artwork: 'poster' | 'wide' | 'missing' | 'error' = 'poster') {
   const base = (id: string): HomeCollectionRow => ({ id, kind: 'items', title: id, collectionIds: ['collection-coast'],
     ranked: false, placement: 'start', itemSort: 'collection', itemOrder: [] });
   const settings = { version: 1, rows: [{ ...base('seasonal'), kind: 'seasonal', title: '', collectionIds: [], children:
@@ -31,7 +31,7 @@ async function fixture(page: Page, appearance?: Partial<HomeSeasonalAppearance>,
       const api=window.TvItemLayoutDemo.api;
       api.homeCollections={isCurrent:()=>true,load:async()=>({Revision:'frame-fit',Settings:${JSON.stringify(settings)}}),save:async()=>{throw new Error('Unexpected write')}};
       api.getCollectionItems=async()=>Array.from({length:2},(_,i)=>({Id:'frame-film-'+i,Type:'Movie',Name:'Frame film '+(i+1)}));
-      const image=api.image;api.image=(item,kind)=>item.Id.startsWith('frame-film-')?${JSON.stringify(artwork === 'missing' ? null : artwork === 'error' ? '/missing-seasonal-poster.png' : poster)}:image(item,kind);
+      const image=api.image;api.image=(item,kind)=>item.Id.startsWith('frame-film-')?${JSON.stringify(artwork === 'missing' ? null : artwork === 'error' ? '/missing-seasonal-poster.png' : solidPoster(artwork === 'wide' ? 880 : 300))}:image(item,kind);
     })();` });
   });
   await page.goto('/?featured=0&layout=tv#/home');
@@ -77,16 +77,57 @@ async function pixels(card: Locator) {
         if (y < canvas.height * .98 && (x < left - 1.5 * scaleX || x > right + 1.5 * scaleX)) escapedPixels++;
       }
     }
-    return { posterFraction: posterPixels / (canvas.width * canvas.height), escapedPixels, middleLeft, middleRight };
+    const image = node.querySelector<HTMLImageElement>('.tvl-seasonal-poster');
+    let posterCoverage: number | undefined, posterEdges: Record<string, number> | undefined;
+    if (image) {
+      // The whole source must fit, including titles printed at its edges. Check
+      // the painted pixels rather than just the IMG's layout box: a full-size
+      // box hidden behind a frame was the original regression.
+      const rect = image.getBoundingClientRect();
+      const fit = Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
+      const width = image.naturalWidth * fit, height = image.naturalHeight * fit;
+      const left = (rect.left - bounds.left + (rect.width - width) / 2) * scaleX;
+      const top = (rect.top - bounds.top + (rect.height - height) / 2) * scaleY;
+      const right = left + width * scaleX, bottom = top + height * scaleY;
+      posterCoverage = posterPixels / (width * scaleX * height * scaleY);
+      const magenta = (x: number, y: number) => {
+        const p = (y * canvas.width + x) * 4;
+        return rendered[p] > 235 && rendered[p + 1] < 20 && rendered[p + 2] > 235;
+      };
+      const x1 = Math.ceil(left) + 1, x2 = Math.floor(right) - 2;
+      const y1 = Math.ceil(top) + 1, y2 = Math.floor(bottom) - 2;
+      const horizontal = (y: number) => {
+        let seen = 0;
+        for (let x = x1; x <= x2; x++) if (magenta(x, y)) seen++;
+        return seen / (x2 - x1 + 1);
+      };
+      const vertical = (x: number) => {
+        let seen = 0;
+        for (let y = y1; y <= y2; y++) if (magenta(x, y)) seen++;
+        return seen / (y2 - y1 + 1);
+      };
+      posterEdges = { top: horizontal(y1), bottom: horizontal(y2), left: vertical(x1), right: vertical(x2) };
+    }
+    return { posterFraction: posterPixels / (canvas.width * canvas.height), escapedPixels, middleLeft, middleRight, posterCoverage, posterEdges };
   }, screenshot.toString('base64'));
 }
 
-async function expectFittedPoster(card: Locator) {
+async function expectFittedPoster(card: Locator, windowBars = false) {
+  if (!await card.locator('.tvl-no-art').count()) await expect(card.locator('.tvl-seasonal-poster')).toHaveCount(1);
   const result = await pixels(card);
   expect(result.posterFraction, 'the poster remains visible inside its frame').toBeGreaterThan(.15);
   expect(result.escapedPixels, 'poster pixels must not leak above the arch or outside its rails').toBe(0);
   expect(result.middleLeft, 'visible left rail reaches the card edge').toBeLessThanOrEqual(2);
   expect(result.middleRight, 'visible right rail reaches the card edge').toBeLessThanOrEqual(2);
+  // Shutters deliberately add window crossbars over the revealed image. Other
+  // frame/reveal combinations must leave the complete image unobstructed.
+  if (result.posterCoverage !== undefined && !windowBars) {
+    expect(result.posterCoverage, 'the full poster is contained without being clipped or stretched to fill').toBeGreaterThan(.96);
+    expect(result.posterCoverage, 'the poster keeps its source aspect ratio').toBeLessThan(1.04);
+    for (const [edge, visibility] of Object.entries(result.posterEdges!)) {
+      expect(visibility, `the poster's ${edge} edge is not covered by its frame`).toBeGreaterThan(.98);
+    }
+  }
 }
 
 for (const theme of themes) for (const frameStyle of styles(theme)) {
@@ -115,7 +156,7 @@ for (const theme of themes) test(`${theme} mixed covers hide the entire poster a
   await page.getByRole('button', { name: 'Customize Home rows', exact: true }).click();
   await editor(page).getByRole('button', { name: 'Edit Plain', exact: true }).click();
   await editor(page).getByRole('button', { name: 'Appearance', exact: true }).click();
-  for (const reveal of ['doors', 'shutters', 'curtains']) {
+  for (const reveal of theme === 'christmas' ? ['doors', 'shutters', 'curtains', 'advent'] : ['doors', 'shutters', 'curtains']) {
     await editor(page).getByRole('combobox', { name: 'Item reveal', exact: true }).selectOption(reveal);
     const cards = preview(page).locator('.tvl-home-row-card');
     await expect(cards).toHaveCount(2);
@@ -123,7 +164,7 @@ for (const theme of themes) test(`${theme} mixed covers hide the entire poster a
     expect((await pixels(cards.first())).posterFraction, `${reveal} completely conceals the poster`).toBe(0);
     await cards.first().focus();
     await expect(cards.first()).toHaveClass(/tvl-seasonal-item-open/);
-    await expectFittedPoster(cards.first());
+    await expectFittedPoster(cards.first(), reveal === 'shutters');
     await cards.nth(1).focus();
     await expect(cards.first()).not.toHaveClass(/tvl-seasonal-item-open/);
     expect((await pixels(cards.first())).posterFraction, `${reveal} closes after focus moves away`).toBe(0);
@@ -136,6 +177,11 @@ for (const artwork of ['missing', 'error'] as const) test(`${artwork} poster fal
   await expect(card.locator('.tvl-no-art')).toHaveCount(1);
   await page.addStyleTag({ content: '.tvl-no-art::before,.tvl-no-art > .tvl-seasonal-aperture {background:#ff00ff!important}' });
   await expectFittedPoster(card);
+});
+
+test('wide item artwork remains fully visible inside the photographic arch', async ({ page }) => {
+  await fixture(page, { theme: 'halloween', frameStyle: 'photoreal' }, 'wide');
+  for (const id of ['Plain', 'Ranked']) await expectFittedPoster(homeRow(page, id).locator('.tvl-home-row-card').first());
 });
 
 test('normal seasonal rows retain their full poster without aperture or frame layers', async ({ page }) => {
