@@ -1,12 +1,13 @@
 import type { Item, MediaApi } from './types';
 import { button, el, picture, replace } from './dom';
 import { attachRemote } from './remote';
-import { emptyHomeCollections, parseHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, maxHomeCollectionTabs, maxSeasonalRows, validSeasonDate, isSeasonActive, shuffleHomeItems, type HomeCollectionRow, type HomeCollectionTab, type HomeItemSort } from './home-collection-settings';
+import { emptyHomeCollections, parseHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, maxHomeCollectionTabs, maxSeasonalRows, validSeasonDate, isSeasonActive, shuffleHomeItems, defaultSeasonalAppearance, type HomeCollectionRow, type HomeCollectionTab, type HomeItemSort, type HomeSeasonalAppearance, type HomeSeasonalArtStyle } from './home-collection-settings';
 import { createHomeCollectionStore, HomeCollectionSyncError, type HomeCollectionStore } from './home-collection-store';
 import { cachedHomeRows, nativeHomeRows, type HomeAnchor } from './home-row-placement';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { getAllWatchlistItems, subscribeWatchlist } from './watchlist';
+import { decorateSeasonalRow } from './home-seasonal-appearance';
 
 const watchlistSource = '@watchlist';
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -30,6 +31,7 @@ export class HomeCollectionEditor {
   private sidebar = el('nav', 'tvl-home-editor-sidebar');
   private workspace = el('div', 'tvl-home-editor-workspace');
   private preview?: HTMLElement;
+  private disposePreviewAppearance?: () => void;
   private status = el('p', 'tvl-home-editor-status');
   private saveButton: HTMLButtonElement;
   private draft = emptyHomeCollections();
@@ -42,7 +44,7 @@ export class HomeCollectionEditor {
   private selectedId = '';
   private selectedTabs = new Map<string, string>();
   private previewShuffleOrders = new Map<string, string[]>();
-  private tab: 'content' | 'order' | 'position' = 'content';
+  private tab: 'content' | 'order' | 'position' | 'appearance' = 'content';
   private search = '';
   private items = new Map<string, Item[]>();
   private loading = new Set<string>();
@@ -85,6 +87,7 @@ export class HomeCollectionEditor {
   private async loadCollections(): Promise<void> {
     if (this.disposed || this.loadingSettings || this.saving) return;
     this.loadingSettings = true; this.ready = false; this.saveButton.disabled = true;
+    this.disposePreviewAppearance?.(); this.disposePreviewAppearance = undefined;
     this.status.textContent = 'Loading collections and saved rows…'; replace(this.sidebar); replace(this.workspace);
     try {
       const [collections, settings] = await Promise.all([this.api.getCollectionList(), this.store.load()]); if (this.disposed) return;
@@ -127,6 +130,7 @@ export class HomeCollectionEditor {
   }
   private redraw(focus?: string): void {
     const restore = focus || (document.activeElement as HTMLElement)?.dataset.editorFocus;
+    this.disposePreviewAppearance?.(); this.disposePreviewAppearance = undefined;
     replace(this.sidebar); replace(this.workspace); this.preview = undefined;
     const sidebarEntry = (row: HomeCollectionRow, child = false) => {
       const entry = this.control(this.name(row), `row:${row.id}`, () => {
@@ -155,6 +159,7 @@ export class HomeCollectionEditor {
     if (!row) this.workspace.append(el('h2', '', 'Make Home your own'), el('p', '', 'Add your Watchlist, favourite collections, or seasonal rows that appear at the right time of year.'));
     else {
       const parent = this.parentOf(row);
+      if (!parent && this.tab === 'appearance') this.tab = 'content';
       if (parent) {
         this.workspace.append(this.control('Back to seasonal group', 'season:back', () => { this.selectedId = parent.id; this.tab = 'content'; this.redraw(`row:${parent.id}`); }, 'tvl-home-season-back'));
         if (this.tab === 'position') this.tab = 'content';
@@ -168,7 +173,7 @@ export class HomeCollectionEditor {
       }));
       const tabs = el('nav', 'tvl-home-editor-tabs'); tabs.setAttribute('aria-label', 'Row settings');
       const choices = row.kind === 'seasonal' ? [['content', 'Seasonal rows'], ['position', 'Home position']] as const
-        : parent ? [['content', 'Content'], ['order', 'Item order']] as const
+        : parent ? [['content', 'Content'], ['order', 'Item order'], ['appearance', 'Appearance']] as const
         : [['content', 'Content'], ['order', 'Item order'], ['position', 'Home position']] as const;
       if (row.kind === 'seasonal' && this.tab === 'order') this.tab = 'content';
       for (const [tab, label] of choices) {
@@ -183,8 +188,9 @@ export class HomeCollectionEditor {
         const content = el('div', 'tvl-home-editor-row'); content.setAttribute('role', 'group'); content.setAttribute('aria-label', row.kind === 'watchlist' ? 'Watchlist row' : row.kind === 'collections' ? 'Collections row' : 'Collection items row');
         this.preview = el('aside', 'tvl-home-preview'); this.preview.setAttribute('aria-label', 'Home row preview'); this.preview.tabIndex = -1; this.preview.dataset.editorFocus = 'preview';
         const body = el('div', 'tvl-home-editor-body'); body.append(content, this.preview); this.workspace.append(body);
-        const sourceSwitch = row.kind === 'items' ? this.sourceSwitch(row) : undefined;
-        if (sourceSwitch) {
+        const sourceSwitch = row.kind === 'items' && this.tab !== 'appearance' ? this.sourceSwitch(row) : undefined;
+        if (this.tab === 'appearance') this.renderAppearance(row, content);
+        else if (sourceSwitch) {
           content.append(sourceSwitch); const sourcePanel = el('div'); sourcePanel.id = 'tvl-home-edit-items'; sourcePanel.setAttribute('role', 'tabpanel'); sourcePanel.setAttribute('aria-labelledby', `tvl-home-edit-tab-${encodeURIComponent(this.source(row)!.id)}`); content.append(sourcePanel);
           if (this.tab === 'content') this.renderContent(row, sourcePanel);
           else if (this.tab === 'order') this.renderOrder(row, sourcePanel);
@@ -208,6 +214,70 @@ export class HomeCollectionEditor {
       collectionIds: [], ranked: false, placement: 'end', itemSort: 'collection', itemOrder: [] };
     if (kind === 'seasonal') row.children = [];
     return row;
+  }
+  private renderAppearance(row: HomeCollectionRow, content: HTMLElement): void {
+    content.classList.add('tvl-home-seasonal-appearance-editor');
+    content.append(el('p', 'tvl-home-editor-help', 'Give this seasonal row its own scenery and reveal. All choices are optional and apply only while this row is in season.'));
+    const themes = el('div', 'tvl-home-seasonal-themes'); themes.setAttribute('role', 'group'); themes.setAttribute('aria-label', 'Seasonal theme');
+    for (const [theme, name] of [['normal', 'Normal'], ['halloween', 'Halloween'], ['christmas', 'Christmas']] as const) {
+      const choice = this.control(name, `appearance:theme:${theme}`, () => {
+        if (theme === 'normal') delete row.appearance;
+        else row.appearance = row.appearance ? { ...row.appearance, theme } : defaultSeasonalAppearance(theme);
+        if (theme === 'christmas' && row.appearance) {
+          for (const key of ['backgroundStyle', 'frameStyle', 'coverStyle'] as const) {
+            if (row.appearance[key] === 'nightmare') delete row.appearance[key];
+          }
+        }
+        this.redraw(`appearance:theme:${theme}`);
+      }, `tvl-home-seasonal-theme tvl-home-seasonal-theme-${theme}`);
+      choice.setAttribute('aria-pressed', String((row.appearance?.theme || 'normal') === theme));
+      themes.append(choice);
+    }
+    content.append(el('h3', '', 'Theme'), themes);
+    if (!row.appearance) {
+      content.append(el('p', 'tvl-home-editor-help', 'Normal keeps the standard Home row, with no scenery, frames or reveal.'));
+      return;
+    }
+    const appearance = row.appearance;
+    const option = <Key extends 'background' | 'expansion' | 'reveal'>(key: Key, labelText: string, choices: readonly (readonly [HomeSeasonalAppearance[Key], string])[], help: string) => {
+      const label = el('label', 'tvl-home-seasonal-select', labelText), select = el('select');
+      select.dataset.editorFocus = `appearance:${key}`;
+      for (const [value, text] of choices) { const item = el('option', '', text); item.value = value; select.append(item); }
+      select.value = appearance[key];
+      select.addEventListener('change', () => {
+        appearance[key] = select.value as HomeSeasonalAppearance[Key];
+        if (key === 'expansion') this.renderPreview(row); else this.redraw(`appearance:${key}`);
+      });
+      label.append(select); content.append(label, el('p', 'tvl-home-seasonal-setting-help', help));
+    };
+    let nightmareNoteShown = false;
+    const artStyle = (key: 'backgroundStyle' | 'frameStyle' | 'coverStyle', name: string) => {
+      const label = el('label', 'tvl-home-seasonal-select tvl-home-seasonal-art-style', name), select = el('select');
+      select.dataset.editorFocus = `appearance:${key}`;
+      const styles: [HomeSeasonalArtStyle, string][] = [['classic', 'Illustrated'], ['storybook', 'Playful / family'], ['photoreal', 'Photorealistic']];
+      if (appearance.theme === 'halloween') styles.push(['nightmare', 'Nightmare — very scary']);
+      for (const [value, text] of styles) { const option = el('option', '', text); option.value = value; select.append(option); }
+      select.value = appearance[key] || 'classic';
+      select.addEventListener('change', () => {
+        if (select.value === 'classic') delete appearance[key]; else appearance[key] = select.value as HomeSeasonalArtStyle;
+        this.redraw(`appearance:${key}`);
+      });
+      label.append(select); content.append(label);
+      if (appearance[key] === 'nightmare' && !nightmareNoteShown) {
+        content.append(el('p', 'tvl-home-seasonal-setting-help', 'Nightmare is designed for adult horror collections.'));
+        nightmareNoteShown = true;
+      }
+    };
+    option('background', 'Background', [['none', 'None'], ['static', 'Static scenery'], ['parallax', 'Parallax scenery']], 'Static scenery stays still. Parallax scenery moves gently behind the items as the row scrolls.');
+    if (appearance.background !== 'none') artStyle('backgroundStyle', 'Scenery style');
+    option('expansion', 'Height when focused', [['none', 'Standard height'], ['medium', 'Roomier · up to 1.5×'], ['large', 'Immersive · up to 2×']], 'Grows to fit the available screen space, then returns to normal when focus leaves. Posters keep their size.');
+    const frameLabel = el('label', 'tvl-home-seasonal-frame-toggle');
+    const frame = el('input'); frame.type = 'checkbox'; frame.checked = appearance.frame; frame.dataset.editorFocus = 'appearance:frame';
+    frame.addEventListener('change', () => { appearance.frame = frame.checked; this.redraw('appearance:frame'); });
+    frameLabel.append(frame, el('span', '', 'Themed item frames')); content.append(frameLabel);
+    if (appearance.frame) artStyle('frameStyle', 'Frame style');
+    option('reveal', 'Item reveal', [['none', 'Always visible'], ['doors', 'Opening doors'], ['shutters', 'Opening window shutters'], ['curtains', 'Drawing curtains']], 'Doors, shutters or curtains hide the artwork and title until that item is focused or hovered. They close when you move away.');
+    if (appearance.reveal === 'doors' || appearance.reveal === 'shutters') artStyle('coverStyle', 'Door or shutter style');
   }
   private renderSeasons(group: HomeCollectionRow, content: HTMLElement): void {
     content.append(el('p', 'tvl-home-editor-help', 'Give seasonal rows one shared Home position. Only rows whose dates are active appear, in the order below. The group has no heading and takes no space when none are active.'));
@@ -366,6 +436,7 @@ export class HomeCollectionEditor {
   }
   private renderPreview(row: HomeCollectionRow): void {
     if (!this.preview || this.disposed || row.id !== this.selectedId) return;
+    this.disposePreviewAppearance?.(); this.disposePreviewAppearance = undefined;
     // Only the preview changes on data arrival or typing. If its retry control
     // disappears, keep focus on this persistent panel instead of the page body.
     const focusedSource = this.preview.contains(document.activeElement) && (document.activeElement as HTMLElement)?.dataset.sourceTab;
@@ -423,9 +494,15 @@ export class HomeCollectionEditor {
     }
     items.slice(0, 60).forEach((item, index) => {
       const entry = el('div', 'tvl-home-row-entry'); entry.setAttribute('role', 'listitem');
-      entry.append(homeRowCard(this.api, item, row.ranked ? index + 1 : undefined)); cards.append(entry);
+      const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, row.appearance ? () => {} : undefined, row, index);
+      if (row.appearance) card.dataset.editorFocus = `preview:item:${item.Id}`;
+      entry.append(card); cards.append(entry);
     });
     if (!items.length) { status(row.kind === 'watchlist' ? 'Your Watchlist is empty. Save a movie or TV show to see it here.' : 'This collection is empty. Items added to it will appear here.'); return; }
+    this.disposePreviewAppearance = decorateSeasonalRow(section, cards, row);
+    if (row.appearance) this.preview.append(this.control('Focus preview', 'preview:focus', () => {
+      cards.querySelector<HTMLElement>('.tvl-home-row-card')?.focus();
+    }, 'tvl-home-seasonal-preview-focus'));
     const footer = el('div', 'tvl-home-preview-footer');
     const noun = row.kind === 'collections' ? 'collection' : 'item';
     footer.append(el('p', 'tvl-home-preview-count', items.length > 60 ? `First 60 of ${items.length} items${row.kind === 'watchlist' ? '' : ' · Home also shows View full collection'}` : `${items.length} ${noun}${items.length === 1 ? '' : 's'}`));
@@ -540,7 +617,8 @@ export class HomeCollectionEditor {
   }
   private close(restore = true): void {
     if (this.disposed || this.saving && restore) return;
-    this.disposed = true; this.store.destroy(); this.removeRemote(); this.removeWatchlist(); this.element.remove(); this.onClose(restore);
+    this.disposed = true; this.disposePreviewAppearance?.(); this.disposePreviewAppearance = undefined;
+    this.store.destroy(); this.removeRemote(); this.removeWatchlist(); this.element.remove(); this.onClose(restore);
   }
   destroy(): void { this.close(false); }
 }

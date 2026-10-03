@@ -142,5 +142,6 @@ public static class HomeCollectionsSeasonalChecks
         var cleared = Value(await controller.PutHomeCollections(new(shuffledSaved.Revision, noRows)));
         assert(cleared.Settings!.Value.GetProperty("rows").GetArrayLength() == 0,
             "A capable client can intentionally delete all seasonal and shuffled rows");
+        await HomeCollectionsAppearanceChecks.Run(assert, controller, second, cleared.Revision!);
     }
 }

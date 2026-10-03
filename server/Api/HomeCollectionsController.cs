@@ -93,12 +93,16 @@ public sealed class HomeCollectionsController(
             var current = await Read(path, cancellationToken);
             if (!string.Equals(request.Revision, current.Revision, StringComparison.Ordinal))
                 return Conflict("Home rows changed on another device. Reload them before saving.");
-            // Earlier clients normalize unknown seasonal/shuffle fields away.
-            // Require an explicit capability before allowing them to overwrite
-            // an account that already uses either feature.
-            if (current.Settings is JsonElement currentSettings && UsesSeasonalOrShuffle(currentSettings)
-                && Request.Headers["X-ScreenHarbour-Home-Rows"].ToString() != "2")
-                return Conflict("These Home rows use seasonal or shuffle settings. Reload ScreenHarbour on this device before saving.");
+            // Earlier clients normalize unknown row fields away. Check the saved
+            // settings, not the incoming draft, so an old client cannot strip them.
+            if (current.Settings is JsonElement currentSettings)
+            {
+                var capability = Request.Headers["X-ScreenHarbour-Home-Rows"].ToString();
+                if (UsesSeasonalAppearance(currentSettings) && capability != "3")
+                    return Conflict("These Home rows use seasonal appearance settings. Reload ScreenHarbour on this device before saving.");
+                if (UsesSeasonalOrShuffle(currentSettings) && capability is not ("2" or "3"))
+                    return Conflict("These Home rows use seasonal or shuffle settings. Reload ScreenHarbour on this device before saving.");
+            }
             var saved = new HomeCollectionsResponse(Guid.NewGuid().ToString("N"), request.Settings.Clone());
             var serialized = JsonSerializer.Serialize(saved);
             if (Encoding.UTF8.GetByteCount(serialized) > MaximumBytes)
@@ -129,6 +133,17 @@ public sealed class HomeCollectionsController(
         && new[] { "collection", "title", "title-desc", "newest", "oldest", "custom" }.Contains(sort.GetString());
     private static bool UsesSeasonalOrShuffle(JsonElement settings) => settings.GetProperty("rows").EnumerateArray().Any(row =>
         row.GetProperty("kind").GetString() == "seasonal" || row.TryGetProperty("shuffle", out var shuffle) && shuffle.ValueKind == JsonValueKind.True);
+    private static bool UsesSeasonalAppearance(JsonElement settings) => settings.GetProperty("rows").EnumerateArray().Any(row =>
+        row.GetProperty("kind").GetString() == "seasonal" && row.GetProperty("children").EnumerateArray().Any(child => child.TryGetProperty("appearance", out _)));
+    private static bool Choice(JsonElement value, string key, params string[] choices) => value.TryGetProperty(key, out var choice)
+        && choice.ValueKind == JsonValueKind.String && choices.Contains(choice.GetString(), StringComparer.Ordinal);
+    private static bool ValidAppearance(JsonElement appearance) => Properties(appearance, "theme", "background", "expansion", "frame", "reveal", "backgroundStyle", "frameStyle", "coverStyle")
+        && Choice(appearance, "theme", "halloween", "christmas") && Choice(appearance, "background", "none", "static", "parallax")
+        && Choice(appearance, "expansion", "none", "medium", "large") && Choice(appearance, "reveal", "none", "doors", "curtains", "shutters")
+        && appearance.TryGetProperty("frame", out var frame) && frame.ValueKind is JsonValueKind.True or JsonValueKind.False
+        && new[] { "backgroundStyle", "frameStyle", "coverStyle" }.All(key => !appearance.TryGetProperty(key, out var style)
+            || Choice(appearance, key, "classic", "storybook", "photoreal", "nightmare")
+                && (style.GetString() != "nightmare" || appearance.GetProperty("theme").GetString() == "halloween"));
     private static bool SeasonDate(JsonElement season, string key)
     {
         if (!Text(season, key, 5, false)) return false;
@@ -142,7 +157,7 @@ public sealed class HomeCollectionsController(
     }
     private static bool ValidRow(JsonElement row, HashSet<string> ids, bool child = false)
     {
-        if (!Properties(row, "id", "kind", "title", "collectionIds", "ranked", "placement", "itemSort", "itemOrder", "tabs", "children", "season", "shuffle")
+        if (!Properties(row, "id", "kind", "title", "collectionIds", "ranked", "placement", "itemSort", "itemOrder", "tabs", "children", "season", "shuffle", "appearance")
             || !Text(row, "id", 100, false) || !ids.Add(row.GetProperty("id").GetString()!) || !Text(row, "title", 80)
             || !row.TryGetProperty("kind", out var kindValue) || kindValue.ValueKind != JsonValueKind.String
             || kindValue.GetString() is not ("collections" or "items" or "watchlist" or "seasonal")
@@ -155,6 +170,7 @@ public sealed class HomeCollectionsController(
         if (row.TryGetProperty("shuffle", out var shuffle) && shuffle.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return false;
         var hasSeason = row.TryGetProperty("season", out var season);
         if (child != hasSeason || hasSeason && (!Properties(season, "start", "end") || !SeasonDate(season, "start") || !SeasonDate(season, "end"))) return false;
+        if (row.TryGetProperty("appearance", out var appearance) && (!child || !ValidAppearance(appearance))) return false;
         if (kind == "seasonal")
         {
             if (child || row.GetProperty("title").GetString()!.Length != 0 || ranked.GetBoolean()

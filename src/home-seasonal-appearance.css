@@ -1,0 +1,74 @@
+/* Seasonal decoration is opt-in. Ordinary rows keep their existing geometry. */
+.tvl-home-collection-row.tvl-seasonal-row {
+  position:relative; isolation:isolate; --tvl-seasonal-space:0px;
+  transition:padding-top .3s ease,padding-bottom .3s ease;
+}
+.tvl-home-collection-row.tvl-seasonal-expanded {
+  padding-top:var(--tvl-seasonal-space); padding-bottom:var(--tvl-seasonal-space);
+}
+.tvl-seasonal-row > :not(.tvl-seasonal-backdrop) { position:relative; z-index:1; }
+.tvl-seasonal-backdrop {
+  position:absolute; z-index:0; pointer-events:none; top:-1rem; bottom:-1rem; left:0; right:0;
+  background-size:100% var(--tvl-seasonal-art-height,100%); background-repeat:no-repeat; background-position:50% center;
+  -webkit-mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent);
+  mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent);
+}
+.tvl-seasonal-row[data-seasonal-background="parallax"] > .tvl-seasonal-backdrop { background-size:115% var(--tvl-seasonal-art-height,100%); }
+.tvl-seasonal-row .tvl-home-row-title { text-shadow:0 2px 12px #000,0 1px 3px #000; }
+.tvl-seasonal-row .tvl-home-row-caption { text-shadow:0 1px 5px #000; }
+.tvl-home-row-art .tvl-seasonal-frame {
+  position:absolute; z-index:4; top:0; left:0; width:100%; height:100%; pointer-events:none;
+  object-fit:fill; border-radius:inherit;
+}
+.tvl-seasonal-cover { position:absolute; z-index:3; top:0; right:0; bottom:0; left:0; overflow:hidden; border-radius:inherit; pointer-events:none; perspective:650px; }
+.tvl-seasonal-panel { position:absolute; top:0; bottom:0; width:50.5%; background:#251917; overflow:hidden; transition:transform .38s ease; backface-visibility:hidden; }
+.tvl-seasonal-panel-left { left:0; transform-origin:left center; }
+.tvl-seasonal-panel-right { right:0; transform-origin:right center; }
+.tvl-seasonal-door-art { width:100%; height:100%; object-fit:fill; }
+.tvl-seasonal-item-open .tvl-seasonal-panel-left { transform:rotateY(-105deg); }
+.tvl-seasonal-item-open .tvl-seasonal-panel-right { transform:rotateY(105deg); }
+.tvl-seasonal-door-number {
+  position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); color:#ffe3a2;
+  font:bold 2.5rem Georgia,serif; text-shadow:0 2px 5px #000; transition:opacity .18s ease;
+  background:#571c23e8; border:1px solid #cda95e; border-radius:50%; min-width:1.6em; line-height:1.6; text-align:center;
+}
+.tvl-seasonal-item-open .tvl-seasonal-door-number { opacity:0; }
+[data-seasonal-reveal="curtains"] .tvl-seasonal-panel {
+  width:51%; background:repeating-linear-gradient(90deg,#150d22 0%,#462641 12%,#28152a 22%,#130c1c 30%);
+  border-bottom:4px solid #957047; box-shadow:inset 0 14px 22px #0008;
+}
+[data-seasonal-theme="christmas"][data-seasonal-reveal="curtains"] .tvl-seasonal-panel {
+  background:repeating-linear-gradient(90deg,#340d19 0%,#9e293c 12%,#64192d 22%,#310c17 30%); border-color:#dab76b;
+}
+.tvl-seasonal-item-open[data-seasonal-reveal="curtains"] .tvl-seasonal-panel-left { transform:translateX(-96%); }
+.tvl-seasonal-item-open[data-seasonal-reveal="curtains"] .tvl-seasonal-panel-right { transform:translateX(96%); }
+[data-seasonal-reveal="doors"]:not(.tvl-seasonal-item-open) .tvl-home-row-caption,
+[data-seasonal-reveal="curtains"]:not(.tvl-seasonal-item-open) .tvl-home-row-caption { opacity:0; }
+.tvl-seasonal-row .tvl-home-row-caption { transition:opacity .18s ease; }
+/* Preview uses the same decoration with its existing smaller cards. */
+.tvl-home-preview .tvl-seasonal-backdrop { left:-1rem; right:-1rem; }
+.tvl-home-preview .tvl-seasonal-door-number { font-size:1.6rem; }
+@media (prefers-reduced-motion:reduce) {
+  .tvl-home-collection-row.tvl-seasonal-row,.tvl-seasonal-panel,.tvl-seasonal-door-number,.tvl-seasonal-row .tvl-home-row-caption { transition:none; }
+}
+
+
+.tvl-home-row-art .tvl-seasonal-full-door { position:absolute; top:0; width:200%; height:100%; max-width:none; object-fit:fill; }
+.tvl-seasonal-panel-left .tvl-seasonal-full-door { left:0; }
+.tvl-seasonal-panel-right .tvl-seasonal-full-door { right:0; }
+[data-seasonal-cover-style="nightmare"] .tvl-seasonal-door-art { filter:brightness(.68) saturate(.35); }
+[data-seasonal-frame-style="nightmare"] .tvl-seasonal-frame { filter:brightness(.7) saturate(.35); }
+[data-seasonal-reveal="shutters"] .tvl-seasonal-panel::after {
+  content:''; position:absolute; top:0; right:0; bottom:0; left:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg,#0007 0px,#0007 2px,transparent 3px,transparent 13px,#fff2 14px,transparent 16px);
+  box-shadow:inset 0 0 0 5px #1b151699;
+}
+.tvl-seasonal-window { position:absolute; z-index:2; top:0; right:0; bottom:0; left:0; pointer-events:none; border:5px solid #80634b; box-shadow:inset 0 0 0 1px #e0c28b55; border-radius:inherit; }
+.tvl-seasonal-window::before,.tvl-seasonal-window::after { content:''; position:absolute; background:#80634b; box-shadow:0 0 3px #000; }
+.tvl-seasonal-window::before { width:3px; height:100%; left:calc(50% - 1px); top:0; }
+.tvl-seasonal-window::after { height:3px; width:100%; top:38%; left:0; }
+[data-seasonal-theme="christmas"] .tvl-seasonal-window { border-color:#bda36b; }
+[data-seasonal-theme="christmas"] .tvl-seasonal-window::before,[data-seasonal-theme="christmas"] .tvl-seasonal-window::after { background:#bda36b; }
+[data-seasonal-cover-style="storybook"][data-seasonal-reveal="curtains"] .tvl-seasonal-panel { background:repeating-linear-gradient(90deg,#503674,#996bb6 12%,#734d8f 22%,#39275e 30%); }
+[data-seasonal-theme="christmas"][data-seasonal-cover-style="storybook"][data-seasonal-reveal="curtains"] .tvl-seasonal-panel { background:repeating-linear-gradient(90deg,#4b2134,#bf5564 12%,#8a344e 22%,#592137 30%); }
+[data-seasonal-reveal="shutters"]:not(.tvl-seasonal-item-open) .tvl-home-row-caption { opacity:0; }

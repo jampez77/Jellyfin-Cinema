@@ -9,7 +9,9 @@ createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     const filename = path.resolve(root, '.' + (pathname === '/' ? '/demo/index.html' : pathname));
-    if (!filename.startsWith(root + path.sep) || !['demo', 'dist'].includes(path.relative(root, filename).split(path.sep)[0])) { res.writeHead(403).end(); return; }
+    const parts = path.relative(root, filename).split(path.sep);
+    const allowed = ['demo', 'dist'].includes(parts[0]) || parts.length === 3 && parts[0] === 'assets' && parts[1] === 'seasonal' && /\.(webp|md)$/.test(parts[2]);
+    if (!filename.startsWith(root + path.sep) || !allowed) { res.writeHead(403).end(); return; }
     const contents = await readFile(filename);
     res.writeHead(200, {'Content-Type': types[path.extname(filename)] || 'application/octet-stream', 'Cache-Control':'no-store'}).end(contents);
   } catch { res.writeHead(404).end('Not found'); }

@@ -10,17 +10,17 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.39.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.40.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB, with Disney studio titles also included on Disney+.
 
-**0.2.39 is available as a prerelease** ([release notes](docs/releases/v0.2.39.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. The title saved in **Settings → ScreenHarbour → Loading screen** now replaces interface wordmarks in Settings, the profile chooser and login, as well as the loading animation. The Settings section uses your custom title too. Signed-in choices follow your Jellyfin account; login uses this device's last confirmed title for the selected server. Existing Home, provider, collection and account settings are retained. Update the existing installation, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
+**0.2.40 is available as a prerelease** ([release notes](docs/releases/v0.2.40.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Seasonal rows can now use Halloween or Christmas scenery, optional frames, opening doors, window shutters or curtains, and extra space when an item is focused. Configure each seasonal sub-row in **Collections → Customize Home rows → Appearance**, with a live preview. **Normal** retains the standard row. Existing settings are preserved without migration or reconfiguration. Update the existing installation, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
 
 ## Try the demo
 
 **[Open the interactive demo →](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home)**
 
-Explore Home, movie details, seasons and episodes, streaming-service pages, collections, Music and Live TV in your browser. Try the collection-row editor and its live preview, configure the streaming-service tiles and rows, or preview the six loading animations with your own text.
+Explore Home, movie details, seasons and episodes, streaming-service pages, collections, Music and Live TV in your browser. Try the collection-row editor and its live preview, give seasonal rows Halloween or Christmas decorations, configure the streaming-service tiles and rows, or preview the six loading animations with your own text.
 
 Choose [desktop mode](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) or [TV mode](https://jampez77.github.io/ScreenHarbour/?layout=tv&featured=0#/home). Both use the real ScreenHarbour layout with fictional library data. No installation, Jellyfin server or sign-in is needed. Playback is simulated, and demo preferences stay in your browser. Provider assignments and chart rankings are examples, not live streaming listings.
 
@@ -98,6 +98,16 @@ In desktop display mode, open **Collections → Customize Home rows**. Choose a 
 
 Choose **Add seasonal group** to reserve one position for seasonal content, then add named collection, collection-items or Watchlist sub-rows. Set each sub-row's start and end month/day: **1 October–31 October** for Halloween, or **1 December–6 January** for Christmas. Both endpoints are included, the dates repeat annually, and ranges can cross New Year. The viewing device's local calendar determines visibility. Each sub-row keeps the usual content, tabs, artwork and ordering options. Use the group's **Home position** to move all its active sub-rows together; arrange overlapping seasons within the group. Only child row names appear on Home. When no child is in season, the group creates no section or blank space.
 
+A seasonal sub-row also has an **Appearance** tab. Choose **Normal**, **Halloween** or **Christmas**, then configure its scenery and items independently:
+
+- **Background:** none, static scenery behind the scrolling items, or gently moving parallax scenery. The top and bottom fade into Home's background.
+- **Height when focused:** standard height, roomier (up to 1.5×), or immersive (up to 2×). Extra space reveals more scenery; posters keep their size. Growth is limited to the available screen space and ends when item focus leaves the row.
+- **Artwork styles:** choose scenery, frames and doors/shutters independently. **Illustrated** and **Playful / family** suit both seasons; **Photorealistic** adds atmospheric Halloween or cosy Christmas imagery. Halloween also offers **Nightmare — very scary**, intended for adult horror collections. Selecting Christmas removes any Nightmare choices. Illustrated is the default.
+- **Themed item frames:** spooky window frames or festive advent-style frames.
+- **Item reveal:** always visible, opening doors, window shutters or drawing curtains. A covered item's artwork and title appear when focused or hovered and close when you move away. Christmas doors show sequential numbers; these are item positions, not calendar locks.
+
+The live preview uses the same scenery and focus behavior as Home. **Save rows** applies your choices to the account; **Cancel** discards the draft. Normal removes all optional decoration. Decorations do not change season dates, and out-of-season rows still take no space. Reduced-motion preferences disable animated transitions and parallax movement. Existing rows remain normal until you choose a theme; no settings migration is needed. Generated photorealistic artwork is bundled with the plugin and demo, with no external image-service requests during use.
+
 Under **Item order**, enable **Shuffle on load** for a normal row or a seasonal sub-row. Home shuffles its collection tiles or members on each visit. Background refreshes keep the current order stable and add new members without rearranging the existing ones. Saved manual ordering and Jellyfin collections are unchanged; turning shuffle off restores the chosen order. The editor shows a sample shuffle.
 
 The **Home preview** shows the selected row’s title, artwork and chosen item order, including ranked number images and the selected collection tab when enabled. It updates as you edit so you can review the result before saving. The position context shows where the row will appear among your Home sections. Missing-artwork placeholders stay inside their thumbnails, keeping the editor controls usable.
@@ -106,7 +116,7 @@ Choose **Save rows** to apply your changes. Ranked artwork uses large outlined S
 
 For platform charts, use one row per service with separate **Movies** and **Shows** tabs. The [UK platform trending setup](docs/platform-trending.md) explains optional SmartLists/MDBList sources for Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, BBC iPlayer, ITVX and Channel 4. Existing Jellyfin collections work without those integrations.
 
-These choices now sync through your Jellyfin server for the signed-in account, including row titles, sources, tabs, ranking, item order, shuffle, seasonal dates and Home position. After upgrading, open Home once in the desktop browser where you configured your rows so it can migrate them. Then reopen Home on the TV using the same account; an already-open Home checks for updates every minute and when it regains focus. The server copy wins if devices disagree; concurrent edits prompt you to reload instead of overwriting another device. Local storage is an offline cache. Home sync failures stay quiet and retry automatically; the collection editor still reports failed loads and saves. The standalone demo remains local-only. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 top-level rows or seasonal groups, with up to 12 sub-rows per seasonal group, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
+These choices now sync through your Jellyfin server for the signed-in account, including row titles, sources, tabs, ranking, item order, shuffle, seasonal dates, appearance and Home position. If upgrading from an older device-only release, open Home once in the desktop browser where you configured your rows so it can migrate them. Then reopen Home on the TV using the same account; an already-open Home checks for updates every minute and when it regains focus. The server copy wins if devices disagree; concurrent edits prompt you to reload instead of overwriting another device. Local storage is an offline cache. Home sync failures stay quiet and retry automatically; the collection editor still reports failed loads and saves. The standalone demo remains local-only. Existing version-1 settings are preserved, and native Jellyfin Home preferences remain separate. You can save up to 12 top-level rows or seasonal groups, with up to 12 sub-rows per seasonal group, select up to 40 collections in each Collections row, and store a manual order of up to 2,000 item IDs per row. Home displays up to 60 members from the selected source in an item row; larger sources end with **View full collection**. Existing single-collection rows keep their previous behavior.
 
 ## Your provider Home pages
 
@@ -130,7 +140,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.39 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.39) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.39 release notes](docs/releases/v0.2.39.md) for changes and validation status.
+The [v0.2.40 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.40) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.40 release notes](docs/releases/v0.2.40.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -146,7 +156,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.39.1` for 10.10.7, `0.2.39.2` for 10.11.x and `0.2.39.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.40.1` for 10.10.7, `0.2.40.2` for 10.11.x and `0.2.40.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 
@@ -200,6 +210,7 @@ Optional theme-conflict checks use an external [ElegantFin stylesheet](https://g
 | `src/home.css` | Native Home styling that preserves user/device preferences and Featured |
 | `src/home-collections.ts`, `src/home-collection-settings.ts`, `src/home-collections.css` | Custom Home collection rows, settings schema and numbered artwork |
 | `src/home-collection-editor.ts`, `src/home-row-card.ts`, `src/home-row-placement.ts` | Collection row editor, shared Home/preview cards and placement among native Home sections |
+| `src/home-seasonal-appearance.ts`, `src/home-seasonal-appearance.css`, `src/home-seasonal-art.ts`, `src/home-seasonal-editor.css` | Optional seasonal scenery, frames, reveals, focus expansion and editor styling |
 | `src/home-collection-store.ts`, `src/home-collection-transport.ts` | Per-account server sync, migration, revisions and offline cache |
 | `src/provider-home.ts`, `src/provider-data.ts`, `src/provider-home.css` | Branded provider navigation, catalogue/chart sources and paginated provider pages |
 | `src/provider-settings.ts`, `src/provider-settings-store.ts`, `src/provider-settings-editor.ts` | Personal provider-page configuration, draft previews and server sync |
