@@ -10,11 +10,11 @@
 
 Cinematic browsing for Jellyfin’s **TV and desktop layouts**, inspired by Netflix and built using the integration and remote-control patterns from [InPlayerEpisodePreview-TV](https://github.com/jampez77/InPlayerEpisodePreview-TV). ScreenHarbour is an independent project, not affiliated with or endorsed by Jellyfin. The name follows [Jellyfin’s third-party branding guidance](https://jellyfin.org/docs/general/contributing/branding/). Formerly **Jellyfin Cinema** and **TV Item Layout**, with the same plugin identity and upgrade path.
 
-[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.41.md)
+[**Try the demo**](https://jampez77.github.io/ScreenHarbour/?layout=desktop&featured=0#/home) · [Screenshots](#screenshots) · [Install](#install) · [Release notes](docs/releases/v0.2.42.md)
 
 This plugin brings one cinematic style to Home, Movies, TV Shows, Music, Recordings, Collections and the main Live TV guide. It also includes provider Home pages, browsing during video playback and a pause screen. Media artwork, metadata, collections, recommendations, favourites and playback positions come from your signed-in Jellyfin library. Provider pages match that library to UK streaming availability from JustWatch through TMDB, with Disney studio titles also included on Disney+.
 
-**0.2.41 is available as a prerelease** ([release notes](docs/releases/v0.2.41.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Photographic seasonal frames now fit the poster edges, with posters and closed doors clipped to the doorway opening. Existing appearance choices and all other settings are preserved without reconfiguration. Update the existing installation, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
+**0.2.42 is available as a prerelease** ([release notes](docs/releases/v0.2.42.md)) for Jellyfin 10.10.7, 10.11.x and 12.x. Seasonal ranked rows now show Halloween or Christmas number artwork alongside their posters. Numbers follow the frame style by default; choose a separate number style or retain Standard numbers in the seasonal row’s Appearance tab. Existing row content, order and all other settings are preserved without reconfiguration. Update the existing installation, restart Jellyfin and fully reopen clients. Physical LG webOS testing of this release remains pending.
 
 ## Try the demo
 
@@ -104,6 +104,7 @@ A seasonal sub-row also has an **Appearance** tab. Choose **Normal**, **Hallowee
 - **Height when focused:** standard height, roomier (up to 1.5×), or immersive (up to 2×). Extra space reveals more scenery; posters keep their size. Growth is limited to the available screen space and ends when item focus leaves the row.
 - **Artwork styles:** choose scenery, frames and doors/shutters independently. **Illustrated** and **Playful / family** suit both seasons; **Photorealistic** adds atmospheric Halloween or cosy Christmas imagery. Halloween also offers **Nightmare — very scary**, intended for adult horror collections. Selecting Christmas removes any Nightmare choices. Illustrated is the default.
 - **Themed item frames:** spooky window frames or festive advent-style frames.
+- **Rank number style:** enable **Ranked artwork** in Content to theme the number images beside posters. **Match frame style** follows the selected frame artwork by default. Choose **Standard numbers**, **Illustrated**, **Playful / family**, **Textured**, or Halloween-only **Nightmare** independently in Appearance. The preview updates immediately.
 - **Item reveal:** always visible, opening doors, window shutters or drawing curtains. A covered item's artwork and title appear when focused or hovered and close when you move away. Christmas doors show sequential numbers; these are item positions, not calendar locks.
 
 The live preview uses the same scenery and focus behavior as Home. **Save rows** applies your choices to the account; **Cancel** discards the draft. Normal removes all optional decoration. Decorations do not change season dates, and out-of-season rows still take no space. Reduced-motion preferences disable animated transitions and parallax movement. Existing rows remain normal until you choose a theme; no settings migration is needed. Generated photorealistic artwork is bundled with the plugin and demo, with no external image-service requests during use.
@@ -112,7 +113,7 @@ Under **Item order**, enable **Shuffle on load** for a normal row or a seasonal 
 
 The **Home preview** shows the selected row’s title, artwork and chosen item order, including ranked number images and the selected collection tab when enabled. It updates as you edit so you can review the result before saving. The position context shows where the row will appear among your Home sections. Missing-artwork placeholders stay inside their thumbnails, keeping the editor controls usable.
 
-Choose **Save rows** to apply your changes. Ranked artwork uses large outlined SVG number images to the left of posters; numbers follow the row’s chosen item order, not popularity scores. Existing saved rows keep their collection order and end-of-Home position until you change them.
+Choose **Save rows** to apply your changes. Ranked artwork uses large SVG number images to the left of posters, with standard outlines on normal rows or themed artwork on seasonal rows. Numbers follow the row’s chosen item order, not popularity scores. Existing saved rows keep their collection order and end-of-Home position until you change them.
 
 For platform charts, use one row per service with separate **Movies** and **Shows** tabs. The [UK platform trending setup](docs/platform-trending.md) explains optional SmartLists/MDBList sources for Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, BBC iPlayer, ITVX and Channel 4. Existing Jellyfin collections work without those integrations.
 
@@ -140,7 +141,7 @@ Open [the local preview](http://127.0.0.1:4173) or [desktop mode](http://127.0.0
 
 ## Install
 
-The [v0.2.41 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.41) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.41 release notes](docs/releases/v0.2.41.md) for changes and validation status.
+The [v0.2.42 prerelease](https://github.com/jampez77/ScreenHarbour/releases/tag/v0.2.42) supports Jellyfin 10.10.7, 10.11.x and 12.x and is intended for server testing. Physical Mac mini/TV deployment and remote testing have not been performed for this release. See the [0.2.42 release notes](docs/releases/v0.2.42.md) for changes and validation status.
 
 In **Dashboard → Plugins → Repositories**, add:
 
@@ -156,7 +157,7 @@ To build the packages locally:
 bash scripts/package-plugin.sh all
 ```
 
-The published builds are `0.2.41.1` for 10.10.7, `0.2.41.2` for 10.11.x and `0.2.41.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
+The published builds are `0.2.42.1` for 10.10.7, `0.2.42.2` for 10.11.x and `0.2.42.3` for 12.x. Archives retain their `TvItemLayout_…` names. Release preparation is documented in [publishing](docs/publishing.md).
 
 ## Verify
 

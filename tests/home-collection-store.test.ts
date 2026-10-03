@@ -116,7 +116,7 @@ test('native transport uses current authentication with no caller-selected user 
   const transport = createHomeCollectionTransport({ getUrl: path => '/jellyfin/' + path, getJSON: async url => { calls.push(url); return { Revision: null, Settings: null }; }, ajax: async options => { calls.push(options); throw { status: 409 }; } }, () => current);
   await transport.load(); await assert.rejects(transport.save(rows('Draft'), null), error => error instanceof HomeCollectionSyncError && error.kind === 'conflict');
   assert.equal(calls[0], '/jellyfin/TvItemLayout/HomeCollections'); assert.equal(calls[1].type, 'PUT');
-  assert.equal(calls[1].headers['X-ScreenHarbour-Home-Rows'], '3');
+  assert.equal(calls[1].headers['X-ScreenHarbour-Home-Rows'], '4');
   assert.deepEqual(Object.keys(JSON.parse(calls[1].data)).sort(), ['Revision', 'Settings']); assert.equal(calls[1].url.includes('user'), false);
   current = false; await assert.rejects(transport.load(), /account changed/); assert.equal(calls.length, 2);
 });
@@ -129,11 +129,11 @@ test('native transport explains server size rejection and does not hide failed a
 test('appearance survives native transport and cached reload, then can be explicitly removed', async () => {
   const settings = parseHomeCollections({ version: 1, rows: [{ id: 'seasonal', kind: 'seasonal', children: [
     { id: 'halloween', kind: 'items', collectionIds: ['horror'], season: { start: '10-01', end: '10-31' },
-      appearance: { ...defaultSeasonalAppearance('halloween'), background: 'parallax', reveal: 'curtains' } },
+      appearance: { ...defaultSeasonalAppearance('halloween'), background: 'parallax', reveal: 'curtains', rankStyle: 'nightmare' } },
   ] }] });
   let saved = { Revision: 'first', Settings: settings };
   const transport = createHomeCollectionTransport({ getUrl: path => path, getJSON: async () => saved, ajax: async options => {
-    assert.equal(options.headers['X-ScreenHarbour-Home-Rows'], '3');
+    assert.equal(options.headers['X-ScreenHarbour-Home-Rows'], '4');
     const request = JSON.parse(options.data); assert.equal(request.Revision, saved.Revision);
     saved = { Revision: saved.Revision + '-next', Settings: request.Settings }; return saved;
   } }, () => true);

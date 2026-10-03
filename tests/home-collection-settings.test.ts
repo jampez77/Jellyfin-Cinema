@@ -235,3 +235,21 @@ test('only seasonal children retain appearance, and bad appearance never removes
   assert.deepEqual(activeHomeRows(settings, new Date(2026, 5, 1)).map(row => row.id), ['ordinary']);
   assert.deepEqual(parseHomeCollections(settings), settings);
 });
+
+test('rank artwork choices persist without materializing an override for existing seasonal rows', () => {
+  for (const theme of ['halloween', 'christmas'] as const) {
+    const original = { ...defaultSeasonalAppearance(theme), frameStyle: 'photoreal' as const };
+    assert.deepEqual(parseSeasonalAppearance(original), original);
+    assert.equal(Object.hasOwn(parseSeasonalAppearance(original)!, 'rankStyle'), false);
+    for (const rankStyle of ['standard', 'classic', 'storybook', 'photoreal', ...(theme === 'halloween' ? ['nightmare'] : [])]) {
+      const appearance = { ...original, rankStyle };
+      const settings = parseHomeCollections({ version: 1, rows: [{ id: 'seasonal', kind: 'seasonal', children: [
+        { id: 'films', kind: 'items', collectionIds: ['collection-id'], ranked: true, season: { start: '01-01', end: '12-31' }, appearance },
+      ] }] });
+      assert.deepEqual(settings.rows[0].children![0].appearance, appearance);
+      assert.deepEqual(parseHomeCollections(JSON.parse(JSON.stringify(settings))), settings);
+    }
+    for (const rankStyle of [null, undefined, 1, true, {}, [], '', 'automatic', 'https://example.test/image', ...(theme === 'christmas' ? ['nightmare'] : [])])
+      assert.equal(parseSeasonalAppearance({ ...original, rankStyle }), undefined);
+  }
+});

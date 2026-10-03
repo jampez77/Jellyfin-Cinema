@@ -9,7 +9,8 @@ export type HomeCollectionSeason = { start: string; end: string };
 export type HomeSeasonalArtStyle = 'classic' | 'storybook' | 'photoreal' | 'nightmare';
 export type HomeSeasonalAppearance = { theme: 'halloween' | 'christmas'; background: 'none' | 'static' | 'parallax';
   expansion: 'none' | 'medium' | 'large'; frame: boolean; reveal: 'none' | 'doors' | 'curtains' | 'shutters';
-  backgroundStyle?: HomeSeasonalArtStyle; frameStyle?: HomeSeasonalArtStyle; coverStyle?: HomeSeasonalArtStyle };
+  backgroundStyle?: HomeSeasonalArtStyle; frameStyle?: HomeSeasonalArtStyle; coverStyle?: HomeSeasonalArtStyle;
+  rankStyle?: 'standard' | HomeSeasonalArtStyle };
 export type HomeCollectionRow = { id: string; kind: 'collections' | 'items' | 'watchlist' | 'seasonal'; title: string; collectionIds: string[]; ranked: boolean;
   placement: string; itemSort: HomeItemSort; itemOrder: string[]; tabs?: HomeCollectionTab[]; children?: HomeCollectionRow[];
   season?: HomeCollectionSeason; shuffle?: boolean; appearance?: HomeSeasonalAppearance };
@@ -25,8 +26,9 @@ export function parseSeasonalAppearance(value: unknown): HomeSeasonalAppearance 
   const appearance = value as Record<string, unknown>;
   const keys = ['theme', 'background', 'expansion', 'frame', 'reveal'];
   const styles = ['backgroundStyle', 'frameStyle', 'coverStyle'] as const;
-  if (keys.some(key => !(key in appearance)) || Object.keys(appearance).some(key => !keys.includes(key) && !styles.includes(key as typeof styles[number]))
+  if (keys.some(key => !(key in appearance)) || Object.keys(appearance).some(key => !keys.includes(key) && !styles.includes(key as typeof styles[number]) && key !== 'rankStyle')
     || styles.some(key => key in appearance && (!['classic', 'storybook', 'photoreal', 'nightmare'].includes(appearance[key] as string) || appearance.theme === 'christmas' && appearance[key] === 'nightmare'))
+    || 'rankStyle' in appearance && (!['standard', 'classic', 'storybook', 'photoreal', 'nightmare'].includes(appearance.rankStyle as string) || appearance.theme === 'christmas' && appearance.rankStyle === 'nightmare')
     || !['halloween', 'christmas'].includes(appearance.theme as string)
     || !['none', 'static', 'parallax'].includes(appearance.background as string)
     || !['none', 'medium', 'large'].includes(appearance.expansion as string)
@@ -34,6 +36,7 @@ export function parseSeasonalAppearance(value: unknown): HomeSeasonalAppearance 
   const result: HomeSeasonalAppearance = { theme: appearance.theme as HomeSeasonalAppearance['theme'], background: appearance.background as HomeSeasonalAppearance['background'],
     expansion: appearance.expansion as HomeSeasonalAppearance['expansion'], frame: appearance.frame, reveal: appearance.reveal as HomeSeasonalAppearance['reveal'] };
   for (const key of styles) if (appearance[key]) result[key] = appearance[key] as HomeSeasonalArtStyle;
+  if (appearance.rankStyle) result.rankStyle = appearance.rankStyle as HomeSeasonalAppearance['rankStyle'];
   return result;
 }
 
@@ -164,8 +167,13 @@ const digits = [
   'M43 5c24 0 38 13 38 33 0 13-6 23-16 29 13 7 20 17 20 31 0 23-17 37-42 37S1 121 1 98c0-14 7-24 20-31C11 61 5 51 5 38 5 18 19 5 43 5ZM43 29c-8 0-12 5-12 14s4 14 12 14 12-5 12-14-4-14-12-14ZM43 79c-10 0-15 6-15 16s5 16 15 16 15-6 15-16-5-16-15-16Z',
   'M12 125 24 104c6 5 11 7 17 7 13 0 19-11 20-31-6 6-13 9-22 9C16 89 3 73 3 49 3 22 19 5 43 5c29 0 41 24 41 61 0 45-15 69-43 69-12 0-21-3-29-10ZM43 29c-9 0-14 6-14 18 0 11 5 17 14 17 10 0 15-6 15-17 0-12-5-18-15-18Z'
 ];
-export function rankImage(rank: number): string {
-  const value = String(Math.max(1, Math.min(999, Math.floor(rank))));
+/** Shared path geometry keeps standard and seasonal number images identical in size. */
+export function rankArtwork(rank: number): { value: string; width: number; paths: string } {
+  const value = String(Number.isFinite(rank) ? Math.max(1, Math.min(999, Math.floor(rank))) : 1);
   const paths = [...value].map((digit, index) => `<path transform="translate(${index * 87} 0)" d="${digits[Number(digit)]}"/>`).join('');
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${value.length * 87} 140"><g fill="#101116" stroke="#b8bbc6" stroke-width="2.5" fill-rule="evenodd" stroke-linejoin="round">${paths}</g></svg>`)}`;
+  return { value, width: value.length * 87, paths };
+}
+export function rankImage(rank: number): string {
+  const { width, paths } = rankArtwork(rank);
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 140"><g fill="#101116" stroke="#b8bbc6" stroke-width="2.5" fill-rule="evenodd" stroke-linejoin="round">${paths}</g></svg>`)}`;
 }

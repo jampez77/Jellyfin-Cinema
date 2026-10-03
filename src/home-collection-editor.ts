@@ -224,7 +224,7 @@ export class HomeCollectionEditor {
         if (theme === 'normal') delete row.appearance;
         else row.appearance = row.appearance ? { ...row.appearance, theme } : defaultSeasonalAppearance(theme);
         if (theme === 'christmas' && row.appearance) {
-          for (const key of ['backgroundStyle', 'frameStyle', 'coverStyle'] as const) {
+          for (const key of ['backgroundStyle', 'frameStyle', 'coverStyle', 'rankStyle'] as const) {
             if (row.appearance[key] === 'nightmare') delete row.appearance[key];
           }
         }
@@ -276,6 +276,26 @@ export class HomeCollectionEditor {
     frame.addEventListener('change', () => { appearance.frame = frame.checked; this.redraw('appearance:frame'); });
     frameLabel.append(frame, el('span', '', 'Themed item frames')); content.append(frameLabel);
     if (appearance.frame) artStyle('frameStyle', 'Frame style');
+    if (row.kind === 'items' && row.ranked) {
+      const label = el('label', 'tvl-home-seasonal-select tvl-home-seasonal-art-style', 'Rank number style'), select = el('select');
+      select.dataset.editorFocus = 'appearance:rankStyle';
+      const styles = [['match', 'Match frame style'], ['standard', 'Standard numbers'], ['classic', 'Illustrated'], ['storybook', 'Playful / family'], ['photoreal', 'Textured']];
+      if (appearance.theme === 'halloween') styles.push(['nightmare', 'Nightmare — very scary']);
+      for (const [value, text] of styles) { const option = el('option', '', text); option.value = value; select.append(option); }
+      select.value = appearance.rankStyle || 'match';
+      select.addEventListener('change', () => {
+        if (select.value === 'match') delete appearance.rankStyle;
+        else appearance.rankStyle = select.value as HomeSeasonalAppearance['rankStyle'];
+        this.redraw('appearance:rankStyle');
+      });
+      label.append(select); content.append(label);
+      if (appearance.rankStyle === 'nightmare' && !nightmareNoteShown) {
+        content.append(el('p', 'tvl-home-seasonal-setting-help', 'Nightmare is designed for adult horror collections.'));
+        nightmareNoteShown = true;
+      }
+    } else if (row.kind === 'items') {
+      content.append(el('p', 'tvl-home-seasonal-setting-help', 'Enable Ranked artwork in Content to theme the rank numbers.'));
+    }
     option('reveal', 'Item reveal', [['none', 'Always visible'], ['doors', 'Opening doors'], ['shutters', 'Opening window shutters'], ['curtains', 'Drawing curtains']], 'Doors, shutters or curtains hide the artwork and title until that item is focused or hovered. They close when you move away.');
     if (appearance.reveal === 'doors' || appearance.reveal === 'shutters') artStyle('coverStyle', 'Door or shutter style');
   }
