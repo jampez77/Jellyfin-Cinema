@@ -5,6 +5,7 @@ import { button, el, replace } from './dom';
 import { emptyHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, activeHomeRows, shuffleHomeItems, type HomeCollectionRow } from './home-collection-settings';
 import { createHomeCollectionStore, type HomeCollectionStore } from './home-collection-store';
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
+import { decorateSeasonalRow, refreshSeasonalBackdrop } from './home-seasonal-appearance';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { HomeReadiness } from './home-readiness';
@@ -16,7 +17,7 @@ import { isDesktopLayout } from './layout';
 import { getAllWatchlistItems, subscribeWatchlist } from './watchlist';
 import { HomeLibraryVisibility, homeLibraryExcludedClass } from './home-library-visibility';
 
-type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void> };
+type RenderedRow = { row: Pick<HomeCollectionRow, 'id' | 'placement'>; element: HTMLElement; reconcileSource: () => Promise<void>; dispose?: () => void };
 type StagedRows = { revision: number; inputRevision: number; sourceRevision?: number; sections?: RenderedRow[]; error?: HTMLElement; retry?: boolean };
 type CollectionItems = { promise: Promise<Item[]>; fingerprint?: string; value?: Item[] };
 type HomeSnapshot = { key: string; collections?: Item[]; items: Map<string, { value: Item[]; fingerprint: string }>; sources: Map<string, string>; watchlistShown: Map<string, number>; watchlist?: { value: Item[]; fingerprint: string } };
@@ -572,7 +573,7 @@ export class HomeCollections {
         if (this.owns(active)) focusRow = active?.closest<HTMLElement>('[data-home-row]')?.dataset.homeRow;
         this.restoreFocus = undefined;
         const positions = new Map(this.sections.map(section => [section.row.id, section.element.querySelector<HTMLElement>('.tvl-home-row-cards')?.scrollLeft || 0]));
-        this.sections.forEach(section => section.element.remove());
+        this.sections.forEach(section => { if (!staged.sections!.includes(section)) section.dispose?.(); section.element.remove(); });
         this.sections = staged.sections; this.displayedRevision = staged.revision;
         this.renderRetry = !!staged.retry;
         for (const section of this.sections) {
@@ -609,6 +610,7 @@ export class HomeCollections {
         if (element.contains(document.activeElement)) movedFocus = document.activeElement as HTMLElement;
         parent.append(element);
       }
+      refreshSeasonalBackdrop(element);
       nextAt.set(point, element);
       const cards = element.querySelector<HTMLElement>('.tvl-home-row-cards');
       if (cards?.dataset.restoreScroll !== undefined) { cards.scrollLeft = Number(cards.dataset.restoreScroll); delete cards.dataset.restoreScroll; }
@@ -717,7 +719,7 @@ export class HomeCollections {
       .filter(node => !expired.some(section => section.element.contains(node)) && !node.closest('.hide,[hidden]') && node.getClientRects().length > 0) : [];
     const next = focused && (controls.find(node => !!(focused.element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) || controls[controls.length - 1]);
     // Do not leave yesterday's rows visible while tomorrow's source loads.
-    expired.forEach(section => { section.element.remove(); this.selectedSources.delete(section.row.id); });
+    expired.forEach(section => { section.dispose?.(); section.element.remove(); this.selectedSources.delete(section.row.id); });
     this.sections = this.sections.filter(section => !expired.includes(section));
     if (next) this.focus(next);
   }
@@ -805,7 +807,7 @@ export class HomeCollections {
           for (const [offset, item] of items.slice(shown, shown + limit).entries()) {
             const index = shown + offset;
             const entry = el('div', 'tvl-home-row-entry'); entry.setAttribute('role', 'listitem');
-            const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, () => { if (!this.disposed) this.navigate(item.Id); });
+            const card = homeRowCard(this.api, item, row.ranked ? index + 1 : undefined, () => { if (!this.disposed) this.navigate(item.Id); }, row, index);
             card.dataset.focusId = tabbed ? `${focusPrefix(source.id)}${encodeURIComponent(item.Id)}` : `home:${row.id}:${item.Id}`;
             if (row.kind === 'watchlist') card.dataset.watchlistIndex = String(index);
             entry.append(card); cards.append(entry);
@@ -854,7 +856,7 @@ export class HomeCollections {
     const pending = renderItems();
     if (!this.warmReturn || this.initialPaint || row.kind !== 'items' || this.items.get(selected.collectionId)?.value) await pending;
     if (row.kind === 'watchlist' && !cards.querySelector('.tvl-home-row-card')) return null;
-    return { row, element: section, reconcileSource: async () => {
+    return { row, element: section, dispose: decorateSeasonalRow(section, cards, row), reconcileSource: async () => {
       const source = tabs.find(tab => tab.id === this.selectedSources.get(row.id)) || tabs[0];
       if (source.id === selected.id) return;
       selected = source;
@@ -895,6 +897,6 @@ export class HomeCollections {
     if (this.captureFrame !== undefined) cancelAnimationFrame(this.captureFrame);
     if (this.refreshFrame !== undefined) cancelAnimationFrame(this.refreshFrame);
     window.clearTimeout(this.refreshTimer);
-    this.sections.forEach(section => section.element.remove()); this.sections = []; this.root.remove();
+    this.sections.forEach(section => { section.dispose?.(); section.element.remove(); }); this.sections = []; this.root.remove();
   }
 }

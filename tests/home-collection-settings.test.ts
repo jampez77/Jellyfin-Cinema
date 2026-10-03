@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { homeCollectionKey, parseHomeCollections, rankImage, orderHomeItems, homeCollectionTabs, homeTabLabel,
-  activeHomeRows, validSeasonDate, isSeasonActive, maxSeasonalRows, shuffleHomeItems } from '../src/home-collection-settings.ts';
+  activeHomeRows, validSeasonDate, isSeasonActive, maxSeasonalRows, shuffleHomeItems, defaultSeasonalAppearance,
+  parseSeasonalAppearance } from '../src/home-collection-settings.ts';
 
 test('home collection preferences reject corrupt data, bound choices and preserve chosen order',()=>{
   assert.deepEqual(parseHomeCollections({version:2,rows:[]}),{version:1,rows:[]});
@@ -185,4 +186,52 @@ test('shuffle returns a fresh permutation, supports deterministic randomness and
   const single = [items[0]];
   assert.deepEqual(shuffleHomeItems(single), single); assert.notEqual(shuffleHomeItems(single), single);
   assert.deepEqual(shuffleHomeItems([], () => { throw new Error('No draw needed'); }), []);
+});
+
+test('seasonal appearance is optional, bounded and rejects incomplete or unknown options', () => {
+  for (const theme of ['halloween', 'christmas'] as const) {
+    const defaults = defaultSeasonalAppearance(theme);
+    assert.deepEqual(defaults, { theme, background: 'static', expansion: 'medium', frame: true, reveal: 'none' });
+    assert.notEqual(defaults, defaultSeasonalAppearance(theme));
+    for (const background of ['none', 'static', 'parallax']) for (const expansion of ['none', 'medium', 'large'])
+      for (const frame of [true, false]) for (const reveal of ['none', 'doors', 'curtains']) {
+        const appearance = { theme, background, expansion, frame, reveal };
+        assert.deepEqual(parseSeasonalAppearance(appearance), appearance);
+        assert.notEqual(parseSeasonalAppearance(appearance), appearance);
+      }
+  }
+  const valid = defaultSeasonalAppearance('halloween');
+  for (const value of [undefined, null, false, [], 'halloween', {}, { ...valid, extra: true }, { ...valid, theme: 'custom' },
+    { ...valid, background: 'url(https://example.test)' }, { ...valid, expansion: 2 }, { ...valid, reveal: 'always' }, { ...valid, frame: 'true' }])
+    assert.equal(parseSeasonalAppearance(value), undefined);
+  for (const key of Object.keys(valid)) {
+    const missing = { ...valid } as Record<string, unknown>; delete missing[key];
+    assert.equal(parseSeasonalAppearance(missing), undefined, key);
+  }
+});
+
+test('only seasonal children retain appearance, and bad appearance never removes the child', () => {
+  const appearance = { ...defaultSeasonalAppearance('christmas'), background: 'parallax', reveal: 'doors' };
+  const season = { start: '12-01', end: '01-06' };
+  const settings = parseHomeCollections({ version: 1, rows: [
+    { id: 'ordinary', kind: 'items', appearance },
+    { id: 'seasonal', kind: 'seasonal', placement: 'native:resume', appearance, children: [
+      { id: 'plain', kind: 'items', season },
+      { id: 'decorated', kind: 'items', season, appearance, collectionIds: ['films'], ranked: true, shuffle: true },
+      { id: 'collections', kind: 'collections', season, appearance },
+      { id: 'watchlist', kind: 'watchlist', season, appearance },
+      { id: 'invalid', kind: 'items', season, appearance: { ...appearance, frame: 'yes' }, collectionIds: ['still-here'] },
+    ] },
+  ] });
+  assert.equal(settings.rows[0].appearance, undefined); assert.equal(settings.rows[1].appearance, undefined);
+  const children = settings.rows[1].children!;
+  assert.equal(children.length, 5); assert.equal(children[0].appearance, undefined);
+  assert.deepEqual(children[1].appearance, appearance); assert.deepEqual(children[2].appearance, appearance);
+  assert.deepEqual(children[3].appearance, appearance); assert.equal(children[4].appearance, undefined);
+  assert.deepEqual(children[4].collectionIds, ['still-here']);
+  const active = activeHomeRows(settings, new Date(2026, 11, 20));
+  assert.deepEqual(active[2].appearance, appearance); assert.equal(active[2].placement, 'native:resume');
+  assert.equal(active[2].ranked, true); assert.equal(active[2].shuffle, true);
+  assert.deepEqual(activeHomeRows(settings, new Date(2026, 5, 1)).map(row => row.id), ['ordinary']);
+  assert.deepEqual(parseHomeCollections(settings), settings);
 });

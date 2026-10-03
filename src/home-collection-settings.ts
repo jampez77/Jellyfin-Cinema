@@ -6,11 +6,36 @@ export type HomeCollectionTab = { id: string; label: string; collectionId: strin
 export const maxHomeCollectionTabs = 6;
 export const maxSeasonalRows = 12;
 export type HomeCollectionSeason = { start: string; end: string };
+export type HomeSeasonalArtStyle = 'classic' | 'storybook' | 'photoreal' | 'nightmare';
+export type HomeSeasonalAppearance = { theme: 'halloween' | 'christmas'; background: 'none' | 'static' | 'parallax';
+  expansion: 'none' | 'medium' | 'large'; frame: boolean; reveal: 'none' | 'doors' | 'curtains' | 'shutters';
+  backgroundStyle?: HomeSeasonalArtStyle; frameStyle?: HomeSeasonalArtStyle; coverStyle?: HomeSeasonalArtStyle };
 export type HomeCollectionRow = { id: string; kind: 'collections' | 'items' | 'watchlist' | 'seasonal'; title: string; collectionIds: string[]; ranked: boolean;
   placement: string; itemSort: HomeItemSort; itemOrder: string[]; tabs?: HomeCollectionTab[]; children?: HomeCollectionRow[];
-  season?: HomeCollectionSeason; shuffle?: boolean };
+  season?: HomeCollectionSeason; shuffle?: boolean; appearance?: HomeSeasonalAppearance };
 export type HomeCollectionSettings = { version: 1; rows: HomeCollectionRow[] };
 export const emptyHomeCollections = (): HomeCollectionSettings => ({ version: 1, rows: [] });
+
+export const defaultSeasonalAppearance = (theme: HomeSeasonalAppearance['theme']): HomeSeasonalAppearance =>
+  ({ theme, background: 'static', expansion: 'medium', frame: true, reveal: 'none' });
+
+/** A malformed decoration falls back to the ordinary row without hiding its collection. */
+export function parseSeasonalAppearance(value: unknown): HomeSeasonalAppearance | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const appearance = value as Record<string, unknown>;
+  const keys = ['theme', 'background', 'expansion', 'frame', 'reveal'];
+  const styles = ['backgroundStyle', 'frameStyle', 'coverStyle'] as const;
+  if (keys.some(key => !(key in appearance)) || Object.keys(appearance).some(key => !keys.includes(key) && !styles.includes(key as typeof styles[number]))
+    || styles.some(key => key in appearance && (!['classic', 'storybook', 'photoreal', 'nightmare'].includes(appearance[key] as string) || appearance.theme === 'christmas' && appearance[key] === 'nightmare'))
+    || !['halloween', 'christmas'].includes(appearance.theme as string)
+    || !['none', 'static', 'parallax'].includes(appearance.background as string)
+    || !['none', 'medium', 'large'].includes(appearance.expansion as string)
+    || typeof appearance.frame !== 'boolean' || !['none', 'doors', 'curtains', 'shutters'].includes(appearance.reveal as string)) return undefined;
+  const result: HomeSeasonalAppearance = { theme: appearance.theme as HomeSeasonalAppearance['theme'], background: appearance.background as HomeSeasonalAppearance['background'],
+    expansion: appearance.expansion as HomeSeasonalAppearance['expansion'], frame: appearance.frame, reveal: appearance.reveal as HomeSeasonalAppearance['reveal'] };
+  for (const key of styles) if (appearance[key]) result[key] = appearance[key] as HomeSeasonalArtStyle;
+  return result;
+}
 
 /** Seasons recur annually. A leap reference year permits February 29 without accepting impossible dates. */
 export function validSeasonDate(value: unknown): value is string {
@@ -60,6 +85,8 @@ export function parseHomeCollections(value: unknown): HomeCollectionSettings {
     if (child) {
       const season = source.season as HomeCollectionSeason;
       next.season = { start: season.start, end: season.end };
+      const appearance = parseSeasonalAppearance(source.appearance);
+      if (appearance) next.appearance = appearance;
     }
     if (source.shuffle === true) next.shuffle = true;
     if (kind === 'items' && Array.isArray(source.tabs)) {

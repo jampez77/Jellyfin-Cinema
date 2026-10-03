@@ -25,6 +25,8 @@ import { NativeUserPages } from './native-user-pages';
 import nativeUserPageStyles from './native-user-pages.css';
 import homeStyles from './home.css';
 import homeCollectionStyles from './home-collections.css';
+import seasonalAppearanceStyles from './home-seasonal-appearance.css';
+import seasonalEditorStyles from './home-seasonal-editor.css';
 import { HomeCollections, clearHomeSession } from './home-collections';
 import { ProviderHomeView, type ProviderHomeState } from './provider-home';
 import { ProviderSettingsEditor } from './provider-settings-editor';
@@ -54,7 +56,7 @@ import type { MediaApi, Item } from './types';
 // TV Item Layout uses the remote and local-playback patterns from
 // jampez77/InPlayerEpisodePreview-TV and Namo2/InPlayerEpisodePreview (MIT).
 window.TvItemLayout?.destroy();
-const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles+trailerActionStyles+loadingAnimationStyles+loadingSettingsStyles+adminItemActionStyles;document.head.append(sheet);
+const sheet=document.createElement('style');sheet.dataset.tvItemLayout='';sheet.textContent=styles+guideStyles+themeVideoStyles+collectionStyles+libraryStyles+nativeHostStyles+browseStyles+recordingsStyles+musicPlayerStyles+homeStyles+homeCollectionStyles+seasonalAppearanceStyles+seasonalEditorStyles+pauseStyles+playerStyles+profileMenuStyles+nativeFolderStyles+loginStyles+nativeUserPageStyles+channelZapperStyles+providerHomeStyles+providerSettingsStyles+trailerActionStyles+loadingAnimationStyles+loadingSettingsStyles+adminItemActionStyles;document.head.append(sheet);
 let view:DetailView|GuideView|CollectionView|LibraryView|BrowseView|ProviderHomeView|ProviderSettingsEditor|LoadingSettingsEditor|null=null;
 let providerPreview:ProviderData|undefined;
 let homeCollections:HomeCollections|null=null;

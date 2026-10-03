@@ -102,6 +102,42 @@ public static class HomeCollectionsHttpChecks
                 "Actual HTTP stale revision remains a conflict and cannot replace saved empty settings");
             using var malformed = await Put(deleted.GetProperty("Revision").GetString(), JsonSerializer.SerializeToElement(new { version = 2, rows = Array.Empty<object>() }));
             assert(malformed.StatusCode == HttpStatusCode.BadRequest, "Actual HTTP invalid settings still fail closed");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "3");
+            var appearanceSettings = HomeCollectionsAppearanceChecks.Settings();
+            using var decorated = await Put(deleted.GetProperty("Revision").GetString(), appearanceSettings);
+            var decoratedSaved = await Json(decorated);
+            var decoratedRevision = decoratedSaved.GetProperty("Revision").GetString();
+            assert(decorated.StatusCode == HttpStatusCode.OK && decoratedSaved.GetProperty("Settings").GetRawText() == appearanceSettings.GetRawText(),
+                "Actual HTTP capability 3 saves complete Halloween and Christmas decoration settings");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "2");
+            using var oldRead = await client.GetAsync(endpoint);
+            assert(oldRead.StatusCode == HttpStatusCode.OK && (await Json(oldRead)).GetRawText() == decoratedSaved.GetRawText(),
+                "Actual HTTP capability 2 can still read decorated seasonal rows");
+            using var oldAppearanceErase = await Put(decoratedRevision, seasonalSettings);
+            using var oldAppearanceDelete = await Put(decoratedRevision, empty);
+            using var unchangedAppearance = await client.GetAsync(endpoint);
+            assert(oldAppearanceErase.StatusCode == HttpStatusCode.Conflict && oldAppearanceDelete.StatusCode == HttpStatusCode.Conflict
+                && (await oldAppearanceErase.Content.ReadAsStringAsync()).Contains("Reload ScreenHarbour", StringComparison.Ordinal)
+                && (await Json(unchangedAppearance)).GetRawText() == decoratedSaved.GetRawText(),
+                "Actual HTTP capability 2 cannot silently strip saved appearance or delete decorated seasonal rows");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "3");
+            var invalidAppearance = appearanceSettings.GetRawText().Replace("\"background\":\"parallax\"", "\"background\":\"unknown\"");
+            using var rejectedAppearance = await Put(decoratedRevision, JsonDocument.Parse(invalidAppearance).RootElement);
+            assert(rejectedAppearance.StatusCode == HttpStatusCode.BadRequest,
+                "Actual HTTP rejects unsupported seasonal decoration values");
+            using var removedAppearance = await Put(decoratedRevision, seasonalSettings);
+            var undecoratedSaved = await Json(removedAppearance);
+            assert(removedAppearance.StatusCode == HttpStatusCode.OK
+                && undecoratedSaved.GetProperty("Settings").GetRawText() == seasonalSettings.GetRawText(),
+                "Actual HTTP capability 3 can intentionally remove decorations without deleting the seasonal rows");
+            client.DefaultRequestHeaders.Remove("X-ScreenHarbour-Home-Rows");
+            client.DefaultRequestHeaders.Add("X-ScreenHarbour-Home-Rows", "2");
+            using var oldCompatible = await Put(undecoratedSaved.GetProperty("Revision").GetString(), seasonalSettings);
+            assert(oldCompatible.StatusCode == HttpStatusCode.OK,
+                "Actual HTTP capability 2 remains compatible with undecorated seasonal rows");
             setApiKey(true);
             using var unauthorizedGet = await client.GetAsync(endpoint);
             using var unauthorizedPut = await Put(null, settings);

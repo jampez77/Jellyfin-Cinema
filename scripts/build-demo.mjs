@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 // Use the production bundle and the separate fictional fixture. Only this
@@ -15,6 +15,10 @@ for (const path of ['dist/demo.js', 'dist/jellyfin-tv-layout.js', 'dist/jellyfin
 }
 await cp(new URL('demo/assets/', root), new URL('demo/assets/', output), { recursive: true });
 await cp(new URL('assets/loading/', root), new URL('assets/loading/', output), { recursive: true });
+await mkdir(new URL('assets/seasonal/', output), { recursive: true });
+for (const name of await readdir(new URL('assets/seasonal/', root))) {
+  if (/\.(webp|md)$/.test(name)) await cp(new URL(`assets/seasonal/${name}`, root), new URL(`assets/seasonal/${name}`, output));
+}
 const html = await readFile(new URL('demo/index.html', root), 'utf8');
 // Keep the existing local /demo/index.html route while publishing a root
 // entry point whose assets stay within any GitHub Pages project subpath.
