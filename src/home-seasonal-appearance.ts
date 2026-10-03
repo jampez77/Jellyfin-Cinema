@@ -2,13 +2,49 @@ import { el } from './dom';
 import type { HomeCollectionRow } from './home-collection-settings';
 import { seasonalAssetUrl } from './seasonal-asset-url';
 import { seasonalBackground, seasonalDoor, seasonalFrame } from './home-seasonal-art';
+import { adventDoorArt } from './home-advent-art';
+import { adventDoorState } from './home-advent';
+import { seasonalRankImage } from './home-seasonal-rank';
+
+type AdventCard = { row: HomeCollectionRow; index: number; caption: HTMLElement | null; title: string; label: string; opensAt?: number; opensLabel?: string };
+const adventCards = new WeakMap<HTMLElement, AdventCard>();
+const dateChangeEvent = 'tvl-seasonal-date-change';
+
+function refreshAdventCard(card: HTMLElement, reveal = false): boolean {
+  const data = adventCards.get(card);
+  if (!data) return true;
+  const state = adventDoorState(data.row, data.index);
+  const locked = state.locked && !card.closest('.tvl-home-preview');
+  if (locked && state.opens && data.opensAt !== state.opens.getTime()) {
+    data.opensAt = state.opens.getTime();
+    data.opensLabel = state.opens.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  }
+  const opens = state.opens ? data.opensLabel : undefined;
+  if (card.dataset.adventLocked !== String(locked)) card.dataset.adventLocked = String(locked);
+  card.classList.toggle('tvl-advent-locked', locked);
+  if (locked) card.classList.remove('tvl-seasonal-item-open');
+  if (locked) {
+    if (card.getAttribute('aria-disabled') !== 'true') card.setAttribute('aria-disabled', 'true');
+  } else if (card.hasAttribute('aria-disabled')) card.removeAttribute('aria-disabled');
+  const caption = locked ? opens ? `Opens ${opens}` : 'Not available yet' : data.title;
+  if (data.caption && data.caption.textContent !== caption) data.caption.textContent = caption;
+  const label = locked ? `Advent door ${state.day}. ${opens ? `Opens ${opens}` : 'Not available yet'}`
+    : reveal ? `Advent door ${state.day}: ${data.label}` : `Advent door ${state.day}`;
+  if (card.getAttribute('aria-label') !== label) card.setAttribute('aria-label', label);
+  return !locked;
+}
+
+/** Refresh dates in place, preserving focus, scroll position and loaded artwork. */
+export function refreshSeasonalDate(section: HTMLElement): void {
+  section.dispatchEvent(new Event(dateChangeEvent));
+}
 
 function decoration(className: string, src: string): HTMLImageElement {
   const image = el('img', className); image.src = src; image.alt = ''; image.draggable = false;
   image.setAttribute('aria-hidden', 'true'); return image;
 }
 
-/** Decorative layers never replace the item's accessible name or normal action. */
+/** Ordinary decorations preserve item actions; future advent doors stay focusable but closed. */
 export function decorateSeasonalCard(card: HTMLElement, row: HomeCollectionRow, index: number): void {
   const appearance = row.appearance;
   const art = card.querySelector<HTMLElement>('.tvl-home-row-art');
@@ -19,7 +55,23 @@ export function decorateSeasonalCard(card: HTMLElement, row: HomeCollectionRow, 
   card.dataset.seasonalFrameStyle = appearance.frameStyle || 'classic';
   if (appearance.reveal !== 'none') {
     const cover = el('span', 'tvl-seasonal-cover'); cover.setAttribute('aria-hidden', 'true');
-    for (const side of ['left', 'right'] as const) {
+    if (appearance.reveal === 'advent') {
+      const flap = el('span', 'tvl-seasonal-advent-flap');
+      flap.append(decoration('tvl-seasonal-advent-art', adventDoorArt(index + 1, appearance.coverStyle)),
+        decoration('tvl-seasonal-advent-number', seasonalRankImage(index + 1, 'christmas', appearance.coverStyle)));
+      cover.append(flap);
+      const caption = card.querySelector<HTMLElement>('.tvl-home-row-caption');
+      adventCards.set(card, { row, index, caption, title: caption?.textContent || '', label: card.getAttribute('aria-label') || '' });
+      card.dataset.adventDay = String(index + 1);
+      refreshAdventCard(card);
+      // Capture before the normal card action. aria-disabled deliberately does
+      // not remove future doors from TV directional navigation.
+      card.addEventListener('click', event => {
+        if (!refreshAdventCard(card, card.classList.contains('tvl-seasonal-item-open'))) {
+          event.preventDefault(); event.stopImmediatePropagation();
+        }
+      }, true);
+    } else for (const side of ['left', 'right'] as const) {
       const panel = el('span', `tvl-seasonal-panel tvl-seasonal-panel-${side}`);
       if (appearance.reveal === 'doors' || appearance.reveal === 'shutters') {
         const photo = appearance.coverStyle === 'photoreal' || appearance.coverStyle === 'nightmare';
@@ -129,7 +181,8 @@ export function decorateSeasonalRow(section: HTMLElement, cards: HTMLElement, ro
     if (disposed) return;
     const focused = item(document.activeElement);
     cards.querySelectorAll<HTMLElement>('.tvl-home-row-card[data-seasonal-theme]').forEach(card => {
-      card.classList.toggle('tvl-seasonal-item-open', card === focused || card === hovered);
+      const reveal = card === focused || card === hovered;
+      card.classList.toggle('tvl-seasonal-item-open', refreshAdventCard(card, reveal) && reveal);
     });
     const active = !!focused;
     section.classList.toggle('tvl-seasonal-focused', active);
@@ -157,14 +210,17 @@ export function decorateSeasonalRow(section: HTMLElement, cards: HTMLElement, ro
   const onScroll = () => { if (!scrollFrame) scrollFrame = requestAnimationFrame(updateParallax); };
   refreshSeasonalBackdrop(section);
   section.addEventListener('transitionend', onTransition);
+  section.addEventListener(dateChangeEvent, sync);
   cards.addEventListener('focusin', onFocus);
   cards.addEventListener('focusout', onBlur);
   cards.addEventListener('pointerover', onPointer);
   cards.addEventListener('pointerleave', onLeave);
   if (appearance.background === 'parallax') { cards.addEventListener('scroll', onScroll, { passive: true }); onScroll(); }
+  sync();
   return () => {
     disposed = true; cancelAnimationFrame(scrollFrame); cancelAnimationFrame(settleFrame); cancelAnimationFrame(focusFrame);
     section.removeEventListener('transitionend', onTransition);
+    section.removeEventListener(dateChangeEvent, sync);
     cards.removeEventListener('focusin', onFocus); cards.removeEventListener('focusout', onBlur);
     cards.removeEventListener('pointerover', onPointer); cards.removeEventListener('pointerleave', onLeave);
     cards.removeEventListener('scroll', onScroll);

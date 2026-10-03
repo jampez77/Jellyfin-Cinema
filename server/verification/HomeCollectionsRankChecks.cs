@@ -27,7 +27,7 @@ public static class HomeCollectionsRankChecks
             "Capability 4 persists independent themed and standard seasonal rank artwork across controller instances");
         var original = HomeCollectionsAppearanceChecks.Settings();
         var empty = JsonSerializer.SerializeToElement(new { version = 1, rows = Array.Empty<object>() });
-        foreach (var capability in new[] { "", "2", "3", "3,4", "5" })
+        foreach (var capability in new[] { "", "2", "3", "3,4", "6" })
         {
             controller.Request.Headers["X-ScreenHarbour-Home-Rows"] = capability;
             assert(Value(await controller.GetHomeCollections()).Settings!.Value.GetRawText() == settings.GetRawText(),
@@ -78,5 +78,6 @@ public static class HomeCollectionsRankChecks
         var cleared = Value(await controller.PutHomeCollections(new(legacyCompatible.Revision, empty)));
         assert(cleared.Settings!.Value.GetProperty("rows").GetArrayLength() == 0,
             "Capability 4 also satisfies original seasonal and appearance guards when intentionally deleting rows");
+        await HomeCollectionsAdventChecks.Run(assert, controller, second, cleared.Revision!);
     }
 }

@@ -8,7 +8,9 @@ export const maxSeasonalRows = 12;
 export type HomeCollectionSeason = { start: string; end: string };
 export type HomeSeasonalArtStyle = 'classic' | 'storybook' | 'photoreal' | 'nightmare';
 export type HomeSeasonalAppearance = { theme: 'halloween' | 'christmas'; background: 'none' | 'static' | 'parallax';
-  expansion: 'none' | 'medium' | 'large'; frame: boolean; reveal: 'none' | 'doors' | 'curtains' | 'shutters';
+  expansion: 'none' | 'medium' | 'large'; frame: boolean; reveal: 'none' | 'doors' | 'curtains' | 'shutters' | 'advent';
+  /** Omission preserves focus-to-open behaviour; daily unlocking is always explicit. */
+  adventUnlock?: 'focus' | 'daily';
   backgroundStyle?: HomeSeasonalArtStyle; frameStyle?: HomeSeasonalArtStyle; coverStyle?: HomeSeasonalArtStyle;
   rankStyle?: 'standard' | HomeSeasonalArtStyle };
 export type HomeCollectionRow = { id: string; kind: 'collections' | 'items' | 'watchlist' | 'seasonal'; title: string; collectionIds: string[]; ranked: boolean;
@@ -26,17 +28,20 @@ export function parseSeasonalAppearance(value: unknown): HomeSeasonalAppearance 
   const appearance = value as Record<string, unknown>;
   const keys = ['theme', 'background', 'expansion', 'frame', 'reveal'];
   const styles = ['backgroundStyle', 'frameStyle', 'coverStyle'] as const;
-  if (keys.some(key => !(key in appearance)) || Object.keys(appearance).some(key => !keys.includes(key) && !styles.includes(key as typeof styles[number]) && key !== 'rankStyle')
+  if (keys.some(key => !(key in appearance)) || Object.keys(appearance).some(key => !keys.includes(key) && !styles.includes(key as typeof styles[number]) && key !== 'rankStyle' && key !== 'adventUnlock')
     || styles.some(key => key in appearance && (!['classic', 'storybook', 'photoreal', 'nightmare'].includes(appearance[key] as string) || appearance.theme === 'christmas' && appearance[key] === 'nightmare'))
     || 'rankStyle' in appearance && (!['standard', 'classic', 'storybook', 'photoreal', 'nightmare'].includes(appearance.rankStyle as string) || appearance.theme === 'christmas' && appearance.rankStyle === 'nightmare')
+    || appearance.reveal === 'advent' && appearance.theme !== 'christmas'
+    || 'adventUnlock' in appearance && (appearance.reveal !== 'advent' || !['focus', 'daily'].includes(appearance.adventUnlock as string))
     || !['halloween', 'christmas'].includes(appearance.theme as string)
     || !['none', 'static', 'parallax'].includes(appearance.background as string)
     || !['none', 'medium', 'large'].includes(appearance.expansion as string)
-    || typeof appearance.frame !== 'boolean' || !['none', 'doors', 'curtains', 'shutters'].includes(appearance.reveal as string)) return undefined;
+    || typeof appearance.frame !== 'boolean' || !['none', 'doors', 'curtains', 'shutters', 'advent'].includes(appearance.reveal as string)) return undefined;
   const result: HomeSeasonalAppearance = { theme: appearance.theme as HomeSeasonalAppearance['theme'], background: appearance.background as HomeSeasonalAppearance['background'],
     expansion: appearance.expansion as HomeSeasonalAppearance['expansion'], frame: appearance.frame, reveal: appearance.reveal as HomeSeasonalAppearance['reveal'] };
   for (const key of styles) if (appearance[key]) result[key] = appearance[key] as HomeSeasonalArtStyle;
   if (appearance.rankStyle) result.rankStyle = appearance.rankStyle as HomeSeasonalAppearance['rankStyle'];
+  if (appearance.adventUnlock) result.adventUnlock = appearance.adventUnlock as HomeSeasonalAppearance['adventUnlock'];
   return result;
 }
 
@@ -89,7 +94,7 @@ export function parseHomeCollections(value: unknown): HomeCollectionSettings {
       const season = source.season as HomeCollectionSeason;
       next.season = { start: season.start, end: season.end };
       const appearance = parseSeasonalAppearance(source.appearance);
-      if (appearance) next.appearance = appearance;
+      if (appearance && (appearance.reveal !== 'advent' || kind === 'items')) next.appearance = appearance;
     }
     if (source.shuffle === true) next.shuffle = true;
     if (kind === 'items' && Array.isArray(source.tabs)) {

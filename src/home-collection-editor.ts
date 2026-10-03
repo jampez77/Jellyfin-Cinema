@@ -8,6 +8,7 @@ import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { getAllWatchlistItems, subscribeWatchlist } from './watchlist';
 import { decorateSeasonalRow } from './home-seasonal-appearance';
+import { dailyAdvent } from './home-advent';
 
 const watchlistSource = '@watchlist';
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -228,6 +229,9 @@ export class HomeCollectionEditor {
             if (row.appearance[key] === 'nightmare') delete row.appearance[key];
           }
         }
+        if (theme === 'halloween' && row.appearance?.reveal === 'advent') {
+          row.appearance.reveal = 'none'; delete row.appearance.adventUnlock;
+        }
         this.redraw(`appearance:theme:${theme}`);
       }, `tvl-home-seasonal-theme tvl-home-seasonal-theme-${theme}`);
       choice.setAttribute('aria-pressed', String((row.appearance?.theme || 'normal') === theme));
@@ -246,6 +250,10 @@ export class HomeCollectionEditor {
       select.value = appearance[key];
       select.addEventListener('change', () => {
         appearance[key] = select.value as HomeSeasonalAppearance[Key];
+        if (key === 'reveal') {
+          if (appearance.reveal === 'advent') appearance.adventUnlock = 'daily';
+          else delete appearance.adventUnlock;
+        }
         if (key === 'expansion') this.renderPreview(row); else this.redraw(`appearance:${key}`);
       });
       label.append(select); content.append(label, el('p', 'tvl-home-seasonal-setting-help', help));
@@ -254,7 +262,7 @@ export class HomeCollectionEditor {
     const artStyle = (key: 'backgroundStyle' | 'frameStyle' | 'coverStyle', name: string) => {
       const label = el('label', 'tvl-home-seasonal-select tvl-home-seasonal-art-style', name), select = el('select');
       select.dataset.editorFocus = `appearance:${key}`;
-      const styles: [HomeSeasonalArtStyle, string][] = [['classic', 'Illustrated'], ['storybook', 'Playful / family'], ['photoreal', 'Photorealistic']];
+      const styles: [HomeSeasonalArtStyle, string][] = [['classic', 'Illustrated'], ['storybook', 'Playful / family'], ['photoreal', key === 'coverStyle' && appearance.reveal === 'advent' ? 'Gilded winter wood' : 'Photorealistic']];
       if (appearance.theme === 'halloween') styles.push(['nightmare', 'Nightmare — very scary']);
       for (const [value, text] of styles) { const option = el('option', '', text); option.value = value; select.append(option); }
       select.value = appearance[key] || 'classic';
@@ -296,8 +304,23 @@ export class HomeCollectionEditor {
     } else if (row.kind === 'items') {
       content.append(el('p', 'tvl-home-seasonal-setting-help', 'Enable Ranked artwork in Content to theme the rank numbers.'));
     }
-    option('reveal', 'Item reveal', [['none', 'Always visible'], ['doors', 'Opening doors'], ['shutters', 'Opening window shutters'], ['curtains', 'Drawing curtains']], 'Doors, shutters or curtains hide the artwork and title until that item is focused or hovered. They close when you move away.');
-    if (appearance.reveal === 'doors' || appearance.reveal === 'shutters') artStyle('coverStyle', 'Door or shutter style');
+    const reveals: [HomeSeasonalAppearance['reveal'], string][] = [['none', 'Always visible'], ['doors', 'Opening doors'], ['shutters', 'Opening window shutters'], ['curtains', 'Drawing curtains']];
+    if (appearance.theme === 'christmas' && row.kind === 'items') reveals.push(['advent', 'Advent calendar doors']);
+    option('reveal', 'Item reveal', reveals, 'Doors, shutters or curtains hide the artwork and title until that item is focused or hovered. They close when you move away.');
+    if (appearance.reveal === 'advent') {
+      const label = el('label', 'tvl-home-seasonal-select', 'Door opening'), select = el('select');
+      select.dataset.editorFocus = 'appearance:adventUnlock';
+      for (const [value, text] of [['daily', 'Daily from season start'], ['focus', 'Open any door on focus']]) {
+        const choice = el('option', '', text); choice.value = value; select.append(choice);
+      }
+      select.value = appearance.adventUnlock || 'focus';
+      select.addEventListener('change', () => { appearance.adventUnlock = select.value as 'daily' | 'focus'; this.redraw('appearance:adventUnlock'); });
+      const openingHelp = dailyAdvent(row)
+        ? 'Door 1 opens on the season start date, with one more film available each day. Start on 1 December for a traditional advent calendar. Films follow Item order; Shuffle on load is ignored so each film keeps its door number.'
+        : 'Every door can open when focused or hovered, with no daily restriction. Film positions follow Item order unless Shuffle on load is enabled.';
+      label.append(select); content.append(label, el('p', 'tvl-home-seasonal-setting-help', `${openingHelp} Preview doors always open, whatever today’s date.`));
+      artStyle('coverStyle', 'Advent door style');
+    } else if (appearance.reveal === 'doors' || appearance.reveal === 'shutters') artStyle('coverStyle', 'Door or shutter style');
   }
   private renderSeasons(group: HomeCollectionRow, content: HTMLElement): void {
     content.append(el('p', 'tvl-home-editor-help', 'Give seasonal rows one shared Home position. Only rows whose dates are active appear, in the order below. The group has no heading and takes no space when none are active.'));
@@ -503,7 +526,7 @@ export class HomeCollectionEditor {
       if (!this.items.has(id)) { status('Loading preview…'); void this.loadItems(id); return; }
       items = orderHomeItems(this.items.get(id)!, this.source(row) || row);
     }
-    if (row.shuffle) {
+    if (row.shuffle && !dailyAdvent(row)) {
       const key = `${row.id}:${this.source(row)?.id || ''}`;
       let order = this.previewShuffleOrders.get(key);
       if (!order || order.length !== items.length || items.some(item => !order!.includes(item.Id))) {
@@ -534,13 +557,14 @@ export class HomeCollectionEditor {
       }
       footer.append(actions);
     }
-    this.preview.append(footer, el('p', 'tvl-home-preview-note', row.shuffle ? 'Sample shuffled order. Home reshuffles on each load; your saved order stays unchanged.' : 'Updates as you edit. Save rows to apply to Home.'));
+    this.preview.append(footer, el('p', 'tvl-home-preview-note', dailyAdvent(row) ? 'Films follow Item order. Preview doors always open; Home follows the season dates.' : row.shuffle ? 'Sample shuffled order. Home reshuffles on each load; your saved order stays unchanged.' : 'Updates as you edit. Save rows to apply to Home.'));
   }
   private renderOrder(row: HomeCollectionRow, content: HTMLElement): void {
     const shuffle = this.control('Shuffle on load', 'shuffle', () => {
       row.shuffle = !row.shuffle; shuffle.setAttribute('aria-pressed', String(row.shuffle)); this.renderPreview(row);
     }); shuffle.setAttribute('aria-pressed', String(!!row.shuffle));
-    content.append(shuffle, el('p', 'tvl-home-editor-help', 'Shuffle these items each time Home loads. This overrides the order below on Home, without changing your saved order.'));
+    shuffle.disabled = dailyAdvent(row);
+    content.append(shuffle, el('p', 'tvl-home-editor-help', dailyAdvent(row) ? 'Daily advent doors use the item order below. Shuffle on load is ignored so each film keeps its door number.' : 'Shuffle these items each time Home loads. This overrides the order below on Home, without changing your saved order.'));
     content.append(el('p', 'tvl-home-editor-help', 'This changes the order in this Home row only. Other views keep their existing order.'));
     let items: Item[];
     if (row.kind === 'collections') items = row.collectionIds.map(id => this.collections.find(item => item.Id === id)).filter((item): item is Item => !!item);

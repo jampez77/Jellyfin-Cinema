@@ -5,7 +5,8 @@ import { button, el, replace } from './dom';
 import { emptyHomeCollections, orderHomeItems, homeCollectionTabs, homeTabLabel, activeHomeRows, shuffleHomeItems, type HomeCollectionRow } from './home-collection-settings';
 import { createHomeCollectionStore, type HomeCollectionStore } from './home-collection-store';
 import { nativeHomeRows, rememberHomeRows } from './home-row-placement';
-import { decorateSeasonalRow, refreshSeasonalBackdrop } from './home-seasonal-appearance';
+import { decorateSeasonalRow, refreshSeasonalBackdrop, refreshSeasonalDate } from './home-seasonal-appearance';
+import { dailyAdvent } from './home-advent';
 import { homeRowCard } from './home-row-card';
 import { homeRowTabs } from './home-row-tabs';
 import { HomeReadiness } from './home-readiness';
@@ -422,6 +423,7 @@ export class HomeCollections {
 
   private refreshSeasons = (): void => {
     if (this.disposed) return;
+    this.sections.forEach(section => refreshSeasonalDate(section.element));
     const ids = JSON.stringify(activeHomeRows(this.settings).map(row => row.id));
     if (ids !== this.activeRowIds) void this.render();
     else this.scheduleSeasonCheck();
@@ -437,7 +439,7 @@ export class HomeCollections {
   }
 
   private displayItems(items: Item[], row: HomeCollectionRow, sourceId: string): Item[] {
-    if (!row.shuffle) return items;
+    if (!row.shuffle || dailyAdvent(row)) return items;
     const key = JSON.stringify([row.id, sourceId]);
     const previous = this.shuffledOrders.get(key) || [];
     const byId = new Map(items.map(item => [item.Id, item]));
@@ -817,7 +819,7 @@ export class HomeCollections {
           if (row.kind === 'watchlist' && shown < items.length) { more.dataset.focusId = `home:${row.id}:more`; cards.append(more); }
         };
         const restore = this.restoreFocus || this.positionToRestore?.focusId;
-        if (row.kind === 'items' && row.shuffle && restore && items.length > 60) {
+        if (row.kind === 'items' && row.shuffle && !dailyAdvent(row) && restore && items.length > 60) {
           const restoredIndex = items.findIndex(item => restore === (tabbed ? `${focusPrefix(source.id)}${encodeURIComponent(item.Id)}` : `home:${row.id}:${item.Id}`));
           // Keep Back's selected card reachable in the bounded Home preview,
           // even if this visit's shuffle placed it in the full-collection tail.
