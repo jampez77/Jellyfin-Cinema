@@ -9,6 +9,30 @@
     "imageUrl": "https://raw.githubusercontent.com/jampez77/ScreenHarbour/main/assets/catalogue/screenharbour.png",
     "versions": [
       {
+        "version": "0.2.43.3",
+        "changelog": "Adds numbered advent-calendar doors to Christmas seasonal item rows. Choose Illustrated, Playful/family or Gilded winter wood single-opening flaps, with a number on every door even when rank images are disabled. Open freely on focus, or reveal one more film each local day from the row's season start date. Future doors hide film titles and block activation from that row; available films remain accessible elsewhere in Jellyfin. Daily calendars ignore shuffle to preserve chosen item positions, and unlock at midnight or after waking without rebuilding the row. The editor preview opens every door at any date. Existing rows/settings remain unchanged and older clients cannot overwrite saved advent settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "12.0.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.43/TvItemLayout_0.2.43.3_jellyfin-12.0.0.zip",
+        "checksum": "1e98f862afc8f763ba5f240902da2076",
+        "timestamp": "2026-10-03T17:40:22Z"
+      },
+      {
+        "version": "0.2.43.2",
+        "changelog": "Adds numbered advent-calendar doors to Christmas seasonal item rows. Choose Illustrated, Playful/family or Gilded winter wood single-opening flaps, with a number on every door even when rank images are disabled. Open freely on focus, or reveal one more film each local day from the row's season start date. Future doors hide film titles and block activation from that row; available films remain accessible elsewhere in Jellyfin. Daily calendars ignore shuffle to preserve chosen item positions, and unlock at midnight or after waking without rebuilding the row. The editor preview opens every door at any date. Existing rows/settings remain unchanged and older clients cannot overwrite saved advent settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.11.0",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.43/TvItemLayout_0.2.43.2_jellyfin-10.11.0.zip",
+        "checksum": "09e60fe18a55db108f65b1c6904bee43",
+        "timestamp": "2026-10-03T17:40:22Z"
+      },
+      {
+        "version": "0.2.43.1",
+        "changelog": "Adds numbered advent-calendar doors to Christmas seasonal item rows. Choose Illustrated, Playful/family or Gilded winter wood single-opening flaps, with a number on every door even when rank images are disabled. Open freely on focus, or reveal one more film each local day from the row's season start date. Future doors hide film titles and block activation from that row; available films remain accessible elsewhere in Jellyfin. Daily calendars ignore shuffle to preserve chosen item positions, and unlock at midnight or after waking without rebuilding the row. The editor preview opens every door at any date. Existing rows/settings remain unchanged and older clients cannot overwrite saved advent settings. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
+        "targetAbi": "10.10.7",
+        "sourceUrl": "https://github.com/jampez77/ScreenHarbour/releases/download/v0.2.43/TvItemLayout_0.2.43.1_jellyfin-10.10.7.zip",
+        "checksum": "a94242bfc9952a97632fb37014e239bb",
+        "timestamp": "2026-10-03T17:40:22Z"
+      },
+      {
         "version": "0.2.42.3",
         "changelog": "Adds themed ranking images to seasonal item rows. Halloween and Christmas numbers follow the frame style by default, with independent Illustrated, Playful/family, Textured and Halloween Nightmare choices. Select Standard numbers to keep the original outlined artwork. The existing Appearance preview reflects each choice. Number order, poster size, focus behavior and saved row settings are preserved; ordinary rows retain standard numbers. Older clients cannot overwrite saved number-style choices. Update the plugin, restart Jellyfin and fully reopen clients. Requires File Transformation.",
         "targetAbi": "12.0.0",

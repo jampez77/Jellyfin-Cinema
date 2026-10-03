@@ -173,6 +173,8 @@ public static class HomeCollectionsHttpChecks
             using var oldAppearanceCompatible = await Put(defaultRanks.GetProperty("Revision").GetString(), appearanceSettings);
             assert(oldAppearanceCompatible.StatusCode == HttpStatusCode.OK,
                 "Actual HTTP capability 3 can edit appearance again after explicit rank overrides are removed");
+            var beforeAdvent = await Json(oldAppearanceCompatible);
+            await HomeCollectionsAdventChecks.RunHttp(assert, client, beforeAdvent.GetProperty("Revision").GetString()!);
             setApiKey(true);
             using var unauthorizedGet = await client.GetAsync(endpoint);
             using var unauthorizedPut = await Put(null, settings);

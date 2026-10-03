@@ -54,6 +54,15 @@
   background:#571c23e8; border:1px solid #cda95e; border-radius:50%; min-width:1.6em; line-height:1.6; text-align:center;
 }
 .tvl-seasonal-item-open .tvl-seasonal-door-number { opacity:0; }
+.tvl-seasonal-advent-flap {
+  position:absolute; top:0; right:0; bottom:0; left:0; background:#642837;
+  transform-origin:left center; backface-visibility:hidden; transition:transform .42s ease;
+}
+.tvl-home-row-art .tvl-seasonal-advent-art { width:100%; height:100%; object-fit:fill; }
+.tvl-home-row-art .tvl-seasonal-advent-number { position:absolute; top:34.3%; left:30%; width:40%; height:30%; object-fit:contain; }
+.tvl-seasonal-item-open .tvl-seasonal-advent-flap { transform:rotateY(-105deg); }
+[data-seasonal-reveal="advent"]:not(.tvl-seasonal-item-open):not(.tvl-advent-locked) .tvl-home-row-caption { opacity:0; }
+.tvl-advent-locked .tvl-home-row-caption { color:#d5cbb9; }
 [data-seasonal-reveal="curtains"] .tvl-seasonal-panel {
   width:51%; background:repeating-linear-gradient(90deg,#150d22 0%,#462641 12%,#28152a 22%,#130c1c 30%);
   border-bottom:4px solid #957047; box-shadow:inset 0 14px 22px #0008;
@@ -70,7 +79,7 @@
 .tvl-home-preview .tvl-seasonal-backdrop { left:-1rem; right:-1rem; }
 .tvl-home-preview .tvl-seasonal-door-number { font-size:1.6rem; }
 @media (prefers-reduced-motion:reduce) {
-  .tvl-home-collection-row.tvl-seasonal-row,.tvl-seasonal-panel,.tvl-seasonal-door-number,.tvl-seasonal-row .tvl-home-row-caption { transition:none; }
+  .tvl-home-collection-row.tvl-seasonal-row,.tvl-seasonal-panel,.tvl-seasonal-advent-flap,.tvl-seasonal-door-number,.tvl-seasonal-row .tvl-home-row-caption { transition:none; }
 }
 
 
