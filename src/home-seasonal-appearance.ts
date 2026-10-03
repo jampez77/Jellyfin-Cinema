@@ -146,6 +146,28 @@ export function decorateSeasonalRow(section: HTMLElement, cards: HTMLElement, ro
   let hovered: HTMLElement | null = null, expanded = false, disposed = false;
   let scrollFrame = 0, settleFrame = 0, focusFrame = 0;
   let until = 0;
+  const threeDimensional = appearance.reveal === 'doors' || appearance.reveal === 'shutters' || appearance.reveal === 'advent';
+  const closing = new Map<HTMLElement, number>();
+  const finishClosing = (card: HTMLElement) => {
+    const timer = closing.get(card);
+    if (timer !== undefined) window.clearTimeout(timer);
+    closing.delete(card);
+    if (!card.classList.contains('tvl-seasonal-item-open') && card.classList.contains('tvl-seasonal-reveal-active')) card.classList.remove('tvl-seasonal-reveal-active');
+  };
+  const updateReveal = (card: HTMLElement, open: boolean, wasOpen: boolean) => {
+    if (threeDimensional && open) {
+      const timer = closing.get(card);
+      if (timer !== undefined) { window.clearTimeout(timer); closing.delete(card); }
+      if (!card.classList.contains('tvl-seasonal-reveal-active')) card.classList.add('tvl-seasonal-reveal-active');
+    }
+    card.classList.toggle('tvl-seasonal-item-open', open);
+    if (threeDimensional && !open && wasOpen) {
+      if (reduced()) finishClosing(card);
+      // transitionend normally releases the layer; the fallback also covers
+      // interrupted transitions and clients that omit the event when hidden.
+      else if (!closing.has(card)) closing.set(card, window.setTimeout(() => finishClosing(card), 500));
+    }
+  };
   const item = (target: EventTarget | null): HTMLElement | null => {
     const card = target instanceof Element ? target.closest<HTMLElement>('.tvl-home-row-card') : null;
     return card && cards.contains(card) ? card : null;
@@ -182,13 +204,19 @@ export function decorateSeasonalRow(section: HTMLElement, cards: HTMLElement, ro
   };
   const onTransition = (event: TransitionEvent) => {
     if (event.target === section && event.propertyName.startsWith('padding')) keepSelectionVisible();
+    if (event.propertyName === 'transform' && event.target instanceof Element
+      && event.target.matches('.tvl-seasonal-panel,.tvl-seasonal-advent-flap')) {
+      const card = item(event.target);
+      if (card && !card.classList.contains('tvl-seasonal-item-open')) finishClosing(card);
+    }
   };
   const sync = () => {
     if (disposed) return;
     const focused = item(document.activeElement);
     cards.querySelectorAll<HTMLElement>('.tvl-home-row-card[data-seasonal-theme]').forEach(card => {
       const reveal = card === focused || card === hovered;
-      card.classList.toggle('tvl-seasonal-item-open', refreshAdventCard(card, reveal) && reveal);
+      const wasOpen = card.classList.contains('tvl-seasonal-item-open');
+      updateReveal(card, refreshAdventCard(card, reveal) && reveal, wasOpen);
     });
     const active = !!focused;
     section.classList.toggle('tvl-seasonal-focused', active);
@@ -225,6 +253,9 @@ export function decorateSeasonalRow(section: HTMLElement, cards: HTMLElement, ro
   sync();
   return () => {
     disposed = true; cancelAnimationFrame(scrollFrame); cancelAnimationFrame(settleFrame); cancelAnimationFrame(focusFrame);
+    for (const timer of closing.values()) window.clearTimeout(timer);
+    closing.clear();
+    cards.querySelectorAll('.tvl-seasonal-reveal-active').forEach(card => card.classList.remove('tvl-seasonal-reveal-active'));
     section.removeEventListener('transitionend', onTransition);
     section.removeEventListener(dateChangeEvent, sync);
     cards.removeEventListener('focusin', onFocus); cards.removeEventListener('focusout', onBlur);

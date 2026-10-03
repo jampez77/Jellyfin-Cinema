@@ -6,7 +6,7 @@ export function resolveSeasonalAssetUrl(filename: string, script: string, base: 
   const source = new URL(script || 'dist/jellyfin-tv-layout.js', base);
   const injected = /\/TvItemLayout\/ClientScript$/i.test(source.pathname);
   const url = new URL(injected ? `SeasonalAsset/${filename}` : `../assets/seasonal/${filename}`, source);
-  url.searchParams.set('v', source.searchParams.get('v') || '0.2.44');
+  url.searchParams.set('v', source.searchParams.get('v') || '0.2.45');
   return url.href;
 }
 export function seasonalAssetUrl(filename: string): string {
