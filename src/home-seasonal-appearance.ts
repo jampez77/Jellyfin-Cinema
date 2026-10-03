@@ -43,6 +43,17 @@ export function decorateSeasonalCard(card: HTMLElement, row: HomeCollectionRow, 
   if (appearance.reveal === 'shutters') {
     const window = el('span', 'tvl-seasonal-window'); window.setAttribute('aria-hidden','true'); art.append(window);
   }
+  if (appearance.frame && (appearance.frameStyle === 'photoreal' || appearance.frameStyle === 'nightmare')) {
+    // Photo frames have transparent exterior margins and shaped openings. Keep
+    // the poster, fallback and every reveal layer inside that opening, while
+    // the frame itself and the card's focus outline retain their full extent.
+    art.dataset.seasonalFrameShape = appearance.theme;
+    const aperture = el('span', 'tvl-seasonal-aperture');
+    for (const child of Array.from(art.children)) {
+      if (!child.classList.contains('tvl-seasonal-frame')) aperture.append(child);
+    }
+    art.prepend(aperture);
+  }
 }
 
 /** Measure once mounted so expansion reveals a fixed scene instead of stretching it. */
